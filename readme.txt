@@ -3,8 +3,25 @@
 Control ICOM, Kenwood, and Uniden radios using the USB interface for these radios 
  and the Linux Operating System. 
  
+This program allows you to:
+  o Scan selected radio frequencies using any of the supported radios.
+  o Record activity on those frequencies.
+  o Search through ranges of frequencies for activity.
+  o Update the memories in the radio.
+  o Update SD cards for those radios that contain them.
+  
+ 
 This code has been developed and tested with the SUSE Linux distribution, but
  is also known to work with Ubuntu, Mint and Kali distros as well. 
+ 
+Requirements: 
+  o An installed or Live Linux distribution (SUSE, Ubuntu, Linux Mint, etc)
+  o One of the supported radios:
+    ICOM: R7000, IC-R30, IC-705, IC-8600 (untested)
+    KENWOOD: TH-F6A
+    UNIDEN:BCD325P2, SDS100, SDS200, BCD396T, BC895xlt
+    AOR:AR-8000
+  
 
 
 NOTE:This is a BETA version. 
