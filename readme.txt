@@ -44,7 +44,11 @@ Package contents:
    
    
 Installation:
-  If .zip or .gz file, uncompress to the folder of your choice.
+  Download from GIT via command:
+      git clone https://github.com/richardrosa-rc/RadioCtl
+  or download ZIP from web page
+   
+  If .zip, uncompress to the folder of your choice.
   Copy radioctl.conf to your home directory. Modify as needed.
   
 Getting started:  
