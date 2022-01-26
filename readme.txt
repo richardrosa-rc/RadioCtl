@@ -48,6 +48,7 @@ Installation:
 Getting started:  
   Open terminal window.
   cd {directory where file was downloaded}
+  chmod 775 radioctl   ### make the file executable
   ./radioctl
     
   
