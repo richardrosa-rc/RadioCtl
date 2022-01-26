@@ -1,0 +1,48 @@
+#### RadioCtl for Linux package
+
+Control ICOM, Kenwood, and Uniden radios using the USB interface for these radios 
+ and the Linux Operating System. 
+ 
+This code has been developed and tested with the SUSE Linux distribution, but
+ is also known to work with Ubuntu, Mint and Kali distros as well. 
+
+
+NOTE:This is a BETA version. 
+  There is a lot of Functionality left to be written,
+  and a lot of bugs left to fix. 
+  
+  
+  
+  
+Package contents:
+   radioctl  - The GUI program.
+   radiowrite  - The command line program
+   radioctl.conf - Sample configuration file (to reside in your HOME directory)
+   Conventional-Ulster_orange.csv - Sample RadioCtl format input file (Conventional Frequencies in the Hudson Valley of NY)
+   NyComCo-EDACS.csv - Sample RadioCtl format input file (NYCOMCO EDACS system in the Hudson Valley of NY)
+   Radioctl-Operation.odt - Documentation for the program (in Open Document Format).
+   Radioctl-DataFiles.odt - Documentation for the various file formats.
+   
+   
+Installation:
+  If .zip or .gz file, uncompress to the folder of your choice.
+  Copy radioctl.conf to your home directory. Modify as needed.
+  
+Getting started:  
+  Open terminal window.
+  cd {directory where file was downloaded}
+  ./radioctl
+    
+  
+Contact the authors at: richardrosa@yahoo.com for bug reports & suggestions.
+
+ENJOY
+
+Lydia & Richard Rosa
+  
+    
+  
+    
+   
+   
+

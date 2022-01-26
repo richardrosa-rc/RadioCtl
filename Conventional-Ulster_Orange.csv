@@ -1,0 +1,298 @@
+*RadioCtl   Data file generated11/14/2020 03:18pm
+*
+*:PROTOCOL:  uniden
+*:RADIO:    SDS200/BCD325P2/R30
+*:QUICKKEY:  01 - 1:"Ulster/Orange County Conv" 
+*:START: * 
+* Ulster/Orange County Conventional Frequencies
+**
+* This file has been designed to work with:
+*     Uniden BCD325P2, Unden SDS200 and ICOM R30
+* Use the following commands to process:
+*  radiowrite2.pl writesys Conventional-Ulster_Orange.csv -r BCD325P2    (for bcd325p2)
+*  radiowrite2.pl rc2sds Conventional-Ulster_Orange.csv                  (creates file for SDS200 SD card)
+*  radiowrite2.pl rc2r30 Conventional-Ulster_Orange.csv                  (creates file for R30 SD card)
+* NOTE:When storing into the BCD325P2, the Group quickkey will be converted to 0-9 by 'mod 10' conversion.
+*  Also 'service' strings will be limited to 15 characters.
+*
+*
+* IGRP assignments (Icom R30):
+*   1 - Ulster Fire + Local Fire
+*   2 - Ulster 911 + Sheriff
+*   3 - Orange Fire + Local fire + OC 911
+*   4 - State Police/Thruway/DEC
+*   5 - Dutchess Fire + Local Fire + DC 911
+*   6 - State Parks                           
+*   7 - Highway Departments                    
+*   8 - Business
+*   9 - EMS            
+*  20 - Local Railroad Frequencies (in a different system definition)
+*  21 - All Railroad Frequencies  (in a different system definition)
+*   
+*** S-TYPE field is the number for the 'FuncTagId' as defined by the SDSx00 file specification
+*** These numbers are values between 1-37 and 208-218. If this value is not set in
+*** a 'C-Freq' or 'TGID' record, that record will NOT scan.
+*** The logic used for setting this value:
+***  If value in 'FREQ' record > 0 then use that value
+***  Else if value in 'GROUP' record referenced >0 Then use that value
+***  Else set value of '3' ('Fire Dispatch')
+***
+*** Numbers defined in the spec are as follows:
+** 1-Multi-Dispatch
+** 2-Law Dispatch
+** 3-Fire Dispatch
+** 4-EMS Dispatch
+** 5-non
+** 6-Multi-Tac
+** 7-Law Tac
+** 8-Fire-Tac
+** 9-EMS-Tac
+**10-non
+**11-Interop
+**12-Hospital
+**13-Ham
+**14-Public Works
+**15-Aircraft
+**16-Federal
+**17-Business
+**18-non
+**19-non
+**20-Railroad
+**21-Other
+**22-Multi-Talk
+**23-Law Talk
+**24-Fire-Talk
+**25-EMS-Talk
+**26-Transportation
+**27-non
+**28-non
+**29-Emergency Ops
+**30-Military
+**31-Media
+**32-Schools
+**33-Security
+**34-Utilities
+**35-non
+**36-non
+**37-Corrections
+****Custom Service Type
+**208-Custom 1
+**209-Custom 2
+**210-Custom 3
+**211-Custom 4
+**212-Custom 5
+**213-Custom 6
+**214-Custom 7
+**215-Custom 8
+**216-Racing Officials
+*
+* NOTE:If this file is automatically processed, some fields as well as comments may be lost
+* Also, do NOT include semi-colons in any comment or data record. Will drive .csv parser crazy!
+*
+*:STOP:
+
+*********** RadioCtl Data Records *****************
+* Records are in the format: 
+*record_type,field1,field2,field3,....
+*     or 
+*record_type,key1=value,key2=value,...
+* records starting with '*' or '#' are ignored
+*rectypes:System,Site,TFreq,Group,Freq    (all case insensitive)
+* At least one 'System' record is required for each file
+*
+*fields/keys:
+*  Index: Unique number for the record
+*  Valid: If 'F','0','N', record will not be scanned or selected in the radio
+*  Service: Any string with any characters except ',' 
+*  SystemType: ('System' record only) =>cnv,ltr,eds,edw,edn,mots,motc,trbo,p25s,p25f,p25f,dmr,nxdn
+*  Flags:Single Character turns on item. 'a'-Attenuation,'i'-id-search,'p'-priority,'g'-TGID valid,'q'- Set Quickkey on when writing
+*  Dlyrsm:A number between -10 and +30. Negative number is Resume. 0 is Off
+*  Sysno:System record index. Required for Site, Group & Freq records
+*  Siteno:Site record Index. Required for TFreq records
+*  Groupno:Group record Index. Required for Freq records
+*  Hld:(System/Site records). Time in seconds to hold on the system or site
+*  Frequency:(Freq & TFreq records). Can be in Hz or Mhz
+*  Mode:Modulation:AM,FMw (Broadcast),FMn,FMn(2.5khz),LSB,USB
+*  Latitude/Longitude:(Uniden Radios Only).Decimal value
+*  P25wait:Time in ms to wait for a P25 decode to complete
+*  Rf_filter:(SDS200 only) Global/Normal/Invert/Auto 
+*
+*Keywords are not case sensitive
+*For keyword=value format, any keyword for the record not specified will be set to the default
+*
+*
+*    #### System Definition #####
+*rectype ,index,service                       ,valid,system,    flags,dlyrsm,qkey,hld, tag,igrp,_rsvd,p25wait,p25mode,p25lvl,p25nac,al_ton,al_lvl,  al_col,al_pat,end_code,fleetmap, custmap,block_addr,
+SYSTEM   ,    1,Ulster_Orange Conv            ,    1,CNV   ,        q,     0,   1,  0,    ,    ,     ,    400,   Auto,      ,      ,      ,      ,        ,      ,        ,        ,        ,          
+*
+***************** Group record assignments  *********************
+*                                                                     +Add ICOM R30 group assignment here
+*rectype ,index,service                       ,valid,sysno,    flags,igrp,_rsv, protocol,gqkey,svccode,rf_filter   ,latitude    ,longitude   ,range       ,block_addr,
+GROUP    ,    1,Ulster Fire                   ,    1,    1,         ,   1,    ,   uniden,   01,      3,            ,            ,            ,            ,          
+GROUP    ,    2,Ulster 911                    ,    1,    1,         ,   2,    ,   uniden,   02,      2,            ,            ,            ,            ,                                                     
+GROUP    ,    3,Orange Fire-911               ,    1,    1,         ,   3 ,   ,   uniden,   03,      3,            ,            ,            ,            ,    
+GROUP    ,    4,NYState PD                    ,    1,    1,         ,   4 ,   ,   uniden,   04,      2                                                
+GROUP    ,    5,UC Sheriff/Other PD           ,    1,    1,         ,   5 ,   ,   uniden,   05,      3,            ,            ,            ,            ,     
+GROUP    ,    6,Parks                         ,    1,    1,         ,   6,    ,   uniden,   06,     14,            ,            ,            ,            ,       
+GROUP    ,    7,Utilities_Hiway               ,    1,    1,         ,   7,    ,   uniden,   07,     34,            ,            ,            ,            ,          
+GROUP    ,    8,Business                      ,    0,    1,         ,   8,    ,   uniden,   08,     17,            ,            ,            ,            ,          
+GROUP    ,    9,EMS                           ,    1,    1,         ,   9,    ,   uniden,   09,     04,            ,            ,            ,            ,                ,          
+*
+*    #### Ulster County fire
+*rectype ,index,service                       ,valid,group,    flags,chan,  frequency,  mode,    tgid,  tone,tone_type,dlyrsm,_rsv, protocol,   audio, tag,_rsv,t_slot,al_ton,al_lvl,  al_col,al_pat,v_ofset,svccode,block_addr, #log_date
+FREQ     ,    1,UC Fire Control               ,    1,    1,         ,   1,  46.460000,FMn   ,        ,   off,      off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,    2,UC Fire F4                    ,    1,    1,         ,   2,  46.280000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,    3,UC Fire F3                    ,    1,    1,         ,   3,  46.300000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,    4,UC Fire F5                    ,    1,    1,         ,   4,  46.320000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,    5,UC Fire Trucks                ,    1,    1,         ,   5,  46.340000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,    6,Fire Mutual Aid               ,    1,    1,         ,   6,  45.880000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,    7,UC Fire F6                    ,    1,    1,         ,   7,  46.480000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,    8,New Paltz Fire                ,    1,    1,         ,   8, 153.800000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       , # Actove 12/04/20
+*
+FREQ     ,   14,UCFD C-C UHF                  ,    1,    1,         ,   9, 453.562500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+*** Attenuation is needed on SDS200 for 460.625 due to DMR interference
+FREQ     ,   15,UC Fire-Control UHF           ,    1,    1,        2,  10, 460.625000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   16,Marlbro Fire-?                ,    1,    1,         ,  11, 465.637500,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+### Because of Intermod, attenuation is needed on SDS200
+FREQ     ,   17,Modena FD                     ,    1,    1,        2,  12, 453.075000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+*
+FREQ     ,   19,Gardner FD                    ,    1,    1,         ,  13, 453.550000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   20,PlattekillFD                  ,    1,    1,         ,  14, 464.950000,FMn   ,        ,   411,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   21,Marlbro Fire-?                ,    1,    1,         ,  15, 460.537500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   22,Marlbro Fire-?                ,    1,    1,         ,  16, 453.162500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   23,Marlbro Fire-?                ,    1,    1,         ,  17, 465.537500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   24,Marlbro Fire-?                ,    1,    1,         ,  18, 458.162500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+#** Chances of picking up these departments are slim
+FREQ     ,    9,SpringLk FD                   ,    0,    1,         ,  20, 154.175000,FMn   ,        , 136.5,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   10,UlsterHoseC3                  ,    0,    1,         ,  21, 154.190000,FMn   ,        , 110.9,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   11,KingstonFire                  ,    0,    1,         ,  22, 154.235000,FMn   ,        , 127.3,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   12,Port Ewn FD                   ,    0,    1,         ,  23, 154.265000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   13,Kingston FD                   ,    0,    1,         ,  24, 154.295000,FMn   ,        , 110.9,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+FREQ     ,   18,Wallkill FD                   ,    0,    1,         ,  25, 453.387500,FMn   ,        ,   734,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+###
+### Ulster County 911 
+## 155.0250 is getting overloaded with 155.220. Attenuation needed on SDS200
+FREQ     ,   25,UC-911(06-037)                ,    1,    2,        2,   1, 155.025000,FMn   ,        ,   off,      off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   26,UC-911 Ops                    ,    1,    2,         ,   2, 155.670000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+# 155.220 seems to get overloaded with 155.0250. Attenuation needed on SDS200
+FREQ     ,   27,UC 911 Dispatch               ,    1,    2,        2,   3, 155.220000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   28,EDACS direct                  ,    1,    2,         ,   4, 853.487500,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   29,UC-Sheriff                    ,    1,    5,         ,   5, 153.995000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   30,UC-Sheriff                    ,    1,    5,         ,   6, 155.932500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       , ## Active 11/17/20          
+FREQ     ,   31,UC-Jail                       ,    1,    5,         ,   7, 460.350000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   32,UC-Sheriff-SpEvn              ,    1,    5,         ,   8, 151.235000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+# Need antenuation due to overload on SDS200
+FREQ     ,   33,NewPaltz Common               ,    1,    5,       2 ,   9, 153.125000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+#** SUNY New Paltz
+#** NOTE:R25 will not utilize these as they are DMR
+FREQ     ,   34,NPltz Campus PD(DMR)          ,    0,    5,         , -1 , 151.565000,FMn   ,        ,   off,      Off,     1,   0,   uniden, Digital,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   35,SUNY New Paltz                ,    1,    5,         , -1 , 151.775000,FMn   ,        ,   off,      Off,     1,   0,   uniden, Digital,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   36,SUNY New Paltz                ,    1,    5,         , -1 , 151.835000,FMn   ,        ,   off,      Off,     1,   0,   uniden, Digital,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   37,SUNY New Paltz                ,    1,    5,         , -1 , 151.955000,FMn   ,        ,   off,      Off,     1,   0,   uniden, Digital,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+#**
+#** Orange County
+#** TODO:Need to cull these
+#FREQ     ,   41,OC FG 5                       ,    1,    3,         ,   1,  45.080000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+#FREQ     ,   42,OC FG 6                       ,    1,    3,         ,   2,  45.240000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+#FREQ     ,   43,OC Fire 10                    ,    1,    3,         ,   3,  45.780000,FMn   ,        ,  94.8,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+#FREQ     ,   44,OC FP Ops                     ,    1,    3,         ,   4,  46.120000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,
+### 46.16 has too much interference to use
+#FREQ     ,   45,OC Fire 1                     ,    1,    3,         ,   5,  46.160000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+#FREQ     ,   46,OC FG 1                       ,    1,    3,         ,   6,  46.220000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+#FREQ     ,   47,OC FG 2                       ,    1,    3,         ,   7,  46.300000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+#FREQ     ,   48,OC LZ Ops                     ,    1,    3,         ,   8,  46.400000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,
+#* Pagers overloading 46.46
+#FREQ     ,   49,OC FG 8/Ulster COunty        ,    1,    3,        a,   9,  46.460000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+#FREQ     ,   50,OC FG 7                       ,    1,    3,         ,   0,  46.520000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   51,Newburgh FD 5/Roxbury Ct.FD   ,    1,    3,         ,  11, 153.980000,FMn   ,        , 107.2,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       , ## Active 12/04/20 (Roxbury)
+FREQ     ,   52,Newburgh FD 2                 ,    1,    3,         ,  12, 154.070000,FMn   ,        , 203.5,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   53,OC FD Disp                    ,    1,    3,         ,  13, 154.205000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       , ## Active 12/03/20          
+FREQ     ,   54,Cronomer Ops                  ,    1,    3,         ,  14, 154.250000,FMn   ,        ,   off,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   55,Newburgh FD 1                 ,    1,    3,         ,  15, 154.340000,FMn   ,        , 203.5,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       , ## Active 12/04/20          
+FREQ     ,   56,Newburgh FD 4                 ,    1,    3,         ,  16, 154.385000,FMn   ,        , 203.5,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   57,Newburgh FD 3                 ,    1,    3,         ,  17, 154.415000,FMn   ,        , 203.5,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   58,GoodWill Ops                  ,    1,    3,         ,  18, 452.525000,FMn   ,        , 162.2,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   59,GoodWill FG                   ,    1,    3,         ,  19, 452.537500,FMn   ,        , 179.9,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   60,OC FP                         ,    1,    3,         ,  10, 453.137500,FMn   ,        , 110.9,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   61,Cronomer FD                   ,    1,    3,         ,  21, 453.150000,FMn   ,        , 100.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       , # Active 12/04/20          
+FREQ     ,   62,VG FD Ops                     ,    1,    3,         ,  22, 453.600000,FMn   ,        , 107.2,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   63,OC City Cmd                   ,    1,    3,         ,  23, 453.687500,FMn   ,        , 127.3,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   64,OL/WL Ops 2                   ,    1,    3,         ,  24, 453.850000,FMn   ,        , 107.2,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   65,OC Cmd A                      ,    1,    3,         ,  25, 453.962500,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   66,OC FG B                       ,    1,    3,         ,  26, 458.262500,FMn   ,        , 110.9,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   67,OC City FG                    ,    1,    3,         ,  27, 458.912500,FMn   ,        ,  77.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   68,OC FG A                       ,    1,    3,         ,  28, 458.987500,FMn   ,        , 110.9,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   69,OL/WL Ops 1                   ,    1,    3,         ,  29, 460.075000,FMn   ,        , 127.3,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   70,NW FD Ops                     ,    1,    3,         ,  20, 460.125000,FMn   ,        , 110.9,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   71,CoH FD Ops                    ,    1,    3,         ,  31, 460.150000,FMn   ,        , 203.5,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   72,HghlndFlsOps                  ,    1,    3,         ,  32, 460.412500,FMn   ,        ,   411,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   73,HghlndFls XB                  ,    1,    3,         ,  33, 460.475000,FMn   ,        ,   423,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   74,Cronomer Ops                  ,    1,    3,         ,  34, 460.575000,FMn   ,        ,  88.5,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   75,OC EM FG                      ,    1,    3,         ,  35, 460.587500,FMn   ,        , 162.2,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   76,Cronomer Xb                   ,    1,    3,         ,  36, 460.600000,FMn   ,        , 123.0,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   77,VG|OL|WL FD FG                ,    1,    3,         ,  37, 460.612500,FMn   ,        , 107.2,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   78,Cronmr-Newbg                  ,    1,    3,         ,  38, 460.625000,FMn   ,        , 118.8,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   79,OC Wtr Suply                  ,    1,    3,         ,  39, 465.537500,FMn   ,        ,   516,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   80,OC Cmd B                      ,    1,    3,         ,  30, 465.587500,FMn   ,        ,   516,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   81,OL/WL FG 2                    ,    1,    3,         ,  41, 465.612500,FMn   ,        , 107.2,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   82,OC Spec Ops                   ,    1,    3,         ,  42, 465.637500,FMn   ,        ,   516,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   83,FortMntg FG1                  ,    1,    3,         ,  43, 478.537500,FMn   ,        ,   off,      off,     0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+FREQ     ,   84,FortMntg FG2                  ,    1,    3,         ,  44, 481.537500,FMn   ,        ,   off,     off,      0,    ,   uniden,        ,    ,    ,      ,      ,      ,        ,      ,       ,       ,          
+* 
+** NY State Police
+FREQ     ,   94,NYSP Trp-F Mobil              ,    1,    4,         ,   1, 154.935000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   95,NYSP Trp-F Base               ,    1,    4,         ,   2, 155.535000,FMn   ,        , 110.9,    CTCSS,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+FREQ     ,   96,NYSP Trp-K Mobil              ,    1,    4,         ,   3, 154.920000,FMn   ,        ,   off,      off,      ,    ,   uniden,     ALL,              
+FREQ     ,   97,NYSP Trp-K Base               ,    1,    4,         ,   4, 155.505000,FMn   ,        , 110.9,      off,      ,   0,   uniden,     ALL,              
+FREQ     ,   98,NYSP Car-Car F2               ,    1,    4,         ,   5, 154.665000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,   99,NYSP StWide  F3               ,    1,    4,         ,   6, 154.695000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+## 155.550 is Westchester County PD
+#FREQ     ,  100,NYSP COMDATA F4               ,    1,    4,         ,   7, 155.550000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  101,NYSP MRD     F5               ,    1,    4,         ,   8, 155.370000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  102,Nat Emerg    F6               ,    1,    4,         ,   9, 155.475000,FMn   ,        ,   off,      Off,     2,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  103,NYSP BCI     F8               ,    1,    4,         ,  10, 155.565000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  104,NYSP TAC-1                    ,    1,    4,         ,  11, 154.920000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+** Too close to 155.640-Dutchess County Sheriff
+FREQ     ,  105,NYSP TAC-2                    ,    1,    4,        2,  12, 155.625000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+*** This one picks up a lot of computer hash
+FREQ     ,  106,DEC                           ,    1,    4,        a,  13, 151.430000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  107,DEC                           ,    1,    4,         ,  14, 159.225000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+* Thruway
+FREQ     ,  108,NYS Thruway                   ,    1,    4,         ,  15, 453.425000,FMn   ,        ,   Off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  109,NYS Thruway                   ,    1,    4,         ,  16, 453.525000,FMn   ,        ,   Off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+*
+** Parks
+FREQ     ,  301,NYParks Taconic Div           ,    1,    6,         ,   1, 158.775000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  302,NYParks Statewide             ,    1,    6,         ,   2, 158.390000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+FREQ     ,  303,NYParks Palisades Div         ,    1,    6,         ,   3, 154.890000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+*
+*** Utilities/Highway
+FREQ     ,  459,Central Hudson                ,    1,    7,         ,   1,  48.060000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  460,Central Hudson                ,    1,    7,         ,   2,  48.120000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  461,Central Hudson                ,    1,    7,         ,   3,  48.240000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  462,Central Hudson                ,    1,    7,         ,   4,  47.920000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  463,Central Hudson                ,    1,    7,         ,   5,  48.140000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  464,Central Hudson                ,    1,    7,         ,   6, 451.137500,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  465,Central Hudson                ,    1,    7,         ,   7, 451.112500,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  466,Central Hudson                ,    1,    7,         ,   8, 451.150000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       , ## Activity 12/04/10          
+FREQ     ,  467,Central Hudson                ,    1,    7,         ,   9, 457.325000,FMn   ,        ,   off,      Off,     1,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+*
+FREQ     ,  468,Ulster Hiway                  ,    1,    7,         ,  10, 156.120000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  469,Ulster Hiway                  ,    1,    7,         ,  11, 156.180000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+*
+** Business
+FREQ     ,  568,Mohonk                        ,    0,    8,         ,   1, 151.655000,FMn   ,        ,  82.5,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  569,Mohonk                        ,    0,    8,         ,   2, 152.300000,FMn   ,        , 118.8,      Off,      ,   0,   uniden, Digital,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  570,WP Tours                      ,    0,    8,         ,   3, 159.825000,FMn   ,        , 203.5,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  571,WPDH remote                   ,    1,    8,         ,   4, 161.700000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  572,Target ch 4                   ,    1,    8,         ,   5, 467.187500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  573,Target ch 3                   ,    1,    8,         ,   6, 467.462500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  574,Target ch 2                   ,    1,    8,         ,   7, 467.487500,FMn   ,        ,   072,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  575,Target ch 1                   ,    1,    8,         ,   9, 467.512500,FMn   ,        ,   115,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
+*
+*** EMS
+FREQ     ,  600,UC EMS Ops                    ,    1,    9,         ,   1, 155.175000,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,  ## Activity 12/04/20
+*** Adjacent DMR overloads 468.012 
+FREQ     ,  649,Mobile Life Tac 1             ,    1,    9,       2 ,   2, 468.012500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  650,Mobile Life Tac 2             ,    1,    9,         ,   3, 468.037500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,          
+FREQ     ,  651,Mobile Life Tac 3             ,    1,    9,         ,   4, 468.062500,FMn   ,        ,   off,      Off,      ,   0,   uniden,     ALL,    ,   0,   Any,      ,     0,        ,      ,       ,       ,
