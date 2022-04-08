@@ -14,7 +14,7 @@ This program allows you to:
 This code has been developed and tested with the SUSE Linux distribution, but
  is also known to work with Ubuntu, Mint and Kali distros as well. 
  
-For Ubunt and Mint you MAY need to install additional libraries. 
+For Ubuntu and Mint you MAY need to install additional libraries. 
  
 Requirements: 
   o An installed or Live Linux distribution (SUSE, Ubuntu, Linux Mint, etc)
