@@ -1,4 +1,4 @@
-*RadioCtl   Data file generated: 04/11/2023 05:54am
+*RadioCtl   Data file generated: 07/23/2023 05:54am
 *
 *:START:  * NYCOMCO EDACs*
 * This file has been designed to work with:
@@ -92,7 +92,7 @@
 *      'g'-TGID is valid,'+'-Split frequency is + offset,'-'-Split frequency is - offset
 *      'p'-Channel is a priority channel                                            
 *    Flags for SYSTEM records: 
-*      'b'-Channel in FREQ record is Radio's ('bank-used'),'f'-EDACS AFS format 
+*      'f'-EDACS AFS format 
 *      'h'-AGC_digital, 'i'-id_search (trunked systems), 'j'-AGC_analog, 'k'-data skip 
 *      'o'-Control Channel only, 'p'-Turn on priority,'q'-Quickkey is on (UNIDEN only) 
 *  Dlyrsm:A number between -10 and +30. Negative number is Resume. 0 is Off
@@ -200,7 +200,7 @@ TFREQ    ,   34,    1,     6, 855.312500,  11,FMn   ,      Srch,
 ***************** Group record assignments  *********************
 *
 *    ### Groups for NYCOMCO-Trbo Ulster system (1). 
-*rectype ,index,service                       ,valid,sysno,    flags,igrp,_extra   ,gqkey,rf_filter   ,latitude    ,longitude   ,range      
+*rectype ,index,service                       ,valid,sysno,    flags,rsvd,_extra   ,gqkey,rf_filter   ,latitude    ,longitude   ,range      
 GROUP    ,    1,Ulster County 911             ,    1,    1,         ,    ,svcode3  ,   01,                     
 GROUP    ,    2,Lloyd PD                      ,    1,    1,         ,    ,svcode2  ,   02,   
 GROUP    ,    3,New Paltz/Other PD            ,    1,    1,         ,    ,svcode2  ,   03,   
