@@ -1,76 +1,48 @@
-*RadioCtl   Data file generated: 07/23/2023 05:54am
+*RadioCtl   Data file generated: 09/05/2023 
 *
-*:START:  * NYCOMCO EDACs*
+*:QUICKKEY: SYSTEM_QK:02  (sysno=1 name=NYCOMCO (EDACS))
+*:QUICKKEY:    SITE_QK:54 DEPT_QK:24  (siteno=>004 name=EDACS-Mlbrk(Site 4))
+*:QUICKKEY:    SITE_QK:02 DEPT_QK:20  (siteno=>002 name=EDACS-MtBcn(Site 2))
+*:QUICKKEY:    SITE_QK:55 DEPT_QK:25  (siteno=>005 name=EDACS-PrtEwn(Site 5))
+*:QUICKKEY:    SITE_QK:53 DEPT_QK:23  (siteno=>003 name=EDACS-SamsPt(Site 3))
+*:QUICKKEY:    SITE_QK:58 DEPT_QK:28  (siteno=>008 name=EDACS-SchnkMtn(Site 8))
+*:QUICKKEY:    SITE_QK:51 DEPT_QK:21  (siteno=>001 name=EDACS-WlkerMtn(Site 1))
+*:START: 
+*                 NYCOMCO EDACs
+*
 * This file has been designed to work with:
 *     BCD325P2 & SDS200 without modification
 *
-* NOTE:When storing into the BCD325P2, the Group quickkey will be converted to 0-9 by 'mod 10' conversion.
+*  The primary site ('Mt. Beacon') has 'qkey' = 2 (same as SYSTEM), and 'dqkey' => 22, and is marked as 'valid'
+*  All other sites are marked as 'invalid' and have 'qkey' set to 51->56 and 'dqkey' set to 21->26
+*    (the second digit is the same as the SITE number)
+* NOTE:Since the BCD325P2 only lists the SITE in the display,
+*    The System 'service' is included in the SITE 'service' field.
+*
+* SDS200 uses the same quickkeys for Sites as for groups ('departments")
+*  Because of this, the 'site_qkeys' are chosen to be unique from the GROUP quickkeys
+*  Site keys are assigned the site number (1-8) + 29
+*  ALL sites have a 'site_qkey' assigned. Without this assignment,
+*    RadioWrite will mark this site 'avoid' when generating the file for the SDSx00
+*
+* When storing into the BCD325P2, the Group quickkey will be converted to 0-9 by 'mod 10' conversion.
 *  Also 'service' strings will be limited to 15 characters.
 *
-*** S-TYPE field is the number for the 'FuncTagId' as defined by the SDSx00 file specification
+*** SVCODE is the number for the 'FuncTagId' as defined by the SDSx00 file specification
 *** These numbers are values between 1-37 and 208-218. If this value is not set in
 *** a 'C-Freq' or 'TGID' record, that record will NOT scan.
 *** The logic used for setting this value:
 ***  If value in 'FREQ' record > 0 then use that value
 ***  Else if value in 'GROUP' record referenced >0 Then use that value
-***  Else set value of '3' ('Fire Dispatch')
+***  Else look for some keyword in the 'SERVICE' field.
+***  If these fail, set code 1.
 ***
-*** Numbers defined in the spec are as follows:
-** 1-Multi-Dispatch
-** 2-Law Dispatch
-** 3-Fire Dispatch
-** 4-EMS Dispatch
-** 5-non
-** 6-Multi-Tac
-** 7-Law Tac
-** 8-Fire-Tac
-** 9-EMS-Tac
-**10-non
-**11-Interop
-**12-Hospital
-**13-Ham
-**14-Public Works
-**15-Aircraft
-**16-Federal
-**17-Business
-**18-non
-**19-non
-**20-Railroad
-**21-Other
-**22-Multi-Talk
-**23-Law Talk
-**24-Fire-Talk
-**25-EMS-Talk
-**26-Transportation
-**27-non
-**28-non
-**29-Emergency Ops
-**30-Military
-**31-Media
-**32-Schools
-**33-Security
-**34-Utilities
-**35-non
-**36-non
-**37-Corrections
-****Custom Service Type
-**208-Custom 1
-**209-Custom 2
-**210-Custom 3
-**211-Custom 4
-**212-Custom 5
-**213-Custom 6
-**214-Custom 7
-**215-Custom 8
-**216-Racing Officials
+***
 *
 * NOTE:If this file is automatically processed, some fields as well as comments may be lost
 * Also, do NOT include semi-colons in any comment or data record. Will drive .csv parser crazy!
 *
 *:STOP:
-* Quickkeys: key - sysno:system,   key-(siteno):site ...
-*:QUICKKEY:  02 - 1:"NYCOMCO (EDACS)", 24-(4):"Millbrook", 22-(2):"Mt Beacon", 25-(5):"Port Ewen", 23-(3):"Sam's Point", 28-(8):"Schunnemunk Mtn", 21-(1):"Walker Mtn" 
-*
 *
 *********** RadioCtl Data Records *****************
 * Records are in the format: 
@@ -94,329 +66,339 @@
 *    Flags for SYSTEM records: 
 *      'f'-EDACS AFS format 
 *      'h'-AGC_digital, 'i'-id_search (trunked systems), 'j'-AGC_analog, 'k'-data skip 
-*      'o'-Control Channel only, 'p'-Turn on priority,'q'-Quickkey is on (UNIDEN only) 
+*      'o'-Control Channel only, 'p'-Turn on priority 
 *  Dlyrsm:A number between -10 and +30. Negative number is Resume. 0 is Off
 *  Sysno:System record index. Required for Site & Group records
 *  Siteno:Site record Index. Required for TFreq records
 *  Groupno:Group record Index. Required for Freq records
 *  Hld:(System/Site records). Time in seconds to hold on the system or site
-*  Frequency:(Freq & TFreq records). Can be in Hz or Mhz
+*  Frequency:(Freq & TFreq records). Can be in Hz or MHz. MHz must have decimal point
 *  Mode:Modulation:AM,FMw (Broadcast),FMn,FMun(2.5khz),LSB,USB
 *  Lat/Lon: Decimal value  or DMS (DD:MM:SS.SS:direction)
 *  P25wait:Time in ms to wait for a P25 decode to complete
 *  Rf_filter:(SDS200 only) Global/Normal/Invert/Auto 
-*  Channel - RadioCtl channel number. If 'b' flag set in system, Radio's channel in group
-*  _Extra field: ADTYPEx - Uniden Audio type (0,1 or 2) BCDTAGx - Uniden User tag (0-1000)
-*                EMGALTx - Uniden Emergency Alert (0-9) EMGLVLx - Uniden Alert Level (0-15)
-*                SVCODE - SDS200 Service code           RFGAINx - R30 Gain (0-9)
+*  Channel - RadioCtl channel number. 0-9999 
+*  _Extra field: ADTYPE=x - Uniden Audio type (0,1 or 2) UTAG=x - Uniden User tag (0-1000)
+*                EMGALT=x - Uniden Emergency Alert (0-9) EMGLVL=x - Uniden Alert Level (0-15)
+*                SVCODE - SDS200 Service code           RFGAIN=x - R30 Gain (0-9)
 *
 *Keywords are not case sensitive
 *For keyword=value format, any keyword for the record not specified will be set to the default
 *
 *
 *    #### System Definition #####
-* 
-* NOTE:For the BCD325P2, DLYRSM is by SYSTEM, not by individual channel
-*rectype ,index,service                       ,valid,system,    flags,dlyrsm,qkey,hld,_extra,p25wait,p25mode,p25lvl,p25nac,end_code,fleetmap, custmap
-SYSTEM   ,    1,NYCOMCO (EDACS)               ,    1,edw   ,       fq,     2,   2,  2,     ,      0,    Auto,           
+#:system:index,service,valid,systemtype,flags,dlyrsm,qkey,hld,_extra,p25wait,_rsvd,p25lvl,p25nac,end_code,fleetmap,custmap,
+*SYSTEM  ,index,service                       ,valid,system,    flags,dlyrsm,qkey,hld,_extra    ,p25wait,_rsv,p25lvl,p25nac, end_code,fleetmap, custmap
+SYSTEM   ,    1,NYCOMCO (EDACS)               ,    1,edw   ,        f,     2,   2,  2,hpd=2     ,      0,Auto,     5
 *
 *        ****** Sites for NYCOMCO (EDACS) system (1) *****
-* Note:All sites EXCEPT 'MtBcn' & 'WlkerMt' have 'valid' turned OFF
-* 
-* Millbrook site does not have a lot of traffic
-*rectype ,index,service            ,valid,sysno,qkey,hld,    flags,  mode,latitude    ,longitude   ,range       ,p25wait,p25mode,p25lvl,p25nac,rf_filter   ,site_number,site_qkey
-SITE     ,    1,EDACS-Mlbrk(Site 4),    0,    1,   2,   ,         , Auto ,41.749170   ,-73.627500  ,15.0        ,       ,   Auto,      ,      ,Global      ,004        ,24          
-*rectype ,index,valid,siteno,  frequency, lcn,  mode,     ccode,    flags,
-TFREQ    ,    1,    1,     1, 858.137500,   1,FMn   ,      Srch,             ### Control channel 02/21/23
-TFREQ    ,    2,    1,     1, 859.137500,   2,FMn   ,      Srch,         
-TFREQ    ,    3,    1,     1, 860.137500,   3,FMn   ,      Srch,         
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
+SITE     ,    1,EDACS-Mlbrk(Site 4)           ,    0,    1,  54,   ,         ,  auto,41.749170   ,-73.627500  ,15.0        ,g           ,        004,dqkey=24  
 *
-*rectype ,index,service            ,valid,sysno,qkey,hld,    flags,  mode,latitude    ,longitude   ,range       ,p25wait,p25mode,p25lvl,p25nac,rf_filter   ,site_number,site_qkey
-SITE     ,    2,EDACS-MtBcn(Site 2),    1,    1,   2,   ,         , Auto ,41.488890   ,-73.948330  ,15.0        ,       ,   Auto,      ,      ,Global      ,002        ,22                     
-*rectype ,index,valid,siteno,  frequency, lcn,  mode,     ccode,    flags,
-TFREQ    ,    4,    1,     2, 857.187500,   2,FMn   ,      Srch,         
-TFREQ    ,    5,    1,     2, 857.712500,   3,FMn   ,      Srch,         
-TFREQ    ,    6,    1,     2, 854.137500,   4,FMn   ,      Srch,  
-TFREQ    ,    7,    1,     2, 856.687500,   5,FMn   ,      Srch,
-TFREQ    ,    8,    1,     2, 859.612500,   6,FMn   ,      Srch,
-TFREQ    ,    9,    1,     2, 858.187500,   7,FMn   ,      Srch,    
-TFREQ    ,   10,    1,     2, 859.187500,   8,FMn   ,      Srch,         
-TFREQ    ,   11,    1,     2, 860.187500,   9,FMn   ,      Srch,         
-*
-*
-*
-*rectype ,index,service             ,valid,sysno,qkey,hld,    flags,  mode,latitude    ,longitude   ,range       ,p25wait,p25mode,p25lvl,p25nac,rf_filter   ,site_number,site_qkey,
-SITE     ,    3,EDACS-PrtEwn(Site 5),    0,    1,   2,   ,         , Auto ,41.895560   ,-73.991940  ,15.0        ,       ,   Auto,      ,      ,Global      ,005        ,25        
-*rectype ,index,valid,siteno,  frequency, lcn,  mode,     ccode,    flags,
-TFREQ    ,   10,    1,     3, 855.487500,   1,FMn   ,      Srch,         
-TFREQ    ,   11,    1,     3, 858.737500,   2,FMn   ,      Srch,         
-TFREQ    ,   12,    1,     3, 858.987500,   3,FMn   ,      Srch,         
-TFREQ    ,   13,    1,     3, 859.737500,   4,FMn   ,      Srch,         
-TFREQ    ,   14,    1,     3, 859.387500,   5,FMn   ,      Srch,         
-TFREQ    ,   15,    1,     3, 856.137500,   6,FMn   ,      Srch,         
-TFREQ    ,   16,    1,     3, 857.137500,   7,FMn   ,      Srch,         
-*
-*
-* Sams point is near Ellenville
-*rectype ,index,service             ,valid,sysno,qkey,hld,    flags,  mode,latitude    ,longitude   ,range       ,p25wait,p25mode,p25lvl,p25nac,rf_filter   ,site_number,site_qkey,
-SITE     ,    4,EDACS-SamsPt(Site 3),    0,    1,   2,   ,         , Auto ,41.683970   ,-74.355970  ,15.0        ,       ,   Auto,      ,      ,Global      ,003        ,23        
-*rectype ,index,valid,siteno,  frequency, lcn,  mode,     ccode,    flags,
-TFREQ    ,   17,    1,     4, 854.462500,   1,FMn   ,      Srch,         
-TFREQ    ,   18,    1,     4, 858.837500,   2,FMn   ,      Srch,         
-TFREQ    ,   19,    1,     4, 856.562500,   3,FMn   ,      Srch,         
-TFREQ    ,   20,    1,     4, 857.562500,   4,FMn   ,      Srch,         
-TFREQ    ,   21,    1,     4, 859.562500,   5,FMn   ,      Srch,         
-TFREQ    ,   22,    1,     4, 860.562500,   6,FMn   ,      Srch,         
-*
-* Schunnemunk Mtn is in Orange County
-*rectype ,index,service              ,valid,sysno,qkey,hld,    flags,  mode,latitude    ,longitude   ,range       ,p25wait,p25mode,p25lvl,p25nac,rf_filter   ,site_number,block_addr,
-SITE     ,    5,EDACS-SchnkMtn(Site 8),    0,    1,   2,   ,         , Auto ,41.377580   ,-74.131110  ,15.0        ,       ,   Auto,      ,      ,Global      ,008        ,28        
-*rectype ,index,valid,siteno,  frequency, lcn,  mode,     ccode,    flags,
-TFREQ    ,   23,    1,     5, 856.112500,   1,FMn   ,      Srch,         
-TFREQ    ,   24,    1,     5, 859.037500,   2,FMn   ,      Srch,         
-TFREQ    ,   25,    1,     5, 857.112500,   4,FMn   ,      Srch,         
-TFREQ    ,   26,    1,     5, 858.637500,   5,FMn   ,      Srch,         
+*      ******* Frequencies for EDACS-Mlbrk(Site 4) site.
+#:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
+*TFREQ   ,index,valid,siteno,  frequency, lcn,  mode,cc,ra,utag,    flags,_extra    
+TFREQ    ,    1,    1,     1, 858.137500,   1,   FMn, s ### Control channel 02/21/23
+TFREQ    ,    2,    1,     1, 859.137500,   2,   FMn, s, s
+TFREQ    ,    3,    1,     1, 860.137500,   3,   FMn, s, s
 
-* Walker Mtn is in Highland (Site-001)
-*rectype ,index,service               ,valid,sysno,qkey,hld,    flags,  mode,latitude    ,longitude   ,range       ,p25wait,p25mode,p25lvl,p25nac,rf_filter   ,site_number,site_qkey,
-SITE     ,    6,EDACS-WlkerMtn(Site 1),    1,    1,   2,   ,         , Auto ,41.699440   ,-74.002780  ,15.0        ,       ,   Auto,      ,      ,Global      ,001        ,21          
 *
-*      ******* Frequencies for Walker Mtn site.
-*rectype ,index,valid,siteno,  frequency, lcn,  mode,     ccode,    flags,
-TFREQ    ,   27,    1,     6, 854.412500,   1,FMn   ,      Srch,         
-TFREQ    ,   28,    1,     6, 860.887500,   2,FMn   ,      Srch,         
-TFREQ    ,   29,    1,     6, 858.037500,   3,FMn   ,      Srch,         
-TFREQ    ,   30,    1,     6, 860.112500,   4,FMn   ,      Srch,         
-TFREQ    ,   31,    1,     6, 859.112500,   6,FMn   ,      Srch,         
-TFREQ    ,   32,    1,     6, 858.112500,   7,FMn   ,      Srch,         
-TFREQ    ,   33,    1,     6, 857.037500,   9,FMn   ,      Srch,         
-TFREQ    ,   34,    1,     6, 855.312500,  11,FMn   ,      Srch,  
-### These appear to have been removed
-*TFREQ    ,   35,    1,     6, 859.887500,  12,FMn   ,      Srch,         
-*TFREQ    ,   36,    1,     6, 855.962500,  13,FMn   ,      Srch,         
-*TFREQ    ,   37,    1,     6, 859.787500,  14,FMn   ,      Srch,         
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
+SITE     ,    2,EDACS-MtBcn(Site 2)           ,    1,    1,   2,   ,         ,  auto,41.488890   ,-73.948330  ,15.0        ,g           ,        002,dqkey=20  
+*
+*      ******* Frequencies for EDACS-MtBcn(Site 2) site.
+#:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
+*TFREQ   ,index,valid,siteno,  frequency, lcn,  mode,cc,ra,utag,    flags,_extra    
+TFREQ    ,    4,    1,     2, 857.187500,   2,   FMn, s, s
+TFREQ    ,    5,    1,     2, 857.712500,   3,   FMn, s, s
+TFREQ    ,    6,    1,     2, 854.137500,   4,   FMn, s, s
+TFREQ    ,    7,    1,     2, 856.687500,   5,   FMn, s, s
+TFREQ    ,    8,    1,     2, 859.612500,   6,   FMn, s, s
+TFREQ    ,    9,    1,     2, 858.187500,   7,   FMn, s, s
+TFREQ    ,   10,    1,     2, 859.187500,   8,   FMn, s, s
+TFREQ    ,   11,    1,     2, 860.187500,   9,   FMn, s, s
+
+*
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
+SITE     ,    3,EDACS-PrtEwn(Site 5)          ,    0,    1,  55,   ,         ,  auto,41.895560   ,-73.991940  ,15.0        ,g           ,        005,dqkey=25  
+*
+*      ******* Frequencies for EDACS-PrtEwn(Site 5) site.
+#:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
+*TFREQ   ,index,valid,siteno,  frequency, lcn,  mode,cc,ra,utag,    flags,_extra    
+TFREQ    ,   12,    1,     3, 855.487500,   1,   FMn, s, s
+TFREQ    ,   13,    1,     3, 858.737500,   2,   FMn, s, s
+TFREQ    ,   14,    1,     3, 858.987500,   3,   FMn, s, s
+TFREQ    ,   15,    1,     3, 859.737500,   4,   FMn, s, s
+TFREQ    ,   16,    1,     3, 859.387500,   5,   FMn, s, s
+TFREQ    ,   17,    1,     3, 856.137500,   6,   FMn, s, s
+TFREQ    ,   18,    1,     3, 857.137500,   7,   FMn, s, s
+
+*
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
+SITE     ,    4,EDACS-SamsPt(Site 3)          ,    0,    1,  53,   ,         ,  auto,41.683970   ,-74.355970  ,15.0        ,g           ,        003,dqkey=23  
+*
+*      ******* Frequencies for EDACS-SamsPt(Site 3) site.
+#:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
+*TFREQ   ,index,valid,siteno,  frequency, lcn,  mode,cc,ra,utag,    flags,_extra    
+TFREQ    ,   19,    1,     4, 854.462500,   1,   FMn, s, s
+TFREQ    ,   20,    1,     4, 858.837500,   2,   FMn, s, s
+TFREQ    ,   21,    1,     4, 856.562500,   3,   FMn, s, s
+TFREQ    ,   22,    1,     4, 857.562500,   4,   FMn, s, s
+TFREQ    ,   23,    1,     4, 859.562500,   5,   FMn, s, s
+TFREQ    ,   24,    1,     4, 860.562500,   6,   FMn, s, s
+
+*
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
+SITE     ,    5,EDACS-SchnkMtn(Site 8)        ,    0,    1,  58,   ,         ,  auto,41.377580   ,-74.131110  ,15.0        ,g           ,        008,dqkey=28  
+*
+*      ******* Frequencies for EDACS-SchnkMtn(Site 8) site.
+#:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
+*TFREQ   ,index,valid,siteno,  frequency, lcn,  mode,cc,ra,utag,    flags,_extra    
+TFREQ    ,   25,    1,     5, 856.112500,   1,   FMn, s, s
+TFREQ    ,   26,    1,     5, 859.037500,   2,   FMn, s, s
+TFREQ    ,   27,    1,     5, 857.112500,   4,   FMn, s, s
+TFREQ    ,   28,    1,     5, 858.637500,   5,   FMn, s, s
+
+*
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
+SITE     ,    6,EDACS-WlkerMtn(Site 1)        ,    1,    1,  51,   ,         ,  auto,41.699440   ,-74.002780  ,15.0        ,g           ,        001,dqkey=21  
+*
+*      ******* Frequencies for EDACS-WlkerMtn(Site 1) site.
+#:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
+*TFREQ   ,index,valid,siteno,  frequency, lcn,  mode,cc,ra,utag,    flags,_extra    
+TFREQ    ,   29,    1,     6, 854.412500,   1,   FMn, s, s
+TFREQ    ,   30,    1,     6, 860.887500,   2,   FMn, s, s
+TFREQ    ,   31,    1,     6, 858.037500,   3,   FMn, s, s
+TFREQ    ,   32,    1,     6, 860.112500,   4,   FMn, s, s
+TFREQ    ,   33,    1,     6, 859.112500,   6,   FMn, s, s
+TFREQ    ,   34,    1,     6, 858.112500,   7,   FMn, s, s
+TFREQ    ,   35,    1,     6, 857.037500,   9,   FMn, s, s
+TFREQ    ,   36,    1,     6, 855.312500,  11,   FMn, s, s
+
 *
 *
-***************** Group record assignments  *********************
+*    ### Groups for NYCOMCO (EDACS) system (1). 
+#:group:index,service,valid,sysno,flags,_rsvd,_extra,qkey,rf_filter,lat,lon,radius,_rsvd,
+*GROUP   ,index,service                       ,valid,sysno,    flags,_rsv,_extra    ,qkey,rf_filter   ,lat         ,lon         ,radius      ,_rsv
+GROUP    ,    1,Ulster County 911             ,    1,    1,         ,    ,svcode=3  ,   1,o           ,            ,            ,25          
+GROUP    ,    2,Lloyd PD                      ,    1,    1,         ,    ,svcode=2  ,   2,o           ,            ,            ,25          
+GROUP    ,    3,New Paltz/Other PD            ,    1,    1,         ,    ,svcode=2  ,   3,o           ,            ,            ,25          
+GROUP    ,    4,Pough City PD                 ,    0,    1,         ,    ,svcode=2  ,   4,o           ,            ,            ,25          
+GROUP    ,    5,Pough Town PD                 ,    0,    1,         ,    ,svcode=2  ,   5,o           ,            ,            ,25          
+GROUP    ,    6,Marlboro PD                   ,    1,    1,         ,    ,svcode=2  ,   6,o           ,            ,            ,25          
+GROUP    ,    7,Hiway/Misc                    ,    1,    1,         ,    ,svcode=2  ,   7,o           ,            ,            ,25          
+GROUP    ,    8,Business                      ,    0,    1,         ,    ,svcode=2  ,   8,o           ,            ,            ,25          
+GROUP    ,    9,Dutchess PD                   ,    0,    1,         ,    ,svcode=17 ,   9,o           ,            ,            ,25          
+GROUP    ,   10,Other                         ,    1,    1,         ,    ,svcode=21 ,   0,o           ,            ,            ,25          
 *
-*    ### Groups for NYCOMCO-Trbo Ulster system (1). 
-*rectype ,index,service                       ,valid,sysno,    flags,rsvd,_extra   ,gqkey,rf_filter   ,latitude    ,longitude   ,range      
-GROUP    ,    1,Ulster County 911             ,    1,    1,         ,    ,svcode3  ,   01,                     
-GROUP    ,    2,Lloyd PD                      ,    1,    1,         ,    ,svcode2  ,   02,   
-GROUP    ,    3,New Paltz/Other PD            ,    1,    1,         ,    ,svcode2  ,   03,   
-GROUP    ,    4,Pough City PD                 ,    0,    1,         ,    ,svcode2  ,   04,   
-GROUP    ,    5,Pough Town PD                 ,    0,    1,         ,    ,svcode2  ,   05,   
-GROUP    ,    6,Marlboro PD                   ,    1,    1,         ,    ,svcode2  ,   06,   
-GROUP    ,    7,Hiway/Misc                    ,    1,    1,         ,    ,svcode2  ,   07,   
-GROUP    ,    8,Business                      ,    0,    1,         ,    ,svcode2  ,   08,   
-GROUP    ,    9,Dutchess PD                   ,    0,    1,         ,    ,svcode17 ,   09,   
-GROUP    ,   10,Other                         ,    1,    1,         ,    ,svcode21 ,   00,   
-*
-*** NOTE:BCD325P2 does NOT provide for Dly/rsm on an individual channel basis
-* Alert level of '0' is 'auto' (which gets loud!)
-* TGIDs are in KEY=VALUE form as most fields are not used for TGID records 
 *    #### All TGIDs for NYCOMCO (EDACS) system (1) ####
-FREQ     ,index=1,valid=1,channel=85,groupno=10,tgid=02-005,tgid_valid=1,service=NYCOMCO
-FREQ     ,index=2,valid=1,channel=86,groupno=10,tgid=02-006,tgid_valid=1,service=RadioTech262
-FREQ     ,index=3,valid=1,channel=87,groupno=10,tgid=02-007,tgid_valid=1,service=RadioTech263
-FREQ     ,index=4,valid=1,channel=88,groupno=8,tgid=02-023,tgid_valid=1,service=Oil Delivery
-FREQ     ,index=5,valid=1,channel=89,groupno=8,tgid=02-027,tgid_valid=1,service=Veterinarian
-FREQ     ,index=6,valid=1,channel=90,groupno=8,tgid=02-033,tgid_valid=1,service=Towing
-FREQ     ,index=7,valid=1,channel=91,groupno=8,tgid=02-035,tgid_valid=1,service=1st Student
-FREQ     ,index=8,valid=1,channel=92,groupno=8,tgid=02-055,tgid_valid=1,service=Dingees Tow
-FREQ     ,index=9,valid=1,channel=93,groupno=8,tgid=02-056,tgid_valid=1,service=Dingees Tow
-FREQ     ,index=10,valid=1,channel=94,groupno=8,tgid=02-066,tgid_valid=1,service=Radio repair
-FREQ     ,index=11,valid=1,channel=95,groupno=8,tgid=02-067,tgid_valid=1,service=Towing
-FREQ     ,index=12,valid=1,channel=96,groupno=8,tgid=02-081,tgid_valid=1,service=School Bus
-FREQ     ,index=13,valid=1,channel=97,groupno=8,tgid=02-082,tgid_valid=1,service=BCS Maintnce
-FREQ     ,index=14,valid=1,channel=98,groupno=8,tgid=02-085,tgid_valid=1,service=Juke Box Rpr
-FREQ     ,index=15,valid=1,channel=99,groupno=8,tgid=02-097,tgid_valid=1,service=Oil delivery
-FREQ     ,index=16,valid=1,channel=100,groupno=8,tgid=02-117,tgid_valid=1,service=Contractor
-FREQ     ,index=17,valid=1,channel=101,groupno=8,tgid=02-121,tgid_valid=1,service=Budget Tow
-FREQ     ,index=18,valid=1,channel=102,groupno=10,tgid=02-126,tgid_valid=1,service=NYCOMCO
-FREQ     ,index=19,valid=1,channel=103,groupno=8,tgid=02-127,tgid_valid=1,service=Remodelers
-FREQ     ,index=20,valid=1,channel=104,groupno=8,tgid=02-132,tgid_valid=1,service=Towing
-FREQ     ,index=21,valid=1,channel=105,groupno=8,tgid=02-133,tgid_valid=1,service=Towing
-FREQ     ,index=22,valid=1,channel=106,groupno=8,tgid=02-135,tgid_valid=1,service=Service Tow
-FREQ     ,index=23,valid=1,channel=107,groupno=8,tgid=02-136,tgid_valid=1,service=Towing
-FREQ     ,index=24,valid=1,channel=108,groupno=8,tgid=02-137,tgid_valid=1,service=Plumber
-FREQ     ,index=25,valid=1,channel=109,groupno=8,tgid=02-145,tgid_valid=1,service=Brower Taxi
-FREQ     ,index=26,valid=1,channel=110,groupno=8,tgid=02-152,tgid_valid=1,service=Pumber
-FREQ     ,index=27,valid=1,channel=111,groupno=8,tgid=02-155,tgid_valid=1,service=School Secur
-FREQ     ,index=28,valid=1,channel=112,groupno=8,tgid=02-156,tgid_valid=1,service=School Buses
-FREQ     ,index=29,valid=1,channel=113,groupno=7,tgid=03-022,tgid_valid=1,service=Hwy Dept
-FREQ     ,index=30,valid=1,channel=114,groupno=7,tgid=03-024,tgid_valid=1,service=Hwy Dept
-FREQ     ,index=31,valid=1,channel=130,groupno=8,tgid=03-072,tgid_valid=1,service=Aging Buses
-FREQ     ,index=32,valid=1,channel=148,groupno=3,tgid=04-012,tgid_valid=1,service=Reg Interop
-FREQ     ,index=33,valid=1,channel=171,groupno=3,tgid=04-050,tgid_valid=1,service=Police M/A
-FREQ     ,index=34,valid=1,channel=173,groupno=3,tgid=04-054,tgid_valid=1,service=NYS Parole
-FREQ     ,index=35,valid=1,channel=222,groupno=10,tgid=04-137,tgid_valid=1,service=Dvlpmt Assoc
-FREQ     ,index=36,valid=1,channel=255,groupno=3,tgid=06-016,tgid_valid=1,service=SUNY PD NP
-FREQ     ,index=37,valid=1,channel=256,groupno=3,tgid=06-017,tgid_valid=1,service=NewPaltz PD
-FREQ     ,index=38,valid=1,channel=257,groupno=3,tgid=06-021,tgid_valid=1,service=NewPaltzDisp
-FREQ     ,index=39,valid=1,channel=258,groupno=3,tgid=06-022,tgid_valid=1,service=NewPltzEmrg
-FREQ     ,index=40,valid=1,channel=259,groupno=3,tgid=06-024,tgid_valid=1,service=NewPaltz PD
-FREQ     ,index=41,valid=1,channel=260,groupno=3,tgid=06-025,tgid_valid=1,service=NewPaltz PD
-FREQ     ,index=42,valid=1,channel=261,dlyrsm=2,groupno=6,tgid=06-030,tgid_valid=1,emgalt=5,emglvl=4,service=Marlboro PD Dispatch
-FREQ     ,index=43,valid=1,channel=262,dlyrsm=1,groupno=6,tgid=06-031,tgid_valid=1,emgalt=7,emglvl=4,service=Marlboro PD Emergency
-FREQ     ,index=44,valid=1,channel=263,dlyrsm=1,groupno=6,tgid=i6031,tgid_valid=1,emgalt=4,emglvl=4,service=Marlboro PD I-Calls
-FREQ     ,index=45,valid=1,channel=264,dlyrsm=1,groupno=6,tgid=i6032,tgid_valid=1,emgalt=4,emglvl=4,service=Marlboro PD I-Calls
-FREQ     ,index=46,valid=1,channel=265,dlyrsm=1,groupno=6,tgid=i6033,tgid_valid=1,emgalt=4,emglvl=4,service=Marlboro PD I-Calls
-FREQ     ,index=47,valid=1,channel=266,dlyrsm=1,groupno=6,tgid=i6034,tgid_valid=1,service=Marlboro PD I-Calls
-FREQ     ,index=48,valid=1,channel=267,dlyrsm=1,groupno=6,tgid=i6035,tgid_valid=1,service=Marlboro PD I-Calls
-FREQ     ,index=49,valid=1,channel=268,dlyrsm=1,groupno=6,tgid=i6036,tgid_valid=1,service=Marlboro PD I-Calls
-FREQ     ,index=50,valid=1,channel=269,dlyrsm=1,groupno=6,tgid=i6067,tgid_valid=1,service=Marlboro PD I-Calls
-FREQ     ,index=51,valid=1,channel=270,dlyrsm=1,groupno=6,tgid=i6069,tgid_valid=1,service=Marlboro PD I-Calls
-FREQ     ,index=52,valid=1,channel=271,dlyrsm=1,groupno=6,tgid=i6255,tgid_valid=1,service=Marlboro PD I-Calls
-FREQ     ,index=53,valid=1,channel=272,dlyrsm=1,groupno=6,tgid=i6311,tgid_valid=1,service=Marlboro PD I-Calls
-FREQ     ,index=54,valid=1,channel=273,dlyrsm=1,groupno=6,tgid=i6533,tgid_valid=1,service=Marlboro PD I-Calls
-FREQ     ,index=55,valid=1,channel=274,dlyrsm=1,groupno=1,tgid=06-036,tgid_valid=1,service=UlsterMRD800
-FREQ     ,index=56,valid=1,channel=275,dlyrsm=1,groupno=1,tgid=06-037,tgid_valid=1,service=Ulster 911
-FREQ     ,index=57,valid=1,channel=276,groupno=3,tgid=06-041,tgid_valid=1,service=KingstonDisp
-FREQ     ,index=58,valid=1,channel=277,groupno=3,tgid=06-042,tgid_valid=1,service=KingstonEmrg
-FREQ     ,index=59,valid=1,channel=278,groupno=3,tgid=06-043,tgid_valid=1,service=Kingston c/c
-FREQ     ,index=60,valid=1,channel=279,groupno=3,tgid=06-044,tgid_valid=1,service=Kingston P2
-FREQ     ,index=61,valid=1,channel=280,groupno=3,tgid=06-045,tgid_valid=1,service=Kingston SE
-FREQ     ,index=62,valid=1,channel=281,groupno=3,tgid=06-046,tgid_valid=1,service=KingstonDet1
-FREQ     ,index=63,valid=1,channel=282,groupno=3,tgid=06-047,tgid_valid=1,service=KingstonTAC1
-FREQ     ,index=64,valid=1,channel=283,groupno=3,tgid=06-050,tgid_valid=1,service=KingstonTAC2
-FREQ     ,index=65,valid=1,channel=284,groupno=3,tgid=06-051,tgid_valid=1,service=KingstonCW1
-FREQ     ,index=66,valid=1,channel=285,groupno=3,tgid=06-053,tgid_valid=1,service=KingstonDet2
-FREQ     ,index=67,valid=1,channel=286,groupno=3,tgid=06-057,tgid_valid=1,service=KingstnNarc2
-FREQ     ,index=68,valid=1,channel=287,groupno=3,tgid=06-062,tgid_valid=1,service=Ulster Jail
-FREQ     ,index=69,valid=1,channel=288,groupno=3,tgid=06-063,tgid_valid=1,service=Ulster Jail
-FREQ     ,index=70,valid=1,channel=289,groupno=3,tgid=06-064,tgid_valid=1,service=Ulster Shrf
-FREQ     ,index=71,valid=1,channel=290,dlyrsm=1,groupno=2,tgid=06-066,tgid_valid=1,service=LloydPD Disp
-FREQ     ,index=72,valid=1,channel=291,groupno=2,tgid=06-067,tgid_valid=1,service=LloydPD Emrg
-FREQ     ,index=73,valid=1,channel=292,groupno=2,tgid=06-071,tgid_valid=1,service=Lloyd PD
-FREQ     ,index=74,valid=1,channel=293,groupno=10,tgid=06-074,tgid_valid=1,service=Ulster Bldg
-FREQ     ,index=75,valid=1,channel=294,groupno=10,tgid=06-075,tgid_valid=1,service=UlsterBdg Sc
-FREQ     ,index=76,valid=1,channel=295,groupno=10,tgid=06-077,tgid_valid=1,service=UC Family Court
-FREQ     ,index=77,valid=1,channel=296,groupno=3,tgid=06-084,tgid_valid=1,service=Twn UlsterPD
-FREQ     ,index=78,valid=1,channel=297,groupno=3,tgid=06-085,tgid_valid=1,service=Twn UlsterPD Tac1
-FREQ     ,index=79,valid=1,channel=298,groupno=3,tgid=06-090,tgid_valid=1,service=Twn UlsterPD Detv
-FREQ     ,index=80,valid=1,channel=299,groupno=3,tgid=06-091,tgid_valid=1,service=Twn UlsterPD Emrg
-FREQ     ,index=81,valid=1,channel=300,groupno=3,tgid=06-092,tgid_valid=1,service=Twn UlsterPD Tac2
-FREQ     ,index=82,valid=1,channel=301,groupno=10,tgid=06-093,tgid_valid=1,service=UC Mental Health
-FREQ     ,index=83,valid=1,channel=302,groupno=10,tgid=06-094,tgid_valid=1,service=UC Administration
-FREQ     ,index=84,valid=1,channel=303,groupno=1,tgid=06-097,tgid_valid=1,service=HighlandsCmd
-FREQ     ,index=85,valid=1,channel=304,groupno=7,tgid=06-101,tgid_valid=1,service=Twn Ulster Trafic
-FREQ     ,index=86,valid=1,channel=305,groupno=3,tgid=06-105,tgid_valid=1,service=Shwngk Twn
-FREQ     ,index=87,valid=1,channel=306,groupno=3,tgid=06-106,tgid_valid=1,service=Shwngk Twn
-FREQ     ,index=88,valid=1,channel=307,groupno=7,tgid=06-107,tgid_valid=1,service=Kngstn City Hiwy
-FREQ     ,index=89,valid=1,channel=308,groupno=7,tgid=06-112,tgid_valid=1,service=Kngstn City Park
-FREQ     ,index=90,valid=1,channel=309,groupno=7,tgid=06-113,tgid_valid=1,service=Kngstn City Bus
-FREQ     ,index=91,valid=1,channel=310,groupno=1,tgid=06-117,tgid_valid=1,service=Kngstn Cty Fire 1
-FREQ     ,index=92,valid=1,channel=311,groupno=1,tgid=06-120,tgid_valid=1,service=Kngstn Cty Fire
-FREQ     ,index=93,valid=1,channel=312,groupno=1,tgid=06-121,tgid_valid=1,service=Kngstn Cty Fire
-FREQ     ,index=94,valid=1,channel=313,groupno=1,tgid=06-122,tgid_valid=1,service=Kngstn Cty Fire
-FREQ     ,index=95,valid=1,channel=314,groupno=1,tgid=06-123,tgid_valid=1,service=Kngstn Cty Fire 2
-FREQ     ,index=96,valid=1,channel=315,groupno=7,tgid=06-126,tgid_valid=1,service=Kngstn Cty Water
-FREQ     ,index=97,valid=1,channel=316,groupno=8,tgid=07-021,tgid_valid=1,service=Med Lab
-FREQ     ,index=98,valid=1,channel=318,groupno=8,tgid=07-025,tgid_valid=1,service=Plumbng/Heat
-FREQ     ,index=99,valid=1,channel=319,groupno=8,tgid=07-031,tgid_valid=1,service=Plumbng/Heat
-FREQ     ,index=100,valid=1,channel=320,groupno=8,tgid=07-032,tgid_valid=1,service=Plumbng/Heat
-FREQ     ,index=101,valid=1,channel=321,groupno=8,tgid=07-036,tgid_valid=1,service=NYCOMCO
-FREQ     ,index=102,valid=1,channel=322,groupno=8,tgid=07-043,tgid_valid=1,service=Plumbng/Heat
-FREQ     ,index=103,valid=1,channel=323,groupno=8,tgid=07-045,tgid_valid=1,service=Oil Delivery
-FREQ     ,index=104,valid=1,channel=324,groupno=8,tgid=07-053,tgid_valid=1,service=Abbott Mills
-FREQ     ,index=105,valid=1,channel=325,groupno=8,tgid=07-054,tgid_valid=1,service=Abbott Mills
-FREQ     ,index=106,valid=1,channel=326,groupno=8,tgid=07-057,tgid_valid=1,service=Contractor
-FREQ     ,index=107,valid=1,channel=327,groupno=7,tgid=07-065,tgid_valid=1,service=Water
-FREQ     ,index=108,valid=1,channel=328,groupno=8,tgid=07-066,tgid_valid=1,service=Oil Company
-FREQ     ,index=109,valid=1,channel=329,groupno=8,tgid=07-071,tgid_valid=1,service=Landscaper
-FREQ     ,index=110,valid=1,channel=330,groupno=8,tgid=07-074,tgid_valid=1,service=Plumbng/Heat
-FREQ     ,index=111,valid=1,channel=331,groupno=8,tgid=07-075,tgid_valid=1,service=Plumbng/Heat
-FREQ     ,index=112,valid=1,channel=332,groupno=8,tgid=07-082,tgid_valid=1,service=Oil Delivery
-FREQ     ,index=113,valid=1,channel=333,groupno=8,tgid=07-102,tgid_valid=1,service=AStar HVAC
-FREQ     ,index=114,valid=1,channel=334,groupno=8,tgid=07-103,tgid_valid=1,service=Plumbng/Heat
-FREQ     ,index=115,valid=1,channel=335,groupno=8,tgid=07-105,tgid_valid=1,service=Bus
-FREQ     ,index=116,valid=1,channel=336,groupno=8,tgid=07-106,tgid_valid=1,service=Applnce Rpr
-FREQ     ,index=117,valid=1,channel=337,groupno=8,tgid=07-107,tgid_valid=1,service=Bus
-FREQ     ,index=118,valid=1,channel=338,groupno=8,tgid=07-116,tgid_valid=1,service=Towing
-FREQ     ,index=119,valid=1,channel=340,groupno=10,tgid=07-146,tgid_valid=1,service=CATV
-FREQ     ,index=120,valid=1,channel=341,groupno=8,tgid=07-151,tgid_valid=1,service=Towing
-FREQ     ,index=121,valid=1,channel=342,groupno=8,tgid=07-155,tgid_valid=1,service=Towing
-FREQ     ,index=122,valid=1,channel=343,groupno=8,tgid=07-156,tgid_valid=1,service=Trash Hauler
-FREQ     ,index=123,valid=1,channel=344,groupno=8,tgid=08-024,tgid_valid=1,service=Vending
-FREQ     ,index=124,valid=1,channel=345,groupno=8,tgid=08-025,tgid_valid=1,service=RegAmbulet
-FREQ     ,index=125,valid=1,channel=346,groupno=8,tgid=08-033,tgid_valid=1,service=Trash Hauler
-FREQ     ,index=126,valid=1,channel=347,groupno=8,tgid=08-042,tgid_valid=1,service=Contractor
-FREQ     ,index=127,valid=1,channel=348,groupno=8,tgid=08-043,tgid_valid=1,service=BiCent Pave
-FREQ     ,index=128,valid=1,channel=349,groupno=8,tgid=08-045,tgid_valid=1,service=RoyalCarting
-FREQ     ,index=129,valid=1,channel=350,groupno=8,tgid=08-066,tgid_valid=1,service=AB Pest
-FREQ     ,index=130,valid=1,channel=351,groupno=8,tgid=08-075,tgid_valid=1,service=School Maint
-FREQ     ,index=131,valid=1,channel=352,groupno=8,tgid=08-082,tgid_valid=1,service=Towing
-FREQ     ,index=132,valid=1,channel=353,groupno=8,tgid=08-087,tgid_valid=1,service=Oil Delivery
-FREQ     ,index=133,valid=1,channel=354,groupno=8,tgid=08-091,tgid_valid=1,service=BHS Security
-FREQ     ,index=134,valid=1,channel=355,groupno=8,tgid=08-107,tgid_valid=1,service=Towing
-FREQ     ,index=135,valid=1,channel=356,groupno=8,tgid=08-154,tgid_valid=1,service=Towing
-FREQ     ,index=136,valid=1,channel=357,groupno=8,tgid=09-001,tgid_valid=1,service=Heat/Propane
-FREQ     ,index=137,valid=1,channel=358,groupno=8,tgid=09-002,tgid_valid=1,service=Heat/Propane
-FREQ     ,index=138,valid=1,channel=359,groupno=8,tgid=09-034,tgid_valid=1,service=Towing
-FREQ     ,index=139,valid=1,groupno=5,tgid=01-021,tgid_valid=1,service=PkpsieTwn PD
-FREQ     ,index=140,valid=1,groupno=5,tgid=01-022,tgid_valid=1,service=PkpseTwnAdm
-FREQ     ,index=141,valid=1,groupno=5,tgid=01-023,tgid_valid=1,service=PkpseTwncar
-FREQ     ,index=142,valid=1,groupno=5,tgid=01-024,tgid_valid=1,service=PkpsieTwnDT1
-FREQ     ,index=143,valid=1,groupno=5,tgid=01-025,tgid_valid=1,service=PkpsieTwnTfc
-FREQ     ,index=144,valid=1,groupno=5,tgid=01-026,tgid_valid=1,service=PkpseTwnPDT
-FREQ     ,index=145,valid=1,groupno=5,tgid=01-027,tgid_valid=1,service=PkpseTwnTAC1
-FREQ     ,index=146,valid=1,groupno=5,tgid=01-030,tgid_valid=1,service=PkpseTwnTAC2
-FREQ     ,index=147,valid=1,groupno=5,tgid=01-032,tgid_valid=1,service=PkpsieTwnDT2
-FREQ     ,index=148,valid=1,groupno=5,tgid=01-033,tgid_valid=1,service=PkpseTwnLink
-FREQ     ,index=149,valid=1,groupno=5,tgid=01-034,tgid_valid=1,service=PkpseTwnEmrg
-FREQ     ,index=150,valid=1,groupno=5,tgid=01-035,tgid_valid=1,service=PkpsieTwn PD
-FREQ     ,index=151,valid=1,groupno=10,tgid=01-052,tgid_valid=1,service=Pkeepsie Bld
-FREQ     ,index=152,valid=1,groupno=4,tgid=01-056,tgid_valid=1,service=Pkeepsie TAC
-FREQ     ,index=153,valid=1,groupno=4,tgid=01-062,tgid_valid=1,service=Pkeepsie FG
-FREQ     ,index=154,valid=1,groupno=4,tgid=01-067,tgid_valid=1,service=Pkeepsie FD
-FREQ     ,index=155,valid=1,groupno=4,tgid=01-072,tgid_valid=1,service=Pkeepsie I/A
-FREQ     ,index=156,valid=1,groupno=4,tgid=01-081,tgid_valid=1,service=PkeepsiePt 1
-FREQ     ,index=157,valid=1,groupno=4,tgid=01-082,tgid_valid=1,service=PkeepsiePD
-FREQ     ,index=158,valid=1,groupno=4,tgid=01-083,tgid_valid=1,service=PkepsieEvnt2
-FREQ     ,index=159,valid=1,groupno=4,tgid=01-084,tgid_valid=1,service=PkeepsieEmrg
-FREQ     ,index=160,valid=1,groupno=4,tgid=01-085,tgid_valid=1,service=Pkeepsie c/c
-FREQ     ,index=161,valid=1,groupno=4,tgid=01-086,tgid_valid=1,service=PkepsieEvnt1
-FREQ     ,index=162,valid=1,groupno=4,tgid=01-087,tgid_valid=1,service=PkeepsieP DT
-FREQ     ,index=163,valid=1,groupno=4,tgid=01-090,tgid_valid=1,service=Pkeepsie DT
-FREQ     ,index=164,valid=1,groupno=4,tgid=01-091,tgid_valid=1,service=PkeepsiePt 2
-FREQ     ,index=165,valid=1,groupno=5,tgid=01-092,tgid_valid=1,service=PkeepsieTrf1
-FREQ     ,index=166,valid=1,groupno=5,tgid=01-094,tgid_valid=1,service=PkeepsieTrf2
-FREQ     ,index=167,valid=1,groupno=7,tgid=01-101,tgid_valid=1,service=PkpsieTwnHwy
-FREQ     ,index=168,valid=1,groupno=7,tgid=01-103,tgid_valid=1,service=PkpsieTwnWtr
-FREQ     ,index=169,valid=1,groupno=10,tgid=01-104,tgid_valid=1,service=PkpseTwn Swg
-FREQ     ,index=170,valid=1,groupno=5,tgid=01-106,tgid_valid=1,service=PkpTownwide
-FREQ     ,index=171,valid=1,groupno=7,tgid=01-107,tgid_valid=1,service=PkpseTwnPark
-FREQ     ,index=172,valid=1,groupno=7,tgid=01-110,tgid_valid=1,service=PkpseTwnBldg
-FREQ     ,index=173,valid=1,groupno=9,tgid=03-027,tgid_valid=1,service=HydePark PD
-FREQ     ,index=174,valid=1,groupno=9,tgid=03-031,tgid_valid=1,service=HydePark TAC
-FREQ     ,index=175,valid=1,groupno=9,tgid=03-032,tgid_valid=1,service=HydePark c/c
-FREQ     ,index=176,valid=1,groupno=9,tgid=03-033,tgid_valid=1,service=HydeParkServ
-FREQ     ,index=177,valid=1,groupno=9,tgid=03-041,tgid_valid=1,service=DC DrugTask
-FREQ     ,index=178,valid=1,groupno=9,tgid=03-042,tgid_valid=1,service=DC DrugTask
-FREQ     ,index=179,valid=1,groupno=9,tgid=03-043,tgid_valid=1,service=DC DrugTask
-FREQ     ,index=180,valid=1,groupno=9,tgid=03-045,tgid_valid=1,service=DC DrugTask
-FREQ     ,index=181,valid=1,groupno=7,tgid=03-051,tgid_valid=1,service=Wppngrs Hwy
-FREQ     ,index=182,valid=1,groupno=9,tgid=03-061,tgid_valid=1,service=Beacon PD Ch. 3
-FREQ     ,index=183,valid=1,groupno=9,tgid=03-065,tgid_valid=1,service=Beacon PD Ch. 4
-FREQ     ,index=184,valid=1,groupno=9,tgid=03-066,tgid_valid=1,service=Beacon PD TAC 1
-FREQ     ,index=185,valid=1,groupno=9,tgid=03-067,tgid_valid=1,service=Beacon PD TAC 2
-FREQ     ,index=186,valid=1,groupno=9,tgid=03-070,tgid_valid=1,service=Beacon PD Detect
-FREQ     ,index=187,valid=1,groupno=9,tgid=03-071,tgid_valid=1,service=Beacon PD/ Nwbrg
-FREQ     ,index=188,valid=1,groupno=9,tgid=03-073,tgid_valid=1,service=BCPD/Fishkil
-FREQ     ,index=189,valid=1,groupno=9,tgid=03-074,tgid_valid=1,service=Beacon PD Citywide
-FREQ     ,index=190,valid=1,groupno=9,tgid=03-075,tgid_valid=1,service=Beacon TAC
-FREQ     ,index=191,valid=1,groupno=9,tgid=03-077,tgid_valid=1,service=DutcCoSh Tac
-FREQ     ,index=192,valid=1,groupno=7,tgid=03-084,tgid_valid=1,service=Bldg Inspect
-FREQ     ,index=193,valid=1,groupno=9,tgid=03-085,tgid_valid=1,service=DutcCoSh Car
-FREQ     ,index=194,valid=1,groupno=7,tgid=03-087,tgid_valid=1,service=Bldg Dept
-FREQ     ,index=195,valid=1,groupno=9,tgid=03-091,tgid_valid=1,service=DutchCo 911
-FREQ     ,index=196,valid=1,groupno=9,tgid=03-092,tgid_valid=1,service=Fishkill Bas6
-FREQ     ,index=197,valid=1,groupno=9,tgid=03-093,tgid_valid=1,service=Fishkill PD
-FREQ     ,index=198,valid=1,groupno=9,tgid=03-094,tgid_valid=1,service=Fishkill PD
+FREQ     ,index=1,valid=1,tgid=02-005,groupno=10,tgid_valid=1,service=NYCOMCO
+FREQ     ,index=2,valid=1,tgid=02-006,groupno=10,tgid_valid=1,service=RadioTech262
+FREQ     ,index=3,valid=1,tgid=02-007,groupno=10,tgid_valid=1,service=RadioTech263
+FREQ     ,index=4,valid=1,tgid=02-023,groupno=8,tgid_valid=1,service=Oil Delivery
+FREQ     ,index=5,valid=1,tgid=02-027,groupno=8,tgid_valid=1,service=Veterinarian
+FREQ     ,index=6,valid=1,tgid=02-033,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=7,valid=1,tgid=02-035,groupno=8,tgid_valid=1,service=1st Student
+FREQ     ,index=8,valid=1,tgid=02-055,groupno=8,tgid_valid=1,service=Dingees Tow
+FREQ     ,index=9,valid=1,tgid=02-056,groupno=8,tgid_valid=1,service=Dingees Tow
+FREQ     ,index=10,valid=1,tgid=02-066,groupno=8,tgid_valid=1,service=Radio repair
+FREQ     ,index=11,valid=1,tgid=02-067,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=12,valid=1,tgid=02-081,groupno=8,tgid_valid=1,service=School Bus
+FREQ     ,index=13,valid=1,tgid=02-082,groupno=8,tgid_valid=1,service=BCS Maintnce
+FREQ     ,index=14,valid=1,tgid=02-085,groupno=8,tgid_valid=1,service=Juke Box Rpr
+FREQ     ,index=15,valid=1,tgid=02-097,groupno=8,tgid_valid=1,service=Oil delivery
+FREQ     ,index=16,valid=1,tgid=02-117,groupno=8,tgid_valid=1,service=Contractor
+FREQ     ,index=17,valid=1,tgid=02-121,groupno=8,tgid_valid=1,service=Budget Tow
+FREQ     ,index=18,valid=1,tgid=02-126,groupno=10,tgid_valid=1,service=NYCOMCO
+FREQ     ,index=19,valid=1,tgid=02-127,groupno=8,tgid_valid=1,service=Remodelers
+FREQ     ,index=20,valid=1,tgid=02-132,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=21,valid=1,tgid=02-133,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=22,valid=1,tgid=02-135,groupno=8,tgid_valid=1,service=Service Tow
+FREQ     ,index=23,valid=1,tgid=02-136,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=24,valid=1,tgid=02-137,groupno=8,tgid_valid=1,service=Plumber
+FREQ     ,index=25,valid=1,tgid=02-145,groupno=8,tgid_valid=1,service=Brower Taxi
+FREQ     ,index=26,valid=1,tgid=02-152,groupno=8,tgid_valid=1,service=Pumber
+FREQ     ,index=27,valid=1,tgid=02-155,groupno=8,tgid_valid=1,service=School Secur
+FREQ     ,index=28,valid=1,tgid=02-156,groupno=8,tgid_valid=1,service=School Buses
+FREQ     ,index=29,valid=1,tgid=03-022,groupno=7,tgid_valid=1,service=Hwy Dept
+FREQ     ,index=30,valid=1,tgid=03-024,groupno=7,tgid_valid=1,service=Hwy Dept
+FREQ     ,index=31,valid=1,tgid=03-072,groupno=8,tgid_valid=1,service=Aging Buses
+FREQ     ,index=32,valid=1,tgid=04-012,groupno=3,tgid_valid=1,service=Reg Interop
+FREQ     ,index=33,valid=1,tgid=04-050,groupno=3,tgid_valid=1,service=Police M/A
+FREQ     ,index=34,valid=1,tgid=04-054,groupno=3,tgid_valid=1,service=NYS Parole
+FREQ     ,index=35,valid=1,tgid=04-137,groupno=10,tgid_valid=1,service=Dvlpmt Assoc
+FREQ     ,index=36,valid=1,tgid=06-016,groupno=3,tgid_valid=1,service=SUNY PD NP
+FREQ     ,index=37,valid=1,tgid=06-017,groupno=3,tgid_valid=1,service=NewPaltz PD
+FREQ     ,index=38,valid=1,tgid=06-021,groupno=3,tgid_valid=1,service=NewPaltzDisp
+FREQ     ,index=39,valid=1,tgid=06-022,groupno=3,tgid_valid=1,service=NewPltzEmrg
+FREQ     ,index=40,valid=1,tgid=06-024,groupno=3,tgid_valid=1,service=NewPaltz PD
+FREQ     ,index=41,valid=1,tgid=06-025,groupno=3,tgid_valid=1,service=NewPaltz PD
+FREQ     ,index=42,valid=1,dlyrsm=2,tgid=06-030,groupno=6,tgid_valid=1,emgalt=5,emglvl=4,service=Marlboro PD Dispatch
+FREQ     ,index=43,valid=1,dlyrsm=1,tgid=06-031,groupno=6,tgid_valid=1,emgalt=7,emglvl=4,service=Marlboro PD Emergency
+FREQ     ,index=44,valid=1,dlyrsm=1,tgid=i6031,groupno=6,tgid_valid=1,emgalt=4,emglvl=4,service=Marlboro PD I-Calls
+FREQ     ,index=45,valid=1,dlyrsm=1,tgid=i6032,groupno=6,tgid_valid=1,emgalt=4,emglvl=4,service=Marlboro PD I-Calls
+FREQ     ,index=46,valid=1,dlyrsm=1,tgid=i6033,groupno=6,tgid_valid=1,emgalt=4,emglvl=4,service=Marlboro PD I-Calls
+FREQ     ,index=47,valid=1,dlyrsm=1,tgid=i6034,groupno=6,tgid_valid=1,service=Marlboro PD I-Calls
+FREQ     ,index=48,valid=1,dlyrsm=1,tgid=i6035,groupno=6,tgid_valid=1,service=Marlboro PD I-Calls
+FREQ     ,index=49,valid=1,dlyrsm=1,tgid=i6036,groupno=6,tgid_valid=1,service=Marlboro PD I-Calls
+FREQ     ,index=50,valid=1,dlyrsm=1,tgid=i6067,groupno=6,tgid_valid=1,service=Marlboro PD I-Calls
+FREQ     ,index=51,valid=1,dlyrsm=1,tgid=i6069,groupno=6,tgid_valid=1,service=Marlboro PD I-Calls
+FREQ     ,index=52,valid=1,dlyrsm=1,tgid=i6255,groupno=6,tgid_valid=1,service=Marlboro PD I-Calls
+FREQ     ,index=53,valid=1,dlyrsm=1,tgid=i6311,groupno=6,tgid_valid=1,service=Marlboro PD I-Calls
+FREQ     ,index=54,valid=1,dlyrsm=1,tgid=i6533,groupno=6,tgid_valid=1,service=Marlboro PD I-Calls
+FREQ     ,index=55,valid=1,dlyrsm=1,tgid=06-036,groupno=1,tgid_valid=1,service=UlsterMRD800
+FREQ     ,index=56,valid=1,dlyrsm=1,tgid=06-037,groupno=1,tgid_valid=1,service=Ulster 911
+FREQ     ,index=57,valid=1,tgid=06-041,groupno=3,tgid_valid=1,service=KingstonDisp
+FREQ     ,index=58,valid=1,tgid=06-042,groupno=3,tgid_valid=1,service=KingstonEmrg
+FREQ     ,index=59,valid=1,tgid=06-043,groupno=3,tgid_valid=1,service=Kingston c/c
+FREQ     ,index=60,valid=1,tgid=06-044,groupno=3,tgid_valid=1,service=Kingston P2
+FREQ     ,index=61,valid=1,tgid=06-045,groupno=3,tgid_valid=1,service=Kingston SE
+FREQ     ,index=62,valid=1,tgid=06-046,groupno=3,tgid_valid=1,service=KingstonDet1
+FREQ     ,index=63,valid=1,tgid=06-047,groupno=3,tgid_valid=1,service=KingstonTAC1
+FREQ     ,index=64,valid=1,tgid=06-050,groupno=3,tgid_valid=1,service=KingstonTAC2
+FREQ     ,index=65,valid=1,tgid=06-051,groupno=3,tgid_valid=1,service=KingstonCW1
+FREQ     ,index=66,valid=1,tgid=06-053,groupno=3,tgid_valid=1,service=KingstonDet2
+FREQ     ,index=67,valid=1,tgid=06-057,groupno=3,tgid_valid=1,service=KingstnNarc2
+FREQ     ,index=68,valid=1,tgid=06-062,groupno=3,tgid_valid=1,service=Ulster Jail
+FREQ     ,index=69,valid=1,tgid=06-063,groupno=3,tgid_valid=1,service=Ulster Jail
+FREQ     ,index=70,valid=1,tgid=06-064,groupno=3,tgid_valid=1,service=Ulster Shrf
+FREQ     ,index=71,valid=1,dlyrsm=1,tgid=06-066,groupno=2,tgid_valid=1,service=LloydPD Disp
+FREQ     ,index=72,valid=1,tgid=06-067,groupno=2,tgid_valid=1,service=LloydPD Emrg
+FREQ     ,index=73,valid=1,tgid=06-071,groupno=2,tgid_valid=1,service=Lloyd PD
+FREQ     ,index=74,valid=1,tgid=06-074,groupno=10,tgid_valid=1,service=Ulster Bldg
+FREQ     ,index=75,valid=1,tgid=06-075,groupno=10,tgid_valid=1,service=UlsterBdg Sc
+FREQ     ,index=76,valid=1,tgid=06-077,groupno=10,tgid_valid=1,service=UC Family Court
+FREQ     ,index=77,valid=1,tgid=06-084,groupno=3,tgid_valid=1,service=Twn UlsterPD
+FREQ     ,index=78,valid=1,tgid=06-085,groupno=3,tgid_valid=1,service=Twn UlsterPD Tac1
+FREQ     ,index=79,valid=1,tgid=06-090,groupno=3,tgid_valid=1,service=Twn UlsterPD Detv
+FREQ     ,index=80,valid=1,tgid=06-091,groupno=3,tgid_valid=1,service=Twn UlsterPD Emrg
+FREQ     ,index=81,valid=1,tgid=06-092,groupno=3,tgid_valid=1,service=Twn UlsterPD Tac2
+FREQ     ,index=82,valid=1,tgid=06-093,groupno=10,tgid_valid=1,service=UC Mental Health
+FREQ     ,index=83,valid=1,tgid=06-094,groupno=10,tgid_valid=1,service=UC Administration
+FREQ     ,index=84,valid=1,tgid=06-097,groupno=1,tgid_valid=1,service=HighlandsCmd
+FREQ     ,index=85,valid=1,tgid=06-101,groupno=7,tgid_valid=1,service=Twn Ulster Trafic
+FREQ     ,index=86,valid=1,tgid=06-105,groupno=3,tgid_valid=1,service=Shwngk Twn
+FREQ     ,index=87,valid=1,tgid=06-106,groupno=3,tgid_valid=1,service=Shwngk Twn
+FREQ     ,index=88,valid=1,tgid=06-107,groupno=7,tgid_valid=1,service=Kngstn City Hiwy
+FREQ     ,index=89,valid=1,tgid=06-112,groupno=7,tgid_valid=1,service=Kngstn City Park
+FREQ     ,index=90,valid=1,tgid=06-113,groupno=7,tgid_valid=1,service=Kngstn City Bus
+FREQ     ,index=91,valid=1,tgid=06-117,groupno=1,tgid_valid=1,service=Kngstn Cty Fire 1
+FREQ     ,index=92,valid=1,tgid=06-120,groupno=1,tgid_valid=1,service=Kngstn Cty Fire
+FREQ     ,index=93,valid=1,tgid=06-121,groupno=1,tgid_valid=1,service=Kngstn Cty Fire
+FREQ     ,index=94,valid=1,tgid=06-122,groupno=1,tgid_valid=1,service=Kngstn Cty Fire
+FREQ     ,index=95,valid=1,tgid=06-123,groupno=1,tgid_valid=1,service=Kngstn Cty Fire 2
+FREQ     ,index=96,valid=1,tgid=06-126,groupno=7,tgid_valid=1,service=Kngstn Cty Water
+FREQ     ,index=97,valid=1,tgid=07-021,groupno=8,tgid_valid=1,service=Med Lab
+FREQ     ,index=98,valid=1,tgid=07-025,groupno=8,tgid_valid=1,service=Plumbng/Heat
+FREQ     ,index=99,valid=1,tgid=07-031,groupno=8,tgid_valid=1,service=Plumbng/Heat
+FREQ     ,index=100,valid=1,tgid=07-032,groupno=8,tgid_valid=1,service=Plumbng/Heat
+FREQ     ,index=101,valid=1,tgid=07-036,groupno=8,tgid_valid=1,service=NYCOMCO
+FREQ     ,index=102,valid=1,tgid=07-043,groupno=8,tgid_valid=1,service=Plumbng/Heat
+FREQ     ,index=103,valid=1,tgid=07-045,groupno=8,tgid_valid=1,service=Oil Delivery
+FREQ     ,index=104,valid=1,tgid=07-053,groupno=8,tgid_valid=1,service=Abbott Mills
+FREQ     ,index=105,valid=1,tgid=07-054,groupno=8,tgid_valid=1,service=Abbott Mills
+FREQ     ,index=106,valid=1,tgid=07-057,groupno=8,tgid_valid=1,service=Contractor
+FREQ     ,index=107,valid=1,tgid=07-065,groupno=7,tgid_valid=1,service=Water
+FREQ     ,index=108,valid=1,tgid=07-066,groupno=8,tgid_valid=1,service=Oil Company
+FREQ     ,index=109,valid=1,tgid=07-071,groupno=8,tgid_valid=1,service=Landscaper
+FREQ     ,index=110,valid=1,tgid=07-074,groupno=8,tgid_valid=1,service=Plumbng/Heat
+FREQ     ,index=111,valid=1,tgid=07-075,groupno=8,tgid_valid=1,service=Plumbng/Heat
+FREQ     ,index=112,valid=1,tgid=07-082,groupno=8,tgid_valid=1,service=Oil Delivery
+FREQ     ,index=113,valid=1,tgid=07-102,groupno=8,tgid_valid=1,service=AStar HVAC
+FREQ     ,index=114,valid=1,tgid=07-103,groupno=8,tgid_valid=1,service=Plumbng/Heat
+FREQ     ,index=115,valid=1,tgid=07-105,groupno=8,tgid_valid=1,service=Bus
+FREQ     ,index=116,valid=1,tgid=07-106,groupno=8,tgid_valid=1,service=Applnce Rpr
+FREQ     ,index=117,valid=1,tgid=07-107,groupno=8,tgid_valid=1,service=Bus
+FREQ     ,index=118,valid=1,tgid=07-116,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=119,valid=1,tgid=07-146,groupno=10,tgid_valid=1,service=CATV
+FREQ     ,index=120,valid=1,tgid=07-151,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=121,valid=1,tgid=07-155,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=122,valid=1,tgid=07-156,groupno=8,tgid_valid=1,service=Trash Hauler
+FREQ     ,index=123,valid=1,tgid=08-024,groupno=8,tgid_valid=1,service=Vending
+FREQ     ,index=124,valid=1,tgid=08-025,groupno=8,tgid_valid=1,service=RegAmbulet
+FREQ     ,index=125,valid=1,tgid=08-033,groupno=8,tgid_valid=1,service=Trash Hauler
+FREQ     ,index=126,valid=1,tgid=08-042,groupno=8,tgid_valid=1,service=Contractor
+FREQ     ,index=127,valid=1,tgid=08-043,groupno=8,tgid_valid=1,service=BiCent Pave
+FREQ     ,index=128,valid=1,tgid=08-045,groupno=8,tgid_valid=1,service=RoyalCarting
+FREQ     ,index=129,valid=1,tgid=08-066,groupno=8,tgid_valid=1,service=AB Pest
+FREQ     ,index=130,valid=1,tgid=08-075,groupno=8,tgid_valid=1,service=School Maint
+FREQ     ,index=131,valid=1,tgid=08-082,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=132,valid=1,tgid=08-087,groupno=8,tgid_valid=1,service=Oil Delivery
+FREQ     ,index=133,valid=1,tgid=08-091,groupno=8,tgid_valid=1,service=BHS Security
+FREQ     ,index=134,valid=1,tgid=08-107,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=135,valid=1,tgid=08-154,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=136,valid=1,tgid=09-001,groupno=8,tgid_valid=1,service=Heat/Propane
+FREQ     ,index=137,valid=1,tgid=09-002,groupno=8,tgid_valid=1,service=Heat/Propane
+FREQ     ,index=138,valid=1,tgid=09-034,groupno=8,tgid_valid=1,service=Towing
+FREQ     ,index=139,valid=1,tgid=01-021,groupno=5,tgid_valid=1,service=PkpsieTwn PD
+FREQ     ,index=140,valid=1,tgid=01-022,groupno=5,tgid_valid=1,service=PkpseTwnAdm
+FREQ     ,index=141,valid=1,tgid=01-023,groupno=5,tgid_valid=1,service=PkpseTwncar
+FREQ     ,index=142,valid=1,tgid=01-024,groupno=5,tgid_valid=1,service=PkpsieTwnDT1
+FREQ     ,index=143,valid=1,tgid=01-025,groupno=5,tgid_valid=1,service=PkpsieTwnTfc
+FREQ     ,index=144,valid=1,tgid=01-026,groupno=5,tgid_valid=1,service=PkpseTwnPDT
+FREQ     ,index=145,valid=1,tgid=01-027,groupno=5,tgid_valid=1,service=PkpseTwnTAC1
+FREQ     ,index=146,valid=1,tgid=01-030,groupno=5,tgid_valid=1,service=PkpseTwnTAC2
+FREQ     ,index=147,valid=1,tgid=01-032,groupno=5,tgid_valid=1,service=PkpsieTwnDT2
+FREQ     ,index=148,valid=1,tgid=01-033,groupno=5,tgid_valid=1,service=PkpseTwnLink
+FREQ     ,index=149,valid=1,tgid=01-034,groupno=5,tgid_valid=1,service=PkpseTwnEmrg
+FREQ     ,index=150,valid=1,tgid=01-035,groupno=5,tgid_valid=1,service=PkpsieTwn PD
+FREQ     ,index=151,valid=1,tgid=01-052,groupno=10,tgid_valid=1,service=Pkeepsie Bld
+FREQ     ,index=152,valid=1,tgid=01-056,groupno=4,tgid_valid=1,service=Pkeepsie TAC
+FREQ     ,index=153,valid=1,tgid=01-062,groupno=4,tgid_valid=1,service=Pkeepsie FG
+FREQ     ,index=154,valid=1,tgid=01-067,groupno=4,tgid_valid=1,service=Pkeepsie FD
+FREQ     ,index=155,valid=1,tgid=01-072,groupno=4,tgid_valid=1,service=Pkeepsie I/A
+FREQ     ,index=156,valid=1,tgid=01-081,groupno=4,tgid_valid=1,service=PkeepsiePt 1
+FREQ     ,index=157,valid=1,tgid=01-082,groupno=4,tgid_valid=1,service=PkeepsiePD
+FREQ     ,index=158,valid=1,tgid=01-083,groupno=4,tgid_valid=1,service=PkepsieEvnt2
+FREQ     ,index=159,valid=1,tgid=01-084,groupno=4,tgid_valid=1,service=PkeepsieEmrg
+FREQ     ,index=160,valid=1,tgid=01-085,groupno=4,tgid_valid=1,service=Pkeepsie c/c
+FREQ     ,index=161,valid=1,tgid=01-086,groupno=4,tgid_valid=1,service=PkepsieEvnt1
+FREQ     ,index=162,valid=1,tgid=01-087,groupno=4,tgid_valid=1,service=PkeepsieP DT
+FREQ     ,index=163,valid=1,tgid=01-090,groupno=4,tgid_valid=1,service=Pkeepsie DT
+FREQ     ,index=164,valid=1,tgid=01-091,groupno=4,tgid_valid=1,service=PkeepsiePt 2
+FREQ     ,index=165,valid=1,tgid=01-092,groupno=5,tgid_valid=1,service=PkeepsieTrf1
+FREQ     ,index=166,valid=1,tgid=01-094,groupno=5,tgid_valid=1,service=PkeepsieTrf2
+FREQ     ,index=167,valid=1,tgid=01-101,groupno=7,tgid_valid=1,service=PkpsieTwnHwy
+FREQ     ,index=168,valid=1,tgid=01-103,groupno=7,tgid_valid=1,service=PkpsieTwnWtr
+FREQ     ,index=169,valid=1,tgid=01-104,groupno=10,tgid_valid=1,service=PkpseTwn Swg
+FREQ     ,index=170,valid=1,tgid=01-106,groupno=5,tgid_valid=1,service=PkpTownwide
+FREQ     ,index=171,valid=1,tgid=01-107,groupno=7,tgid_valid=1,service=PkpseTwnPark
+FREQ     ,index=172,valid=1,tgid=01-110,groupno=7,tgid_valid=1,service=PkpseTwnBldg
+FREQ     ,index=173,valid=1,tgid=03-027,groupno=9,tgid_valid=1,service=HydePark PD
+FREQ     ,index=174,valid=1,tgid=03-031,groupno=9,tgid_valid=1,service=HydePark TAC
+FREQ     ,index=175,valid=1,tgid=03-032,groupno=9,tgid_valid=1,service=HydePark c/c
+FREQ     ,index=176,valid=1,tgid=03-033,groupno=9,tgid_valid=1,service=HydeParkServ
+FREQ     ,index=177,valid=1,tgid=03-041,groupno=9,tgid_valid=1,service=DC DrugTask
+FREQ     ,index=178,valid=1,tgid=03-042,groupno=9,tgid_valid=1,service=DC DrugTask
+FREQ     ,index=179,valid=1,tgid=03-043,groupno=9,tgid_valid=1,service=DC DrugTask
+FREQ     ,index=180,valid=1,tgid=03-045,groupno=9,tgid_valid=1,service=DC DrugTask
+FREQ     ,index=181,valid=1,tgid=03-051,groupno=7,tgid_valid=1,service=Wppngrs Hwy
+FREQ     ,index=182,valid=1,tgid=03-061,groupno=9,tgid_valid=1,service=Beacon PD Ch. 3
+FREQ     ,index=183,valid=1,tgid=03-065,groupno=9,tgid_valid=1,service=Beacon PD Ch. 4
+FREQ     ,index=184,valid=1,tgid=03-066,groupno=9,tgid_valid=1,service=Beacon PD TAC 1
+FREQ     ,index=185,valid=1,tgid=03-067,groupno=9,tgid_valid=1,service=Beacon PD TAC 2
+FREQ     ,index=186,valid=1,tgid=03-070,groupno=9,tgid_valid=1,service=Beacon PD Detect
+FREQ     ,index=187,valid=1,tgid=03-071,groupno=9,tgid_valid=1,service=Beacon PD/ Nwbrg
+FREQ     ,index=188,valid=1,tgid=03-073,groupno=9,tgid_valid=1,service=BCPD/Fishkil
+FREQ     ,index=189,valid=1,tgid=03-074,groupno=9,tgid_valid=1,service=Beacon PD Citywide
+FREQ     ,index=190,valid=1,tgid=03-075,groupno=9,tgid_valid=1,service=Beacon TAC
+FREQ     ,index=191,valid=1,tgid=03-077,groupno=9,tgid_valid=1,service=DutcCoSh Tac
+FREQ     ,index=192,valid=1,tgid=03-084,groupno=7,tgid_valid=1,service=Bldg Inspect
+FREQ     ,index=193,valid=1,tgid=03-085,groupno=9,tgid_valid=1,service=DutcCoSh Car
+FREQ     ,index=194,valid=1,tgid=03-087,groupno=7,tgid_valid=1,service=Bldg Dept
+FREQ     ,index=195,valid=1,tgid=03-091,groupno=9,tgid_valid=1,service=DutchCo 911
+FREQ     ,index=196,valid=1,tgid=03-092,groupno=9,tgid_valid=1,service=Fishkill Bas6
+FREQ     ,index=197,valid=1,tgid=03-093,groupno=9,tgid_valid=1,service=Fishkill PD
+FREQ     ,index=198,valid=1,tgid=03-094,groupno=9,tgid_valid=1,service=Fishkill PD
 ### Additional active TGIDs
-FREQ     ,index=199,valid=1,groupno=7,tgid=05-074,tgid_valid=1,service=Nwbg Twn HiWy
-FREQ     ,index=200,valid=1,groupno=7,tgid=05-075,tgid_valid=1,service=Nwbg Twn HiWy
-FREQ     ,index=201,valid=1,groupno=7,tgid=05-076,tgid_valid=1,service=Nwbg Twn Rec
-FREQ     ,index=202,valid=1,groupno=7,tgid=05-082,tgid_valid=1,service=Nwbg Water
+FREQ     ,index=199,valid=1,tgid=05-074,groupno=7,tgid_valid=1,service=Nwbg Twn HiWy
+FREQ     ,index=200,valid=1,tgid=05-075,groupno=7,tgid_valid=1,service=Nwbg Twn HiWy
+FREQ     ,index=201,valid=1,tgid=05-076,groupno=7,tgid_valid=1,service=Nwbg Twn Rec
+FREQ     ,index=202,valid=1,tgid=05-082,groupno=7,tgid_valid=1,service=Nwbg Water
 
