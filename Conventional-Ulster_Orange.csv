@@ -1,4 +1,4 @@
-*RadioCtl   Data file generated: 09/05/2023 11:33am
+*RadioCtl   Data file generated: 09/26/2023 05:13am
 *
 *:QUICKKEY: SYSTEM_QK:01  (sysno=1 name=Ulster_Orange Conv)
 *
@@ -56,11 +56,11 @@
 *      'h'-AGC_digital, 'i'-id_search (trunked systems), 'j'-AGC_analog, 'k'-data skip 
 *      'o'-Control Channel only, 'p'-Turn on priority 
 *  Dlyrsm:A number between -10 and +30. Negative number is Resume. 0 is Off
-*  Sysno:System record index. Required for Site & Group records
-*  Siteno:Site record Index. Required for TFreq records
-*  Groupno:Group record Index. Required for Freq records
+*  Sysno:SYSTEM record index. Required for SITE & GROUP records
+*  Siteno:SITE record Index. Required for TFREQ records
+*  Groupno:GROUP record Index. Required for FREQ records
 *  Hld:(System/Site records). Time in seconds to hold on the system or site
-*  Frequency:(Freq & TFreq records). Can be in Hz or MHz. MHz must have decimal point
+*  Frequency:(FREQ & TFREQ records). Can be in Hz or MHz. MHz must have decimal point
 *  Mode:Modulation:AM,FMw (Broadcast),FMn,FMun(2.5khz),LSB,USB
 *  Lat/Lon: Decimal value  or DMS (DD:MM:SS.SS:direction)
 *  P25wait:Time in ms to wait for a P25 decode to complete
@@ -68,7 +68,7 @@
 *  Channel - RadioCtl channel number. 0-9999 
 *  _Extra field: ADTYPE=x - Uniden Audio type (0,1 or 2) UTAG=x - Uniden User tag (0-1000)
 *                EMGALT=x - Uniden Emergency Alert (0-9) EMGLVL=x - Uniden Alert Level (0-15)
-*                SVCODE - SDS200 Service code           RFGAIN=x - R30 Gain (0-9)
+*                SVCODE - SDS200 Service code           RFGAIN=x - R30 Gain (1-10)
 *
 *Keywords are not case sensitive
 *For keyword=value format, any keyword for the record not specified will be set to the default
@@ -94,9 +94,8 @@ GROUP    ,    9,EMS                           ,    1,    1,         ,    ,scangr
 GROUP    ,   10,Ulster Other                  ,    1,    1,         ,    ,          ,   0 ### No scan for IC-705
 *
 *    #### All Frequencies for Ulster_Orange Conv system (1) ####
-#:freq:index,service,valid,groupno,flags,channel,frequency,mode,tgid,tone,tone_type,dlyrsm,_extra,adtype,lat,lon,_rsvd,sfrequency,smode,stone,stone_type,
-*FREQ    ,index,service                       ,valid,group,    flags,chan,  frequency,  mode,    tgid,  tone,tone_type,dlyrsm,_extra    ,  adtype,lat         ,lon         ,_rsv,sfrequency, smode, stone,stone_type
-#                                                              flags  ch    freq      mode   tgid      tone    tone-type dlyrsm extra sfreq   smode  stone stone-type lat lon
+#:freq:index,service,valid,groupno,flags,channel,frequency,mode,tgid,tone,tone_type,dlyrsm,_extra,adtype,sfrequency,smode,stone,stone_type,
+*FREQ    ,index,service                       ,valid,group,    flags,chan,  frequency,  mode,    tgid,  tone,tone_type,dlyrsm,_extra    ,  adtype,sfrequency, smode, stone,stone_type
 FREQ     ,    1,UC Fire Control               ,    1,    1,        2, 101,  46.460000,   FMn,        ,   Off,      off,     1,rfgain=5  ,     all
 # These are probably not used anymore, and they get a lot of interference from DC Fire, So they are marked as NOT valid
 FREQ     ,    2,UC Fire F4                    ,    0,    1,         , 102,  46.280000,   FMn,        ,   Off,      off,     1,rfgain=5  ,     all
