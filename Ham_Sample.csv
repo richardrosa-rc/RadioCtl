@@ -1,0 +1,91 @@
+*RadioCtl   Data file generated:10/24/23
+*
+*:RADIO: ICOM/Kenwood
+* 
+*:START:
+*  These are sample HAM radio frequencies that can be used in transmitting Radios.
+*
+*:END:
+*
+*
+*********** RadioCtl Data Records *****************
+* Records are in the format: 
+*record_type,field1,field2,field3,....
+*     or 
+*record_type,key1=value,key2=value,...
+* records starting with '*' or '#' are ignored
+*rectypes:System,Site,TFreq,Group,Freq    (all case insensitive)
+* At least one 'System' record is required for each file
+*
+*fields/keys:
+*  Index: Unique number for the record
+*  Valid: If 'F','0','N', record will not be scanned or selected in the radio
+*  Service: Any string with any characters except ',','#' or '"' 
+*  SystemType: (SYSTEM Records) =>cnv,ltr,eds,edw,edn,mots,motc,trbo,p25s,p25f,p25f,dmr,nxdn
+*  Flags:Single Character turns on item. 
+*    Flags for FREQ records: 
+*      'a'-Attenuation
+*      'g'-TGID is valid
+*      '+'-Split frequency is + offset,'<'-Split frequency is - offset
+*      'p'-Channel is a priority channel   
+*    Flags for SYSTEM records: 
+*      'f'-EDACS AFS format 
+*      'h'-AGC_digital, 'i'-id_search (trunked systems), 'j'-AGC_analog, 'k'-data skip 
+*      'o'-Control Channel only, 'p'-Turn on priority 
+*  Dlyrsm:A number between -10 and +30. Negative number is Resume. 0 is Off
+*  Sysno:SYSTEM record index. Required for SITE & GROUP records
+*  Siteno:SITE record Index. Required for TFREQ records
+*  Groupno:GROUP record Index. Required for FREQ records
+*  Hld:(SYSTEM/SITE records). Time in seconds to hold on the system or site
+*  Frequency:(FREQ & TFRRQ records). Can be in Hz or MHz. MHz must have decimal point
+*  Mode:Modulation:AM,FMw (Broadcast),FMn,FMun(2.5khz),LSB,USB
+*  Lat/Lon: Decimal value  or DMS (DD:MM:SS.SS:direction)
+*  P25wait:Time in ms to wait for a P25 decode to complete
+*  Rf_filter:(SDS200 only):  G-Global N-Normal I-Invert A-Auto O-Off WN-Wide Normal WI-Wide Invert WA-Wide Auto
+*  Channel - RadioCtl channel number. 0-9999 
+*  _Extra field: UTAG=x - Uniden User tag (0-1000)
+*                EMGALT=x - Uniden Emergency Alert (0-9) EMGLVL=x - Uniden Alert Level (0-15)
+*                SVCODE - SDS200 Service code           RFGAIN=x - R30 Gain (0-9)
+*                SCANGRP=x - IC705/R8600 Scan group number (1-9)
+*
+*Keywords are not case sensitive
+*For keyword=value format, any keyword for the record not specified will be set to the default
+*
+*
+*    #### System Definition #####
+SYSTEM   ,index=1,valid=1,systemtype=cnv,mode=FMn,p25lvl=5,p25wait=400,hpd=-1,service=HAM Frequencies
+*
+*    ### Groups for HAM Frequencies system (1). 
+# IC-705 scan is disabled for all groups
+GROUP    ,index=1,valid=0,sysno=1,radius=25,dqkey=-1,service=2 Meter Repeaters (144MHz)
+GROUP    ,index=2,valid=0,sysno=1,radius=25,dqkey=-1,service=440MHz Repeaters
+GROUP    ,index=3,valid=0,sysno=1,radius=25,dqkey=-1,service=6 Meter Repeaters (50MHz)
+GROUP    ,index=4,valid=0,sysno=1,radius=25,dqkey=-1,service=10 Meter Repeater
+GROUP    ,index=5,valid=0,sysno=1,radius=25,dqkey=-1,service=Below 30MHz
+*
+*    #### All Frequencies for HAM Frequencies system (1) ####
+*    #### All Frequencies for HAM Frequencies system (1) ####
+### 2mtr rptrs with an offset of -.6MHz
+FREQ     ,index=1 ,valid=0,channel=1 ,frequency=146.970000,mode=FMn,groupno=1,tone=100,tone_type=rptr,sfrequency=0.600000,smode=fmn,adtype=all,ominus=1,service=MtBcn AE2AN
+FREQ     ,index=2 ,valid=0,channel=2 ,frequency=146.895000,mode=FMn,groupno=1,tone=100.0,tone_type=rptr,sfrequency=0.600000,smode=fmn,adtype=all,ominus=1,service=Milbrk N2EYH
+FREQ     ,index=3 ,valid=0,channel=3 ,frequency=146.985000,mode=FMn,groupno=1,tone=141.3,tone_type=rptr,sfrequency=0.600000,smode=fmn,adtype=all,ominus=1,service=W1VAR Shelton
+##
+### 440mhz Repeaters
+FREQ     ,index=4 ,valid=0,channel=4 ,frequency=449.575000,mode=FMn,groupno=2,tone=100.0,tone_type=rptr,sfrequency=5.000000,smode=fmn,adtype=all,ominus=1,service=MtBcn-440 WA2GZW
+### 6 Meter Repeaters
+FREQ     ,index=5 ,valid=0,channel=5 ,frequency=53.310000,mode=FMn,groupno=3,tone=114.8,tone_type=rptr,sfrequency=1.000000,smode=fmn,adtype=all,ominus=1,service=MtBcn-50  K2ROB      
+FREQ     ,index=6 ,valid=0,channel=6 ,frequency=53.050000,mode=FMn,groupno=3,tone=162.2,tone_type=rptr,sfrequency=1.000000,smode=fmn,adtype=all,ominus=1,service=WA1IXU-Bristol     
+FREQ     ,index=7 ,valid=0,channel=7 ,frequency=53.270000,mode=FMn,groupno=3,tone= 77.0,tone_type=rptr,sfrequency=1.000000,smode=fmn,adtype=all,ominus=1,service=KB1CDB-Milford
+##
+### Useful Shortwave frequencies
+### Note:Most of these are Digital requiring computer assistance.
+FREQ     ,index=8 ,valid=0,channel=8 ,frequency=7.047500 ,mode=LSB,groupno=5,service=FT4 7MHz
+FREQ     ,index=9 ,valid=0,channel=9 ,frequency=7.074000 ,mode=LSB,groupno=5,service=FT8 7MHz
+FREQ     ,index=10,valid=0,channel=10,frequency=14.074000,mode=LSB,groupno=5,service=FT8 14MHz
+FREQ     ,index=11,valid=0,channel=11,frequency=3.845000 ,mode=LSB,groupno=5,service=SSTV 3MHz
+FREQ     ,index=12,valid=0,channel=12,frequency=7.171000 ,mode=LSB,groupno=5,service=SSTV 7MHz
+FREQ     ,index=13,valid=0,channel=13,frequency=14.230000,mode=LSB,groupno=5,service=SSTV 14MHz
+FREQ     ,index=14,valid=0,channel=14,frequency=21.340000,mode=LSB,groupno=5,service=SSTV 21MHz
+#
+FREQ     ,index=15,valid=0,channel=15,frequency=3.330000 ,mode=AM,groupno=5,service=CHU (Time)
+FREQ     ,index=16,valid=0,channel=16,frequency=10.000000,mode=AM,groupno=5,service=WWV (Time)
