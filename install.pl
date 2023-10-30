@@ -61,7 +61,7 @@ print "Determined compatible distro =>$source\n";
 ### copy the executables to the /usr/local/bin directory
 foreach my $fn ('radioctl','radiowrite') {
    my $fs = $fn . '_' . $source;
-   system "sudo cp $fs /usr/local/bin";
+   system "sudo cp $fs /usr/local/bin/$fn";
    if ($?) {
        print "$Bold Unable to copy $fs!\n";
        print $errmsg;
