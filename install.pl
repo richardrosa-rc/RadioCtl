@@ -67,7 +67,7 @@ foreach my $fn ('radioctl','radiowrite') {
        print $errmsg;
        exit 999;
    }
-   system "sudo chmod 751 /usr/local/bin/$fs";
+   system "sudo chmod 751 /usr/local/bin/$fn";
 }
 system "sudo cp radioctl.desktop /usr/share/applications";
 if ($?) {
