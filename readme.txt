@@ -19,7 +19,8 @@ For Ubuntu and Mint you MAY need to install additional libraries.
 Requirements: 
   o An installed or Live Linux distribution (SUSE, Ubuntu, Linux Mint, etc)
   o One of the supported radios:
-    ICOM: R7000, IC-R30, IC-705, IC-8600 (untested)
+  
+    ICOM: R7000, IC-R30, IC-705, IC-7300, IC-8600 (untested)
     KENWOOD: TH-F6A
     UNIDEN:BCD325P2, SDS100, SDS200, BCD396T, BC895xlt
     AOR:AR-8000
@@ -34,14 +35,15 @@ NOTE:This is a BETA version.
   
   
 Package contents:
-   radioctl  - The GUI program.
-   radiowrite  - The command line program
+   radioctl_{distro}  - The GUI program compiled for specific distributions.
+   radiowrite_{distro}  - The command line program compiled for specific distributions. 
    radioctl.conf - Sample configuration file (to reside in your HOME directory)
    Conventional-Ulster_orange.csv - Sample RadioCtl format input file (Conventional Frequencies in the Hudson Valley of NY)
    NyComCo-EDACS.csv - Sample RadioCtl format input file (NYCOMCO EDACS system in the Hudson Valley of NY)
+   Ham_Sample.csv - Sample Ham Radio and Shortwave frequencies.
    Radioctl-Operation.odt - Documentation for the program (in Open Document Format).
    Radioctl-DataFiles.odt - Documentation for the various file formats.
-   
+   install.pl - PERL script to install the program
    
 Installation:
   Download from GIT via command:
@@ -49,14 +51,17 @@ Installation:
   or download ZIP from web page
    
   If .zip, uncompress to the folder of your choice.
-  Copy radioctl.conf to your home directory. Modify as needed.
+  Open terminal
   
-Getting started:  
-  Open terminal window.
-  cd {directory where file was downloaded}
-  chmod 775 radioctl   ### make the file executable
-  ./radioctl
-    
+  cd (location of download)
+  perl install.pl 
+  
+ 
+To run (from terminal)
+  radioctl     (GUI)
+    or
+  radiowrite    (command line)   
+
   
 Contact the authors at: richardrosa@yahoo.com for bug reports & suggestions.
 
