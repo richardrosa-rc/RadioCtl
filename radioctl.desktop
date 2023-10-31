@@ -1,0 +1,13 @@
+
+[Desktop Entry]
+Version=1.0
+Name=RadioCtl
+Comment=Control Of Radios
+Exec=radioctl
+Icon=radioctl
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+Categories=HamRadio;
+StartupNotify=true
+
