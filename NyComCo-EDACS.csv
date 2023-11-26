@@ -1,4 +1,4 @@
-*RadioCtl   Data file generated: 09/05/2023 
+*RadioCtl   Data file generated: 11/24/23
 *
 *:QUICKKEY: SYSTEM_QK:02  (sysno=1 name=NYCOMCO (EDACS))
 *:QUICKKEY:    SITE_QK:54 DEPT_QK:24  (siteno=>004 name=EDACS-Mlbrk(Site 4))
@@ -62,7 +62,7 @@
 *    Flags for FREQ records: 
 *      'a'-Attenuation
 *      'g'-TGID is valid
-*      '+'-Split frequency is + offset,'<'-Split frequency is - offset
+*      '+'-offset frequency is added,'<'-offset frequency is subtracted
 *      'p'-Channel is a priority channel   
 *    Flags for SYSTEM records: 
 *      'f'-EDACS AFS format 
@@ -79,10 +79,7 @@
 *  P25wait:Time in ms to wait for a P25 decode to complete
 *  Rf_filter:(SDS200 only):  G-Global N-Normal I-Invert A-Auto O-Off WN-Wide Normal WI-Wide Invert WA-Wide Auto
 *  Channel - RadioCtl channel number. 0-9999 
-*  _Extra field: UTAG=x - Uniden User tag (0-1000)
-*                EMGALT=x - Uniden Emergency Alert (0-9) EMGLVL=x - Uniden Alert Level (0-15)
-*                SVCODE - SDS200 Service code           RFGAIN=x - R30 Gain (0-9)
-*                SCANGRP=x - IC705/R8600 Scan group number (1-9)
+*  Offset  - Offset in Hz or MHz. If MHz, decimal point MUST be included
 *
 *Keywords are not case sensitive
 *For keyword=value format, any keyword for the record not specified will be set to the default
