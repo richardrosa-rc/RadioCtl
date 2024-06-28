@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 ##############################################################
 #   Install RadioCtl                                         #
-#  Run this script from the 
+#  Run this script from the command line  
 ##############################################################
 use strict;
 my $Bold = "\e[1m";
@@ -13,13 +13,33 @@ my $errmsg = "$Bold\n Install was terminated before completion$Eol";
 my @required = ("radioctl_ubuntu",
                 "radioctl_tumbleweed",
                 "radioctl_suse",
+#               "radioctl_raspberrypi",
                 "radiowrite_ubuntu",
                 "radiowrite_tumbleweed",
                 "radiowrite_suse",
+#                "radiowrite_raspberrypi",
                 "radioctl.png",
                 "radioctl.desktop",
                 "radioctl.conf",
                 );
+#### Libraries required for Debian distro
+my @libs_debian = (
+   'libgtk3-perl','libdevice-serialport-perl','libtext-csv-perl','libautovivification-perl'
+   );
+my @libs_suse = ( 
+   'perl-Gtk3','perl-Device-SerialPort','perl-Text-CSV','perl-autovivification'
+   );
+my $distro = '';
+my $rc = `grep -i suse /etc/osrelease`;
+### Not Suse
+if ($?) {
+   $distro = 'debian'; ### for now
+}
+else {$distro = 'suse';}
+print "Distro found = $distro\n";
+
+
+   
 my $all_found = 1;    
 foreach my $fs (@required) {
    if (-e $fs) {next;}
@@ -34,17 +54,31 @@ if (!$all_found) {
 }
 ### need to determine the right binary to copy
 my $source = '';
-foreach my $binary ('ubuntu','tumbleweed','suse') {
+foreach my $binary ('raspberrypi','ubuntu','tumbleweed','suse',) {
    my $fn = "radioctl_$binary";
    if (!-e $fn) {
       print "$Bold Could not locate $fn in the current directory!\n";
       print $errmsg;
       exit 999;
    }
-  
-   my $rc = `ldd $fn`;
-   if ($rc =~ /not found/i) {next;}
-   $source = $binary;
+   
+   ### Because the RaspberryPi is NOT  x64 arch
+   ### Need a different way to detect
+   if ($binary =~ /rasp/i) {
+      ### Possibles:
+      my $uname = `uname -a`;
+      if ($uname =~ /raspberry/i) {
+         $source = $binary;
+         last;
+      }
+      next;
+   
+   }
+   else {
+      my $rc = `ldd $fn`;
+      if ($rc =~ /not found/i) {next;}
+      $source = $binary;
+   }
    last;
 }
 
@@ -101,5 +135,28 @@ if (-e ~/radioctl.conf/) {
 else {
    system "cp radioctl.conf ~/";
 }
+
+
+################################################
+#### now install the appropriate libraries     #
+################################################
+if ($distro =~ /debian/i) {
+   foreach my $lib (@libs_debian) {
+      my $cmd = "sudo apt-get -y install $lib";
+      print "$cmd\n";
+      `$cmd`;
+      if ($?) {print "$Bold could not install library $lib$Eol";}
+   }
+   `sudo apt install --fix-broken`;
+}
+else {
+   foreach my $lib (@libs_suse) {
+      my $cmd = "sudo zypper -n install -l --force-resolution $lib";
+      print "$cmd\n";
+      `$cmd`; 
+      if ($?) {print "$Bold could not install library $lib$Eol";}
+   }  
+}
+
 print "$Bold RadioCtl is now installed$Eol";
 
