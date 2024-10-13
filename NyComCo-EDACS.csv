@@ -1,13 +1,13 @@
-*RadioCtl   Data file generated: 11/24/23
+*RadioCtl   Data file generated: 10/13/2024 09:58am
 *
-*:QUICKKEY: SYSTEM_QK:02  (sysno=1 name=NYCOMCO (EDACS))
+*:QUICKKEY: SYSTEM_QK:02 Trunked System:sysno=1 name=NYCOMCO (EDACS))
 *:QUICKKEY:    SITE_QK:54 DEPT_QK:24  (siteno=>004 name=EDACS-Mlbrk(Site 4))
 *:QUICKKEY:    SITE_QK:02 DEPT_QK:20  (siteno=>002 name=EDACS-MtBcn(Site 2))
 *:QUICKKEY:    SITE_QK:55 DEPT_QK:25  (siteno=>005 name=EDACS-PrtEwn(Site 5))
 *:QUICKKEY:    SITE_QK:53 DEPT_QK:23  (siteno=>003 name=EDACS-SamsPt(Site 3))
 *:QUICKKEY:    SITE_QK:58 DEPT_QK:28  (siteno=>008 name=EDACS-SchnkMtn(Site 8))
 *:QUICKKEY:    SITE_QK:51 DEPT_QK:21  (siteno=>001 name=EDACS-WlkerMtn(Site 1))
-*:START: 
+*:START:
 *                 NYCOMCO EDACs
 *
 * This file has been designed to work with:
@@ -44,6 +44,7 @@
 *
 *:STOP:
 *
+*
 *********** RadioCtl Data Records *****************
 * Records are in the format: 
 *record_type,field1,field2,field3,....
@@ -61,9 +62,8 @@
 *  Flags:Single Character turns on item. 
 *    Flags for FREQ records: 
 *      'a'-Attenuation
-*      'g'-TGID is valid
-*      '+'-offset frequency is added,'<'-offset frequency is subtracted
-*      'p'-Channel is a priority channel   
+*      'm'-Preamp
+*      'g'-Record is a TGID type (Frequency MUST be 0)
 *    Flags for SYSTEM records: 
 *      'f'-EDACS AFS format 
 *      'h'-AGC_digital, 'i'-id_search (trunked systems), 'j'-AGC_analog, 'k'-data skip 
@@ -73,39 +73,42 @@
 *  Siteno:SITE record Index. Required for TFREQ records
 *  Groupno:GROUP record Index. Required for FREQ records
 *  Hld:(SYSTEM/SITE records). Time in seconds to hold on the system or site
-*  Frequency:(FREQ & TFRRQ records). Can be in Hz or MHz. MHz must have decimal point
-*  Mode:Modulation:AM,FMw (Broadcast),FMn,FMun(2.5khz),LSB,USB
+*  Frequency:(FREQ & TFREQ records). Can be in Hz or MHz. MHz must have decimal point
+*  Mode:Modulation:AM,AMw,AMm,AMn,WFM (Broadcast),FMn,FMu,LSB,USB,CW,RTTY
 *  Lat/Lon: Decimal value  or DMS (DD:MM:SS.SS:direction)
 *  P25wait:Time in ms to wait for a P25 decode to complete
-*  Rf_filter:(SDS200 only):  G-Global N-Normal I-Invert A-Auto O-Off WN-Wide Normal WI-Wide Invert WA-Wide Auto
+*  filter:(SDS200 only):  G-Global N-Normal I-Invert A-Auto O-Off WN-Wide Normal WI-Wide Invert WA-Wide Auto
 *  Channel - RadioCtl channel number. 0-9999 
-*  Offset  - Offset in Hz or MHz. If MHz, decimal point MUST be included
+*  _Extra field: UTAG=x - Uniden User tag (0-1000)
+*                EMGALT=x - Uniden Emergency Alert (0-9) EMGLVL=x - Uniden Alert Level (0-15)
+*                SVCODE - SDS200 Service code           RFGAIN=x - R30 Gain (0-9)
+*                SCANGRP=x - IC705/R8600 Scan group number (1-9)
 *
 *Keywords are not case sensitive
 *For keyword=value format, any keyword for the record not specified will be set to the default
 *
 *
 *    #### System Definition #####
-#:system:index,service,valid,systemtype,flags,dlyrsm,qkey,hld,_extra,p25wait,_rsvd,p25lvl,p25nac,end_code,fleetmap,custmap,
-*SYSTEM  ,index,service                       ,valid,system,    flags,dlyrsm,qkey,hld,_extra    ,p25wait,_rsv,p25lvl,p25nac, end_code,fleetmap, custmap
-SYSTEM   ,    1,NYCOMCO (EDACS)               ,    1,edw   ,        f,     2,   2,  2,hpd=2     ,      0,Auto,     5
+#:system:index,service,valid,systemtype,flags,dlyrsm,qkey,hld,dsql,_extra,
+*SYSTEM  ,index,service                       ,valid,system,    flags,dlyrsm,qkey,hld,    dsql,_extra    
+SYSTEM   ,    1,NYCOMCO (EDACS)               ,    1,edw   ,        f,     2,   2,  2,     Off,hpd=2     
 *
 *        ****** Sites for NYCOMCO (EDACS) system (1) *****
-#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
-*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
-SITE     ,    1,EDACS-Mlbrk(Site 4)           ,    0,    1,  54,   ,         ,  auto,41.749170   ,-73.627500  ,15.0        ,g           ,        004,dqkey=24  
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,site_number,_extra    
+SITE     ,    1,EDACS-Mlbrk(Site 4)           ,    0,    1,  54,   ,         ,   FMn,41.749170   ,-73.627500  ,15.0        ,        004,dqkey=24  
 *
 *      ******* Frequencies for EDACS-Mlbrk(Site 4) site.
 #:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
 *TFREQ   ,index,valid,siteno,  frequency, lcn,  mode,cc,ra,utag,    flags,_extra    
-TFREQ    ,    1,    1,     1, 858.137500,   1,   FMn, s ### Control channel 02/21/23
+TFREQ    ,    1,    1,     1, 858.137500,   1,   FMn, s, s ### Control channel 02/21/23
 TFREQ    ,    2,    1,     1, 859.137500,   2,   FMn, s, s
 TFREQ    ,    3,    1,     1, 860.137500,   3,   FMn, s, s
 
 *
-#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
-*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
-SITE     ,    2,EDACS-MtBcn(Site 2)           ,    1,    1,   2,   ,         ,  auto,41.488890   ,-73.948330  ,15.0        ,g           ,        002,dqkey=20  
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,site_number,_extra    
+SITE     ,    2,EDACS-MtBcn(Site 2)           ,    1,    1,   2,   ,         ,   FMn,41.488890   ,-73.948330  ,15.0        ,        002,dqkey=20  
 *
 *      ******* Frequencies for EDACS-MtBcn(Site 2) site.
 #:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
@@ -120,9 +123,9 @@ TFREQ    ,   10,    1,     2, 859.187500,   8,   FMn, s, s
 TFREQ    ,   11,    1,     2, 860.187500,   9,   FMn, s, s
 
 *
-#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
-*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
-SITE     ,    3,EDACS-PrtEwn(Site 5)          ,    0,    1,  55,   ,         ,  auto,41.895560   ,-73.991940  ,15.0        ,g           ,        005,dqkey=25  
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,site_number,_extra    
+SITE     ,    3,EDACS-PrtEwn(Site 5)          ,    0,    1,  55,   ,         ,   FMn,41.895560   ,-73.991940  ,15.0        ,        005,dqkey=25  
 *
 *      ******* Frequencies for EDACS-PrtEwn(Site 5) site.
 #:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
@@ -136,9 +139,9 @@ TFREQ    ,   17,    1,     3, 856.137500,   6,   FMn, s, s
 TFREQ    ,   18,    1,     3, 857.137500,   7,   FMn, s, s
 
 *
-#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
-*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
-SITE     ,    4,EDACS-SamsPt(Site 3)          ,    0,    1,  53,   ,         ,  auto,41.683970   ,-74.355970  ,15.0        ,g           ,        003,dqkey=23  
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,site_number,_extra    
+SITE     ,    4,EDACS-SamsPt(Site 3)          ,    0,    1,  53,   ,         ,   FMn,41.683970   ,-74.355970  ,15.0        ,        003,dqkey=23  
 *
 *      ******* Frequencies for EDACS-SamsPt(Site 3) site.
 #:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
@@ -151,9 +154,9 @@ TFREQ    ,   23,    1,     4, 859.562500,   5,   FMn, s, s
 TFREQ    ,   24,    1,     4, 860.562500,   6,   FMn, s, s
 
 *
-#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
-*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
-SITE     ,    5,EDACS-SchnkMtn(Site 8)        ,    0,    1,  58,   ,         ,  auto,41.377580   ,-74.131110  ,15.0        ,g           ,        008,dqkey=28  
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,site_number,_extra    
+SITE     ,    5,EDACS-SchnkMtn(Site 8)        ,    0,    1,  58,   ,         ,   FMn,41.377580   ,-74.131110  ,15.0        ,        008,dqkey=28  
 *
 *      ******* Frequencies for EDACS-SchnkMtn(Site 8) site.
 #:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
@@ -164,9 +167,9 @@ TFREQ    ,   27,    1,     5, 857.112500,   4,   FMn, s, s
 TFREQ    ,   28,    1,     5, 858.637500,   5,   FMn, s, s
 
 *
-#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,rf_filter,site_number,_extra,
-*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,rf_filter   ,site_number,_extra    
-SITE     ,    6,EDACS-WlkerMtn(Site 1)        ,    1,    1,  51,   ,         ,  auto,41.699440   ,-74.002780  ,15.0        ,g           ,        001,dqkey=21  
+#:site:index,service,valid,sysno,qkey,hld,flags,mode,lat,lon,radius,site_number,_extra,
+*SITE    ,index,service                       ,valid,sysno,qkey,hld,    flags,  mode,lat         ,lon         ,radius      ,site_number,_extra    
+SITE     ,    6,EDACS-WlkerMtn(Site 1)        ,    1,    1,  51,   ,         ,   FMn,41.699440   ,-74.002780  ,15.0        ,        001,dqkey=21  
 *
 *      ******* Frequencies for EDACS-WlkerMtn(Site 1) site.
 #:tfreq:index,valid,siteno,frequency,lcn,mode,ccode,ran,utag,flags,_extra,
@@ -183,18 +186,18 @@ TFREQ    ,   36,    1,     6, 855.312500,  11,   FMn, s, s
 *
 *
 *    ### Groups for NYCOMCO (EDACS) system (1). 
-#:group:index,service,valid,sysno,flags,_rsvd,_extra,qkey,rf_filter,lat,lon,radius,_rsvd,
-*GROUP   ,index,service                       ,valid,sysno,    flags,_rsv,_extra    ,qkey,rf_filter   ,lat         ,lon         ,radius      ,_rsv
-GROUP    ,    1,Ulster County 911             ,    1,    1,         ,    ,svcode=3  ,   1,o           ,            ,            ,25          
-GROUP    ,    2,Lloyd PD                      ,    1,    1,         ,    ,svcode=2  ,   2,o           ,            ,            ,25          
-GROUP    ,    3,New Paltz/Other PD            ,    1,    1,         ,    ,svcode=2  ,   3,o           ,            ,            ,25          
-GROUP    ,    4,Pough City PD                 ,    0,    1,         ,    ,svcode=2  ,   4,o           ,            ,            ,25          
-GROUP    ,    5,Pough Town PD                 ,    0,    1,         ,    ,svcode=2  ,   5,o           ,            ,            ,25          
-GROUP    ,    6,Marlboro PD                   ,    1,    1,         ,    ,svcode=2  ,   6,o           ,            ,            ,25          
-GROUP    ,    7,Hiway/Misc                    ,    1,    1,         ,    ,svcode=2  ,   7,o           ,            ,            ,25          
-GROUP    ,    8,Business                      ,    0,    1,         ,    ,svcode=2  ,   8,o           ,            ,            ,25          
-GROUP    ,    9,Dutchess PD                   ,    0,    1,         ,    ,svcode=17 ,   9,o           ,            ,            ,25          
-GROUP    ,   10,Other                         ,    1,    1,         ,    ,svcode=21 ,   0,o           ,            ,            ,25          
+#:group:index,service,valid,sysno,flags,qkey,lat,lon,radius,_extra,
+*GROUP   ,index,service                       ,valid,sysno,    flags,qkey,lat         ,lon         ,radius      ,_extra    
+GROUP    ,    1,Ulster County 911             ,    1,    1,         ,   1,            ,            ,25          ,svcode=3  
+GROUP    ,    2,Lloyd PD                      ,    1,    1,         ,   2,            ,            ,25          ,svcode=2  
+GROUP    ,    3,New Paltz/Other PD            ,    1,    1,         ,   3,            ,            ,25          ,svcode=2  
+GROUP    ,    4,Pough City PD                 ,    0,    1,         ,   4,            ,            ,25          ,svcode=2  
+GROUP    ,    5,Pough Town PD                 ,    0,    1,         ,   5,            ,            ,25          ,svcode=2  
+GROUP    ,    6,Marlboro PD                   ,    1,    1,         ,   6,            ,            ,25          ,svcode=2  
+GROUP    ,    7,Hiway/Misc                    ,    1,    1,         ,   7,            ,            ,25          ,svcode=2  
+GROUP    ,    8,Business                      ,    0,    1,         ,   8,            ,            ,25          ,svcode=2  
+GROUP    ,    9,Dutchess PD                   ,    0,    1,         ,   9,            ,            ,25          ,svcode=17 
+GROUP    ,   10,Other                         ,    1,    1,         ,   0,            ,            ,25          ,svcode=21 
 *
 *    #### All TGIDs for NYCOMCO (EDACS) system (1) ####
 FREQ     ,index=1,valid=1,tgid=02-005,groupno=10,tgid_valid=1,service=NYCOMCO
@@ -400,4 +403,3 @@ FREQ     ,index=199,valid=1,tgid=05-074,groupno=7,tgid_valid=1,service=Nwbg Twn 
 FREQ     ,index=200,valid=1,tgid=05-075,groupno=7,tgid_valid=1,service=Nwbg Twn HiWy
 FREQ     ,index=201,valid=1,tgid=05-076,groupno=7,tgid_valid=1,service=Nwbg Twn Rec
 FREQ     ,index=202,valid=1,tgid=05-082,groupno=7,tgid_valid=1,service=Nwbg Water
-

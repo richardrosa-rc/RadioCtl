@@ -1,9 +1,8 @@
-*RadioCtl   Data file generated: 11/24/23
+*RadioCtl   Data file generated: 10/13/2024 09:57am
 *
 *:QUICKKEY: SYSTEM_QK:01  (sysno=1 name=Ulster_Orange Conv)
-*
-*:RADIO:     SDS200/BCD325P2/ICR30/IC705
-*:START: 
+*:RADIO:      SDS200/BCD325P2/ICR30/IC705
+*:START:
 **                  Ulster/Orange County Conventional Frequencies
 **
 * This file has been designed to work with:
@@ -32,6 +31,8 @@
 * Also, do NOT include semi-colons in any comment or data record. Will drive .csv parser crazy!
 *
 *:STOP:
+*
+*
 *********** RadioCtl Data Records *****************
 * Records are in the format: 
 *record_type,field1,field2,field3,....
@@ -49,9 +50,8 @@
 *  Flags:Single Character turns on item. 
 *    Flags for FREQ records: 
 *      'a'-Attenuation
-*      'g'-TGID is valid
-*      '+'-offset frequency is added,'<'-offset frequency is subtracted
-*      'p'-Channel is a priority channel   
+*      'm'-Preamp
+*      'g'-Record is a TGID type (Frequency MUST be 0)
 *    Flags for SYSTEM records: 
 *      'f'-EDACS AFS format 
 *      'h'-AGC_digital, 'i'-id_search (trunked systems), 'j'-AGC_analog, 'k'-data skip 
@@ -61,192 +61,191 @@
 *  Siteno:SITE record Index. Required for TFREQ records
 *  Groupno:GROUP record Index. Required for FREQ records
 *  Hld:(SYSTEM/SITE records). Time in seconds to hold on the system or site
-*  Frequency:(FREQ & TFRRQ records). Can be in Hz or MHz. MHz must have decimal point
-*  Mode:Modulation:AM,FMw (Broadcast),FMn,FMun(2.5khz),LSB,USB
+*  Frequency:(FREQ & TFREQ records). Can be in Hz or MHz. MHz must have decimal point
+*  Mode:Modulation:AM,AMw,AMm,AMn,WFM (Broadcast),FMn,FMu,LSB,USB,CW,RTTY
 *  Lat/Lon: Decimal value  or DMS (DD:MM:SS.SS:direction)
 *  P25wait:Time in ms to wait for a P25 decode to complete
-*  Rf_filter:(SDS200 only):  G-Global N-Normal I-Invert A-Auto O-Off WN-Wide Normal WI-Wide Invert WA-Wide Auto
+*  filter:(SDS200 only):  G-Global N-Normal I-Invert A-Auto O-Off WN-Wide Normal WI-Wide Invert WA-Wide Auto
 *  Channel - RadioCtl channel number. 0-9999 
-*  Offset  - Offset in Hz or MHz. If MHz, decimal point MUST be included
+*  _Extra field: UTAG=x - Uniden User tag (0-1000)
+*                EMGALT=x - Uniden Emergency Alert (0-9) EMGLVL=x - Uniden Alert Level (0-15)
+*                SVCODE - SDS200 Service code           RFGAIN=x - R30 Gain (0-9)
+*                SCANGRP=x - IC705/R8600 Scan group number (1-9)
 *
 *Keywords are not case sensitive
 *For keyword=value format, any keyword for the record not specified will be set to the default
 *
 *
 *    #### System Definition #####
-#:system:index,service,valid,systemtype,flags,dlyrsm,qkey,hld,_extra,p25wait,_rsvd,p25lvl,p25nac,end_code,fleetmap,custmap,
-*SYSTEM  ,index,service                       ,valid,system,    flags,dlyrsm,qkey,hld,_extra    ,p25wait,_rsv,p25lvl,p25nac, end_code,fleetmap, custmap
-SYSTEM   ,    1,Ulster_Orange Conv            ,    1,cnv   ,         ,     0,   1,  0,hpd=1     ,    400,    ,     5
+#:system:index,service,valid,systemtype,flags,dlyrsm,qkey,hld,dsql,_extra,
+*SYSTEM  ,index,service                       ,valid,system,    flags,dlyrsm,qkey,hld,    dsql,_extra    
+SYSTEM   ,    1,Ulster_Orange Conv            ,    1,cnv   ,         ,     0,   1,  0,     Off,hpd=1 p25wait=400 p25lvl=5
 *
 *    ### Groups for Ulster_Orange Conv system (1). 
-#:group:index,service,valid,sysno,flags,_rsvd,_extra,qkey,rf_filter,lat,lon,radius,_rsvd,
-*GROUP   ,index,service                       ,valid,sysno,    flags,_rsv,_extra    ,qkey,rf_filter   ,lat         ,lon         ,radius      ,_rsv
-GROUP    ,    1,Ulster Fire                   ,    1,    1,         ,    ,          ,   1 ### No scan for IC-703
-GROUP    ,    2,Ulster 911                    ,    1,    1,         ,    ,scangrp=1 ,   2,            ,            ,            ,25          
-GROUP    ,    3,Orange Fire-911               ,    1,    1,         ,    ,          ,   3 ### No scan for IC-705
-GROUP    ,    4,NYState PD                    ,    1,    1,         ,    ,          ,   4 ### IC-705 wiill use individual scangroups
-GROUP    ,    5,UC Sheriff/Other PD           ,    1,    1,         ,    ,scangrp=2 ,   5,            ,            ,            ,25          
-GROUP    ,    6,Parks/Highway                 ,    1,    1,         ,    ,          ,   6 ### No scan for IC-705
-GROUP    ,    7,Utilities                     ,    1,    1,         ,    ,          ,   7 ### No scan for IC-705
-GROUP    ,    8,Business                      ,    0,    1,         ,    ,          ,   8 ### No scan for IC-705
-GROUP    ,    9,EMS                           ,    1,    1,         ,    ,scangrp=1 ,   9,            ,            ,            ,25          
-GROUP    ,   10,Ulster Other                  ,    1,    1,         ,    ,          ,   0 ### No scan for IC-705
+#:group:index,service,valid,sysno,flags,qkey,lat,lon,radius,_extra,
+*GROUP   ,index,service                       ,valid,sysno,    flags,qkey,lat         ,lon         ,radius      ,_extra    
+GROUP    ,    1,Ulster Fire                   ,    1,    1,         ,   1,            ,            ,25           ### No scan for IC-703
+GROUP    ,    2,Ulster 911                    ,    1,    1,         ,   2,            ,            ,25          ,scangrp=1 
+GROUP    ,    3,Orange Fire-911               ,    1,    1,         ,   3,            ,            ,25           ### No scan for IC-705
+GROUP    ,    4,NYState PD                    ,    1,    1,         ,   4,            ,            ,25           ### IC-705 wiill use individual scangroups
+GROUP    ,    5,UC Sheriff/Other PD           ,    1,    1,         ,   5,            ,            ,25          ,scangrp=2 
+GROUP    ,    6,Parks/Highway                 ,    1,    1,         ,   6,            ,            ,25           ### No scan for IC-705
+GROUP    ,    7,Utilities                     ,    1,    1,         ,   7,            ,            ,25           ### No scan for IC-705
+GROUP    ,    8,Business                      ,    0,    1,         ,   8,            ,            ,25           ### No scan for IC-705
+GROUP    ,    9,EMS                           ,    1,    1,         ,   9,            ,            ,25          ,scangrp=1 
+GROUP    ,   10,Ulster Other                  ,    1,    1,         ,   0,            ,            ,25           ### No scan for IC-705
 *
 *    #### All Frequencies for Ulster_Orange Conv system (1) ####
-#:freq:index,service,valid,groupno,flags,channel,frequency,mode,tgid,tone,tone_type,dlyrsm,_extra,adtype,offset
-*FREQ    ,index,service                       ,valid,group,    flags,chan,  frequency,  mode,    tgid,  tone,tone_type,dlyrsm,_extra    ,  adtype,offset
-FREQ     ,    1,UC Fire Control               ,    1,    1,        a, 101,  46.460000,   FMn,        ,   Off,      off,     1,rfgain=7  ,     all
+#:freq:index,service,valid,groupno,flags,channel,frequency,mode,sqtone,dlyrsm,tgid,adtype,_extra,
+*FREQ    ,index,service                       ,valid,group,    flags,chan,  frequency,  mode,  sqtone,dlyrsm,    tgid,  adtype,_extra    
+FREQ     ,    1,UC Fire Control               ,    1,    1,        a, 101,  46.460000,   FMn,     OFF,     1,        ,        ,rfgain=7  
 ## Marlboro Fire is now using UHF between trucks
-FREQ     ,    8,UCFD C-C F1                   ,    1,    1,        a, 108, 453.562500,   FMn,        ,   Off,      off,      ,rfgain=7 scangrp=1,all #Also used by CT FD
-FREQ     ,    9,UC Fire-Control UHF           ,    1,    1,        a, 109, 460.625000,   FMn,        ,   Off,      off,     1,rfgain=7 scangrp=1,all
-FREQ     ,   10,Marlbro Fire-F2               ,    1,    1,        a, 110, 453.162500,   FMn,        ,   Off,      off,      ,rfgain=7 scangrp=1,all
-FREQ     ,   11,Marlbro Fire-F3               ,    1,    1,        a, 111, 458.162500,   FMn,        ,   Off,      off,      ,rfgain=7 scangrp=1,all
+FREQ     ,    2,UCFD C-C F1                   ,    1,    1,        a, 108, 453.562500,   FMn,     OFF,      ,        ,        ,rfgain=7 scangrp=1 #Also used by CT FD
+FREQ     ,    3,UC Fire-Control UHF           ,    1,    1,        a, 109, 460.625000,   FMn,     OFF,     1,        ,        ,rfgain=7 scangrp=1
+FREQ     ,    4,Marlbro Fire-F2               ,    1,    1,        a, 110, 453.162500,   FMn,     OFF,      ,        ,        ,rfgain=7 scangrp=1
+FREQ     ,    5,Marlbro Fire-F3               ,    1,    1,        a, 111, 458.162500,   FMn,     OFF,      ,        ,        ,rfgain=7 scangrp=1
 ### Older frequency listings (may be active)
-FREQ     ,   12,Old listing for Marlbro Fire  ,    1,    1,        a, 112, 465.637500,   FMn,        ,   Off,      off,     1,rfgain=7 scangrp=1,all
-FREQ     ,   13,Marlbro Fire-?                ,    1,    1,        a, 113, 460.537500,   FMn,        ,   Off,      off,      ,rfgain=7 scangrp=1,all
-FREQ     ,   14,Marlbro Fire-?                ,    1,    1,        a, 114, 465.537500,   FMn,        ,   Off,      off,      ,rfgain=7 scangrp=1,all
-FREQ     ,   15,Highland FD                   ,    1,    1,        a, 115, 460.112500,   FMn,        ,   Off,      off,      ,rfgain=7 scangrp=1,all
-FREQ     ,   16,New Paltz-FG                  ,    1,    1,        a, 116, 468.975000,   FMn,        ,   Off,      off,      ,rfgain=7 scangrp=1,all
-FREQ     ,   17,New Paltz-TownWide            ,    1,    1,         , 117, 155.805000,   FMn,        ,   Off,      off,      ,rfgain=7  ,     all
+FREQ     ,    6,Old listing for Marlbro Fire  ,    1,    1,        a, 112, 465.637500,   FMn,     OFF,     1,        ,        ,rfgain=7 scangrp=1
+FREQ     ,    7,Marlbro Fire-?                ,    1,    1,        a, 113, 460.537500,   FMn,     OFF,      ,        ,        ,rfgain=7 scangrp=1
+FREQ     ,    8,Marlbro Fire-?                ,    1,    1,        a, 114, 465.537500,   FMn,     OFF,      ,        ,        ,rfgain=7 scangrp=1
+FREQ     ,    9,Highland FD                   ,    1,    1,        a, 115, 460.112500,   FMn,     OFF,      ,        ,        ,rfgain=7 scangrp=1
+FREQ     ,   10,New Paltz-FG                  ,    1,    1,        a, 116, 468.975000,   FMn,     OFF,      ,        ,        ,rfgain=7 scangrp=1
+FREQ     ,   11,New Paltz-TownWide            ,    1,    1,         , 117, 155.805000,   FMn,     OFF,      ,        ,        ,rfgain=7  
 #
 ### Ulster County 911 (Group 2)
 ## 155.0250 is getting overloaded with 155.220. Attenuation needed on SDS200 & IC-R30
-FREQ     ,   18,UC-911(06-037)                ,    1,    2,        a, 201, 155.025000,   FMn,        ,   Off,      off,     1,scangrp=1,all
-FREQ     ,   19,UC-911 Ops                    ,    1,    2,         , 202, 155.670000,   FMn,        ,   Off,      off,     1,scangrp=1,all 
+FREQ     ,   12,UC-911(06-037)                ,    1,    2,        a, 201, 155.025000,   FMn,     OFF,     1,        ,        ,scangrp=1 
+FREQ     ,   13,UC-911 Ops                    ,    1,    2,         , 202, 155.670000,   FMn,     OFF,     1,        ,        ,scangrp=1 
 # 155.220 seems to get overloaded with 155.0250 & DMR. Attenuation needed on SDS200 & IC-R30
-FREQ     ,   20,UC 911 Dispatch               ,    1,    2,        a, 203, 155.220000,   FMn,        ,   Off,      off,     1,scangrp=1,all
-FREQ     ,   21,EDACS direct                  ,    1,    2,         , 204, 853.487500,   FMn,        ,   Off,      off,     1,scangrp=1,all
+FREQ     ,   14,UC 911 Dispatch               ,    1,    2,        a, 203, 155.220000,   FMn,     OFF,     1,        ,        ,scangrp=1 
+FREQ     ,   15,EDACS direct                  ,    1,    2,         , 204, 853.487500,   FMn,     OFF,     1,        ,        ,scangrp=1 
 ##
 ### Ulster County Sheriff/Other PD (Group 5)
-FREQ     ,   22,UC-Sheriff                    ,    1,    5,         , 205, 153.995000,   FMn,        ,   Off,      off,     1,scangrp=1,all
-FREQ     ,   23,UC-Sheriff                    ,    1,    5,         , 206, 155.932500,   FMn,        ,   Off,      off,      ,scangrp=1,all ## Active 11/17/20
-FREQ     ,   24,UC-Sheriff-Car2Car            ,    1,    5,         , 207, 151.235000,   FMn,        ,   Off,      off,      ,scangrp=1,all
+FREQ     ,   16,UC-Sheriff                    ,    1,    5,         , 205, 153.995000,   FMn,     OFF,     1,        ,        ,scangrp=1 
+FREQ     ,   17,UC-Sheriff                    ,    1,    5,         , 206, 155.932500,   FMn,     OFF,      ,        ,        ,scangrp=1  ## Active 11/17/20
+FREQ     ,   18,UC-Sheriff-Car2Car            ,    1,    5,         , 207, 151.235000,   FMn,     OFF,      ,        ,        ,scangrp=1 
 #** SUNY New Paltz
 #** NOTE:Non-dyanmic radios cannot use these channels as they are DMR
-FREQ     ,   25,NPltz Campus PD(DMR)          ,    0,    5,         ,  -1, 151.565000,   FMn,        ,   Off,      off,     1
-FREQ     ,   26,SUNY New Paltz                ,    1,    5,         ,  -1, 151.775000,   FMn,        ,   Off,      off,     1
-FREQ     ,   27,SUNY New Paltz                ,    1,    5,         ,  -1, 151.955000,   FMn,        ,   Off,      off,     1
-#
-
+FREQ     ,   19,NPltz Campus PD(DMR)          ,    0,    5,         ,  -1, 151.565000,   FMn,     OFF,     1
+FREQ     ,   20,SUNY New Paltz                ,    1,    5,         ,  -1, 151.775000,   FMn,     OFF,     1
+FREQ     ,   21,SUNY New Paltz                ,    1,    5,         ,  -1, 151.955000,   FMn,     OFF,     1
 #** EMS (Group 9)  
-FREQ     ,   48,UC EMS Ops                    ,    1,    9,         , 901, 155.175000,   FMn,        ,   Off,      off,      , ## Activity 12/04/20
-FREQ     ,   49,Mobile Life Tac 1             ,    1,    9,        a, 902, 468.012500,   FMn,        ,   Off,      off,      
-FREQ     ,   50,Mobile Life Tac 2             ,    1,    9,        a, 903, 468.037500,   FMn,        ,   Off,      off,      
-FREQ     ,   51,Mobile Life Tac 3             ,    1,    9,        a, 904, 468.062500,   FMn,        ,   Off,      off,      
-FREQ     ,   52,New Paltz-EMS                 ,    1,    9,         , 905, 153.125000,   FMn,        ,   Off,      off,      
+FREQ     ,   22,UC EMS Ops                    ,    1,    9,         , 901, 155.175000,   FMn,     OFF ## Activity 12/04/20
+FREQ     ,   23,Mobile Life Tac 1             ,    1,    9,        a, 902, 468.012500,   FMn,     OFF,     0
+FREQ     ,   24,Mobile Life Tac 2             ,    1,    9,        a, 903, 468.037500,   FMn,     OFF,     0
+FREQ     ,   25,Mobile Life Tac 3             ,    1,    9,        a, 904, 468.062500,   FMn,     OFF,     0
+FREQ     ,   26,New Paltz-EMS                 ,    1,    9,         , 905, 153.125000,   FMn,     OFF,     0
 #**
 #** Orange County (Group 3) (Not included in ICOM IC-705 scan)
 #** NOTE:This is mostly Fire frequencies as OC has moved to CORENET
-FREQ     ,   53,Newburgh FD 2                 ,    1,    3,         , 301, 154.070000,   FMn,        ,   Off,      off,      
-FREQ     ,   54,OC FD Disp                    ,    1,    3,         , 302, 154.205000,   FMn,        ,   Off,      off,      
-FREQ     ,   55,Cronomer Ops                  ,    1,    3,         , 303, 154.250000,   FMn,        ,   Off,      off,      
-FREQ     ,   56,Newburgh FD 4                 ,    1,    3,         , 305, 154.385000,   FMn,        ,   Off,      off,     0
-FREQ     ,   57,Newburgh FD 3                 ,    1,    3,         , 306, 154.415000,   FMn,        ,   Off,      off,     0
-FREQ     ,   58,GoodWill FG                   ,    1,    3,        a, 307, 452.537500,   FMn,        ,   Off,      off,     0
+FREQ     ,   27,Newburgh FD 2                 ,    1,    3,         , 301, 154.070000,   FMn,     OFF,     0
+FREQ     ,   28,OC FD Disp                    ,    1,    3,         , 302, 154.205000,   FMn,     OFF,     0
+FREQ     ,   29,Cronomer Ops                  ,    1,    3,         , 303, 154.250000,   FMn,     OFF,     0
+FREQ     ,   30,Newburgh FD 4                 ,    1,    3,         , 305, 154.385000,   FMn,     OFF,     0
+FREQ     ,   31,Newburgh FD 3                 ,    1,    3,         , 306, 154.415000,   FMn,     OFF,     0
+FREQ     ,   32,GoodWill FG                   ,    1,    3,        a, 307, 452.537500,   FMn,     OFF,     0
 ### DMR Overload on 452.1375 on IC-R30. Reduce to RFGAIN5
-FREQ     ,   59,OC FP                         ,    1,    3,        a, 308, 453.137500,   FMn,        ,   Off,      off,     0
+FREQ     ,   33,OC FP                         ,    1,    3,        a, 308, 453.137500,   FMn,     OFF,     0
 #FREQ     ,  161,Cronomer FD/East Fishkill    ,    1,    3,        a,  -1, 453.150000,FMn   ,        , 100.0,      off,     0
-FREQ     ,   60,VG FD Ops                     ,    1,    3,        a, 309, 453.600000,   FMn,        ,   Off,      off,     0
-FREQ     ,   61,OC City Cmd                   ,    1,    3,        a, 310, 453.687500,   FMn,        ,   Off,      off,     0
+FREQ     ,   34,VG FD Ops                     ,    1,    3,        a, 309, 453.600000,   FMn,     OFF,     0
+FREQ     ,   35,OC City Cmd                   ,    1,    3,        a, 310, 453.687500,   FMn,     OFF,     0
 ### 454.850 overloaded by DMR
-FREQ     ,   62,OL/WL Ops 2                   ,    1,    3,        a, 311, 453.850000,   FMn,        ,   Off,      off,     0
-FREQ     ,   63,OC Cmd A                      ,    1,    3,        a, 312, 453.962500,   FMn,        ,   Off,      off,     0
-FREQ     ,   64,OC FG B                       ,    1,    3,        a, 313, 458.262500,   FMn,        ,   Off,      off,     0
-FREQ     ,   65,OC FG A                       ,    1,    3,        a, 314, 458.987500,   FMn,        ,   Off,      off,     0
+FREQ     ,   36,OL/WL Ops 2                   ,    1,    3,        a, 311, 453.850000,   FMn,     OFF,     0
+FREQ     ,   37,OC Cmd A                      ,    1,    3,        a, 312, 453.962500,   FMn,     OFF,     0
+FREQ     ,   38,OC FG B                       ,    1,    3,        a, 313, 458.262500,   FMn,     OFF,     0
+FREQ     ,   39,OC FG A                       ,    1,    3,        a, 314, 458.987500,   FMn,     OFF,     0
 ## This channel overloads with DMR on both SDS200 & IC-R30
-FREQ     ,   66,OL/WL Ops 1                   ,    1,    3,        a, 315, 460.075000,   FMn,        ,   Off,      off,     0,
+FREQ     ,   40,OL/WL Ops 1                   ,    1,    3,        a, 315, 460.075000,   FMn,     OFF,     0
 #FREQ     ,  170,NW FD Ops                     ,    1,    3,         ,  -1, 460.125000,FMn   ,        , 110.9,      off,     0, 
-FREQ     ,   67,CoH FD Ops                    ,    1,    3,        a, 316, 460.150000,   FMn,        ,   Off,      off,     0,
-FREQ     ,   68,HghlndFls XB                  ,    1,    3,        a, 317, 460.475000,   FMn,        ,   Off,      off,     0,
-FREQ     ,   69,Cronomer Ops                  ,    1,    3,        a, 318, 460.575000,   FMn,        ,   Off,      off,     0,
-FREQ     ,   70,OC EM FG                      ,    1,    3,        a, 319, 460.587500,   FMn,        ,   Off,      off,     0,
-FREQ     ,   71,Cronomer Xb                   ,    1,    3,        a, 320, 460.600000,   FMn,        , 123.0,    ctcss,     0,          ## Active 01/05/22
-FREQ     ,   72,VG|OL|WL FD FG                ,    1,    3,        a, 321, 460.612500,   FMn,        ,   Off,      off,     0,
+FREQ     ,   41,CoH FD Ops                    ,    1,    3,        a, 316, 460.150000,   FMn,     OFF,     0
+FREQ     ,   42,HghlndFls XB                  ,    1,    3,        a, 317, 460.475000,   FMn,     OFF,     0
+FREQ     ,   43,Cronomer Ops                  ,    1,    3,        a, 318, 460.575000,   FMn,     OFF,     0
+FREQ     ,   44,OC EM FG                      ,    1,    3,        a, 319, 460.587500,   FMn,     OFF,     0
+FREQ     ,   45,Cronomer Xb                   ,    1,    3,        a, 320, 460.600000,   FMn,CTC123.0,     0 ## Active 01/05/22
+FREQ     ,   46,VG|OL|WL FD FG                ,    1,    3,        a, 321, 460.612500,   FMn,     OFF,     0
 ### This channel overloads with DMR 
-FREQ     ,   73,OC Cmd B                      ,    1,    3,        a, 422, 465.587500,   FMn,        ,   Off,      off,     0,
-FREQ     ,   74,OL/WL FG 2                    ,    1,    3,        a, 423, 465.612500,   FMn,        ,   Off,      off,     0,
+FREQ     ,   47,OC Cmd B                      ,    1,    3,        a, 422, 465.587500,   FMn,     OFF,     0
+FREQ     ,   48,OL/WL FG 2                    ,    1,    3,        a, 423, 465.612500,   FMn,     OFF,     0
 ### This one overloads with DMR
-FREQ     ,   75,FortMntg FG1                  ,    1,    3,        a, 424, 478.537500,   FMn,        ,   Off,      off,     0,
-FREQ     ,   76,FortMntg FG2                  ,    1,    3,        a, 425, 481.537500,   FMn,        ,   Off,      off,     0,
+FREQ     ,   49,FortMntg FG1                  ,    1,    3,        a, 424, 478.537500,   FMn,     OFF,     0
+FREQ     ,   50,FortMntg FG2                  ,    1,    3,        a, 425, 481.537500,   FMn,     OFF,     0
 #** Utilities/Highway (group 7)
-FREQ     ,   77,Central Hudson                ,    1,    7,         , 701,  48.060000,   FMn,        ,   Off,      off,     1,           ### Digital?
-FREQ     ,   78,Central Hudson                ,    1,    7,         , 702,  48.120000,   FMn,        ,   Off,      off,     1,
-FREQ     ,   79,Central Hudson                ,    1,    7,         , 703,  48.240000,   FMn,        ,   Off,      off,     1,
-FREQ     ,   80,Central Hudson Dispatch       ,    1,    7,         , 704,  47.920000,   FMn,        ,   Off,      off,     1,
-FREQ     ,   81,Central Hudson Field Crews    ,    1,    7,         , 705,  48.140000,   FMn,        ,   Off,      off,     1,
-FREQ     ,   82,Central Hudson                ,    1,    7,         , 706, 451.112500,   FMn,        ,   Off,      off,     1,
-FREQ     ,   83,Central Hudson                ,    1,    7,         , 707, 451.150000,   FMn,        ,   Off,      off,     1,
-FREQ     ,   84,Central Hudson                ,    1,    7,         , 708, 457.325000,   FMn,        ,   Off,      off,     1,
+FREQ     ,   51,Central Hudson                ,    1,    7,         , 701,  48.060000,   FMn,     OFF,     1 ### Digital?
+FREQ     ,   52,Central Hudson                ,    1,    7,         , 702,  48.120000,   FMn,     OFF,     1
+FREQ     ,   53,Central Hudson                ,    1,    7,         , 703,  48.240000,   FMn,     OFF,     1
+FREQ     ,   54,Central Hudson Dispatch       ,    1,    7,         , 704,  47.920000,   FMn,     OFF,     1
+FREQ     ,   55,Central Hudson Field Crews    ,    1,    7,         , 705,  48.140000,   FMn,     OFF,     1
+FREQ     ,   56,Central Hudson                ,    1,    7,         , 706, 451.112500,   FMn,     OFF,     1
+FREQ     ,   57,Central Hudson                ,    1,    7,         , 707, 451.150000,   FMn,     OFF,     1
+FREQ     ,   58,Central Hudson                ,    1,    7,         , 708, 457.325000,   FMn,     OFF,     1
 #                                                                                                                                      
 #
 #** Parks/Highway (Group 6)
-FREQ     ,   85,NYParks Taconic Div           ,    1,    6,         , 601, 158.775000,   FMn,        ,   Off,      off,      ,
-FREQ     ,   86,NYParks Statewide             ,    1,    6,         , 602, 158.390000,   FMn,        ,   Off,      off,      ,
-FREQ     ,   87,NYParks Palisades Div         ,    1,    6,         , 603, 154.890000,   FMn,        ,   Off,      off,      ,
+FREQ     ,   59,NYParks Taconic Div           ,    1,    6,         , 601, 158.775000,   FMn,     OFF
+FREQ     ,   60,NYParks Statewide             ,    1,    6,         , 602, 158.390000,   FMn,     OFF
+FREQ     ,   61,NYParks Palisades Div         ,    1,    6,         , 603, 154.890000,   FMn,     OFF
 #                                                                                                                                
-FREQ     ,   88,Ulster Hiway                  ,    1,    6,         , 604, 156.120000,   FMn,        ,   Off,      off,      ,
-FREQ     ,   89,Ulster Hiway                  ,    1,    6,         , 605, 156.180000,   FMn,        ,   Off,      off,      ,
+FREQ     ,   62,Ulster Hiway                  ,    1,    6,         , 604, 156.120000,   FMn,     OFF
+FREQ     ,   63,Ulster Hiway                  ,    1,    6,         , 605, 156.180000,   FMn,     OFF
 ### Some distant agency adds to the noise on the R30                                                                             
-FREQ     ,   90,New Paltz Hiway               ,    1,    6,        a, 606, 154.040000,   FMn,        ,   Off,      off,      ,
-FREQ     ,   91,Lloyd Hiway                   ,    1,    6,         , 607, 156.980000,   FMn,        ,   Off,      off,      ,
+FREQ     ,   64,New Paltz Hiway               ,    1,    6,        a, 606, 154.040000,   FMn,     OFF
+FREQ     ,   65,Lloyd Hiway                   ,    1,    6,         , 607, 156.980000,   FMn,     OFF
 # Reserved channels                                                                              
-FREQ     ,   92,reserved channel              ,    0,    6,         , 608,          0,      ,        ,   Off,      off,     1
-FREQ     ,   93,reserved channel              ,    0,    6,         , 609,          0,      ,        ,   Off,      off,     1
-FREQ     ,   94,reserved channel              ,    0,    6,         , 610,          0,      ,        ,   Off,      off,     1
+FREQ     ,   66,reserved channel              ,    0,    6,         , 608,          0,      ,     OFF,     1
+FREQ     ,   67,reserved channel              ,    0,    6,         , 609,          0,      ,     OFF,     1
+FREQ     ,   68,reserved channel              ,    0,    6,         , 610,          0,      ,     OFF,     1
 ### Troop F has 3 zones:                                                                                                         
 ###   Zone1-Liberty, Zone2-Monroe, Zone-3-Kingston                                                                               
 ###  Zone 2 is now on CoRENET   
 ### For now, CTCSS squelch is turned off
-FREQ     ,   95,NYSP F-Trp MobZ3 (UC)         ,    1,    4,         , 401, 154.935000,   FMn,        ,   Off,      off,      ,
-FREQ     ,   96,NYSP F-Trp Base (UC)          ,    1,    4,         , 402, 155.535000,   FMn,        ,   Off,      off,      ,
-FREQ     ,   97,NYSP F-Trp MobRptr (UC)       ,    1,    4,         , 403, 853.950000,   FMn,        ,   Off,      off,      ,
+FREQ     ,   69,NYSP F-Trp MobZ3 (UC)         ,    1,    4,         , 401, 154.935000,   FMn,     OFF
+FREQ     ,   70,NYSP F-Trp Base (UC)          ,    1,    4,         , 402, 155.535000,   FMn,     OFF
+FREQ     ,   71,NYSP F-Trp MobRptr (UC)       ,    1,    4,         , 403, 853.950000,   FMn,     OFF
 ## Troop K has 3 zones. Zone 1-Columbia 2-Dutchess, 3 Westchester                                                                
 ## Mobile units seem to be repeated on the Base Frequency
 ## May not need to monitor Mobile freqs
 ## Duplicate frequencies have different PL tones
 ### The IC-705 will bypass scanning for Troop K, as Dutchess (and Westchester) are very busy
-FREQ     ,   98,NYSP K-Trp MobZ1 (CC)         ,    1,    4,         , 404, 154.920000,   FMn,        , 127.3,    ctcss,      ,
-FREQ     ,   99,NYSP K-Trp MobZ2 (DC)         ,    1,    4,         , 405, 154.920000,   FMn,        , 146.2,    ctcss,      ,
-FREQ     ,  100,NYSP K-Trp MobZ3 (WC)         ,    1,    4,         , 406, 154.920000,   FMn,        , 167.9,    ctcss,      ,
-FREQ     ,  101,NYSP K-Trp other              ,    1,    4,         , 407, 154.920000,   FMn,        , 110.9,    ctcss,      ,
-FREQ     ,  102,NYSP K-Trp BASE               ,    1,    4,         , 408, 155.505000,   FMn,        , 110.9,    ctcss,      ,
-FREQ     ,  103,NYSP K-Trp MobRptr            ,    1,    4,         , 409, 853.975000,   FMn,        ,   Off,      off,      ,
+FREQ     ,   72,NYSP K-Trp MobZ1 (CC)         ,    1,    4,         , 404, 154.920000,   FMn,CTC127.3
+FREQ     ,   73,NYSP K-Trp MobZ2 (DC)         ,    1,    4,         , 405, 154.920000,   FMn,CTC146.2
+FREQ     ,   74,NYSP K-Trp MobZ3 (WC)         ,    1,    4,         , 406, 154.920000,   FMn,CTC167.9
+FREQ     ,   75,NYSP K-Trp other              ,    1,    4,         , 407, 154.920000,   FMn,CTC110.9
+FREQ     ,   76,NYSP K-Trp BASE               ,    1,    4,         , 408, 155.505000,   FMn,CTC110.9
+FREQ     ,   77,NYSP K-Trp MobRptr            ,    1,    4,         , 409, 853.975000,   FMn,     OFF
 #                                                                                                                                
-FREQ     ,  104,NYSP Car-Car F2               ,    1,    4,         , 410, 154.665000,   FMn,        , 110.9,    ctcss,     1,scangrp=1,all
-FREQ     ,  105,NYSP StWide  F3               ,    1,    4,         , 411, 154.695000,   FMn,        ,   Off,      off,     1,scangrp=1,all
-FREQ     ,  106,NYSP MRD     F5               ,    1,    4,         , 412, 155.370000,   FMn,        ,   Off,      off,     1,scangrp=1,all
-FREQ     ,  107,Nat Emerg    F6               ,    1,    4,         , 413, 155.475000,   FMn,        ,   Off,      off,     2,scangrp=1,all
-FREQ     ,  108,NYSP TAC-1                    ,    1,    4,         , 414, 154.920000,   FMn,        ,   Off,      off,     1,
-FREQ     ,  109,NYSP TAC-2                    ,    1,    4,        a, 415, 155.625000,   FMn,        , 110.9,    ctcss,     1,
-FREQ     ,  110,NYSP ExctSrvc                 ,    1,    4,         , 416, 155.460000,   FMn,        ,   Off,      off,     1,
-FREQ     ,  111,DEC                           ,    1,    4,         , 417, 151.430000,   FMn,        ,   Off,      off,      ,
-FREQ     ,  112,DEC                           ,    1,    4,         , 418, 159.225000,   FMn,        ,   Off,      off,      ,
+FREQ     ,   78,NYSP Car-Car F2               ,    1,    4,         , 410, 154.665000,   FMn,CTC110.9,     1,        ,        ,scangrp=1 
+FREQ     ,   79,NYSP StWide  F3               ,    1,    4,         , 411, 154.695000,   FMn,     OFF,     1,        ,        ,scangrp=1 
+FREQ     ,   80,NYSP MRD     F5               ,    1,    4,         , 412, 155.370000,   FMn,     OFF,     1,        ,        ,scangrp=1 
+FREQ     ,   81,Nat Emerg    F6               ,    1,    4,         , 413, 155.475000,   FMn,     OFF,     2,        ,        ,scangrp=1 
+FREQ     ,   82,NYSP TAC-1                    ,    1,    4,         , 414, 154.920000,   FMn,     OFF,     1
+FREQ     ,   83,NYSP TAC-2                    ,    1,    4,        a, 415, 155.625000,   FMn,CTC110.9,     1
+FREQ     ,   84,NYSP ExctSrvc                 ,    1,    4,         , 416, 155.460000,   FMn,     OFF,     1
+FREQ     ,   85,DEC                           ,    1,    4,         , 417, 151.430000,   FMn,     OFF
+FREQ     ,   86,DEC                           ,    1,    4,         , 418, 159.225000,   FMn,     OFF
 # Thruway   
 # For now, the Thruway is NOT included in the IC-705 scanning
-FREQ     ,  113,Thruway                       ,    1,    4,         , 419, 453.425000,   FMn,        ,   Off,      off,      ,
-FREQ     ,  114,Thruway                       ,    1,    4,         , 420, 453.525000,   FMn,        ,   Off,      off,      ,
-FREQ     ,  115,Thruway-Input                 ,    1,    4,         , 421, 458.425000,   FMn,        ,   Off,      off,      ,
-FREQ     ,  116,Thruway-Input                 ,    1,    4,         , 422, 458.525000,   FMn,        ,   Off,      off,      ,
+FREQ     ,   87,Thruway                       ,    1,    4,         , 419, 453.425000,   FMn,     OFF
+FREQ     ,   88,Thruway                       ,    1,    4,         , 420, 453.525000,   FMn,     OFF
+FREQ     ,   89,Thruway-Input                 ,    1,    4,         , 421, 458.425000,   FMn,     OFF
+FREQ     ,   90,Thruway-Input                 ,    1,    4,         , 422, 458.525000,   FMn,     OFF
 #                                                                                                                                
 #### Since these are P25 encrypted, they may not be of any use                                                                                                                                         
 ## This one needs attenuation on R30. Otherwise overload from 155.640                                                            
-FREQ     ,  117,NYSP Secure  F8 (P25 Encryptd),    1,    4,        a, 423, 155.565000,   FMn,        ,   Off,      off,      ,rfgain=3  ,     all
+FREQ     ,   91,NYSP Secure  F8 (P25 Encryptd),    1,    4,        a, 423, 155.565000,   FMn,     OFF,      ,        ,        ,rfgain=3  
 ### None of these can be received by the IC=705, so no scan group here
-FREQ     ,  118,NYSP P-P1 (P25 Encryptd)      ,    1,    4,         , 424, 769.943750,   FMn,        ,   Off,      off,      ,
-FREQ     ,  119,NYSP P-P2 (P25 Encryptd)      ,    1,    4,         , 425, 769.156250,   FMn,        ,   Off,      off,      ,
-FREQ     ,  120,NYSP Event 1 (P25 Encryptd)   ,    1,    4,         , 426, 769.193750,   FMn,        ,   Off,      off,      ,
-FREQ     ,  121,NYSP Event 2 (P25 Encryptd)   ,    1,    4,         , 427, 769.431250,   FMn,        ,   Off,      off,      ,
-FREQ     ,  122,NYSP Event 3 (p25 Encryptd)   ,    1,    4,         , 428, 773.593750,   FMn,        ,   Off,      off,      ,
-FREQ     ,  123,NYSP Event 4 (p25 Encryptd)   ,    1,    4,         , 429, 774.543750,   FMn,        ,   Off,      off,      ,
-FREQ     ,  124,NYSP Event 5 (p25 Encryptd)   ,    1,    4,         , 430, 774.831250,   FMn,        ,   Off,      off,      ,
+FREQ     ,   92,NYSP P-P1 (P25 Encryptd)      ,    1,    4,         , 424, 769.943750,   FMn,     OFF
+FREQ     ,   93,NYSP P-P2 (P25 Encryptd)      ,    1,    4,         , 425, 769.156250,   FMn,     OFF
+FREQ     ,   94,NYSP Event 1 (P25 Encryptd)   ,    1,    4,         , 426, 769.193750,   FMn,     OFF
+FREQ     ,   95,NYSP Event 2 (P25 Encryptd)   ,    1,    4,         , 427, 769.431250,   FMn,     OFF
+FREQ     ,   96,NYSP Event 3 (p25 Encryptd)   ,    1,    4,         , 428, 773.593750,   FMn,     OFF
+FREQ     ,   97,NYSP Event 4 (p25 Encryptd)   ,    1,    4,         , 429, 774.543750,   FMn,     OFF
+FREQ     ,   98,NYSP Event 5 (p25 Encryptd)   ,    1,    4,         , 430, 774.831250,   FMn,     OFF
 #** Business (Group 8). Not set in any non-dynamic radio                                                                                                                                            
-FREQ     ,  125,Mohonk                        ,    0,    8,         ,  -1, 151.655000,   FMn,        ,   Off,      off,      ,          ,     dmr
-FREQ     ,  126,Mohonk                        ,    0,    8,         ,  -1, 152.300000,   FMn,        ,   Off,      off,      ,          ,     dmr
-FREQ     ,  127,WP Tours                      ,    0,    8,         ,  -1, 159.825000,   FMn,        ,   Off,      off,      ,          ,     dmr
-FREQ     ,  128,WPDH remote                   ,    1,    8,         ,  -1, 161.700000,   FMn,        ,   Off,      off,      ,          ,     dmr
-FREQ     ,  129,Target ch 4                   ,    1,    8,         ,  -1, 467.187500,   FMn,        ,   Off,      off,      ,          ,     dmr
-FREQ     ,  130,Target ch 3                   ,    1,    8,         ,  -1, 467.462500,   FMn,        ,   Off,      off,      ,          ,     dmr
-FREQ     ,  131,Target ch 2                   ,    1,    8,         ,  -1, 467.487500,   FMn,        ,   Off,      off,      ,          ,     dmr
-FREQ     ,  132,Target ch 1                   ,    1,    8,         ,  -1, 467.512500,   FMn,        ,   Off,      off,      ,          ,     dmr
-
-
+FREQ     ,   99,Mohonk                        ,    0,    8,         ,  -1, 151.655000,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,  100,Mohonk                        ,    0,    8,         ,  -1, 152.300000,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,  101,WP Tours                      ,    0,    8,         ,  -1, 159.825000,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,  102,WPDH remote                   ,    1,    8,         ,  -1, 161.700000,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,  103,Target ch 4                   ,    1,    8,         ,  -1, 467.187500,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,  104,Target ch 3                   ,    1,    8,         ,  -1, 467.462500,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,  105,Target ch 2                   ,    1,    8,         ,  -1, 467.487500,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,  106,Target ch 1                   ,    1,    8,         ,  -1, 467.512500,   FMn,     OFF,      ,        ,     DMR
