@@ -35,8 +35,9 @@ NOTE:This is a BETA version.
   
   
 Package contents:
-   radioctl_{distro}  - The GUI program compiled for specific distributions.
-   radiowrite_{distro}  - The command line program compiled for specific distributions. 
+   radioctl.pl   - GUI program
+   radiowrite.pl  - Command line program
+   *.pm           - Various local libraries needed for the program
    radioctl.conf - Sample configuration file (to reside in your HOME directory)
    Conventional-Ulster_orange.csv - Sample RadioCtl format input file (Conventional Frequencies in the Hudson Valley of NY)
    NyComCo-EDACS.csv - Sample RadioCtl format input file (NYCOMCO EDACS system in the Hudson Valley of NY)
