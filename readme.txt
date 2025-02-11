@@ -58,9 +58,9 @@ Installation:
   
  
 To run (from terminal)
-  radioctl     (GUI)
+  radioctl.pl  (GUI)
     or
-  radiowrite    (command line)   
+  radiowrite.pl (command line)   
 
   
 Contact the authors at: richardrosa@yahoo.com for bug reports & suggestions.

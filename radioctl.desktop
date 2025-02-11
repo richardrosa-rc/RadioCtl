@@ -3,8 +3,8 @@
 Version=1.0
 Name=RadioCtl
 Comment=Control Of Radios
-Exec=radioctl
-Icon=radioctl
+Exec=radioctl.pl
+Icon=radioctl.png
 Terminal=false
 X-MultipleArgs=false
 Type=Application

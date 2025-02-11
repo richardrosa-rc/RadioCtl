@@ -9,15 +9,9 @@ my $Reset =  "\e[0m"; ## all attributes off
 my $Eol = "$Reset\n";    ### reset color and add new line
 my $errmsg = "$Bold\n Install was terminated before completion$Eol";
 
-
-my @required = ("radioctl_ubuntu",
-                "radioctl_tumbleweed",
-                "radioctl_suse",
-#               "radioctl_raspberrypi",
-                "radiowrite_ubuntu",
-                "radiowrite_tumbleweed",
-                "radiowrite_suse",
-#                "radiowrite_raspberrypi",
+my $install_dir = '/usr/local/radioctl';
+my $bin_dir = '/usr/local/bin';   ### Where symlinks will be placed
+my @required = (
                 "radioctl.png",
                 "radioctl.desktop",
                 "radioctl.conf",
@@ -27,10 +21,11 @@ my @libs_debian = (
    'libgtk3-perl','libdevice-serialport-perl','libtext-csv-perl','libautovivification-perl'
    );
 my @libs_suse = ( 
-   'perl-Gtk3','perl-Device-SerialPort','perl-Text-CSV','perl-autovivification'
+   'perl-Gtk3','perl-Device-SerialPort','perl-Text-CSV','perl-autovivification',
+     'gdk-pixbuf-devel','perl-Text-CSV_XS','typelib-1_0-Gtk-3_0','typelib-1_0-GdkPixdata-2_0',
    );
 my $distro = '';
-my $rc = `grep -i suse /etc/osrelease`;
+my $rc = `grep -i suse /etc/os-release`;
 ### Not Suse
 if ($?) {
    $distro = 'debian'; ### for now
@@ -52,59 +47,36 @@ if (!$all_found) {
    print "$Bold Please make the above files available before running this install again!";
    $Eol;
 }
-### need to determine the right binary to copy
-my $source = '';
-foreach my $binary ('raspberrypi','ubuntu','tumbleweed','suse',) {
-   my $fn = "radioctl_$binary";
-   if (!-e $fn) {
-      print "$Bold Could not locate $fn in the current directory!\n";
-      print $errmsg;
-      exit 999;
-   }
-   
-   ### Because the RaspberryPi is NOT  x64 arch
-   ### Need a different way to detect
-   if ($binary =~ /rasp/i) {
-      ### Possibles:
-      my $uname = `uname -a`;
-      if ($uname =~ /raspberry/i) {
-         $source = $binary;
-         last;
-      }
-      next;
-   
-   }
-   else {
-      my $rc = `ldd $fn`;
-      if ($rc =~ /not found/i) {next;}
-      $source = $binary;
-   }
-   last;
+
+####################################################
+#  Create a new directory for radioctl             #
+####################################################
+if (-d $install_dir) {
+   print "$install_dir already exists. Will be updated\n";
+}
+else {
+   my $cmd = "sudo mkdir -p $install_dir";
+   print "Command=$cmd\n";
+   system "$cmd";
+}
+if (!-d $install_dir) {
+   print $Bold,"Cannot create $install_dir$Eol";
+   exit 62;
 }
 
-if (!$source) {
-   print "$Bold Could not find a compatible binary for this distribution\n";
-   print "  Contact the authors for valid binaries or run from PERL source\n";
-   print $errmsg;
-   exit 999;
-}
+system "sudo cp -auv *.pl $install_dir";
+system "sudo chmod 755 $install_dir/*.pl";
+### create symlinks for starting the program
+system "sudo ln -s $install_dir/radioctl.pl $bin_dir";
+### So the .PL is not needed 
+system "sudo ln -s $install_dir/radioctl.pl $bin_dir/radioctl";
 
-print "Determined compatible distro =>$source\n";
+system "sudo ln -s $install_dir/radiowrite.pl $bin_dir";
+system "sudo ln -s $install_dir/radiowrite.pl $bin_dir/radiowrite";
 
 
-### copy the executables to the /usr/local/bin directory
-foreach my $fn ('radioctl','radiowrite') {
-   my $fs = $fn . '_' . $source;
-   my $cmd = "sudo cp $fs /usr/local/bin/$fn";
-   print "$cmd\n";
-   system "sudo cp $fs /usr/local/bin/$fn";
-   if ($?) {
-       print "$Bold Unable to copy $fs!\n";
-       print $errmsg;
-       exit 999;
-   }
-   system "sudo chmod 755 /usr/local/bin/$fn";
-}
+system "sudo cp -auv *.pm $install_dir";
+system "sudo cp -auv *.odt $install_dir";
 system "sudo cp radioctl.desktop /usr/share/applications";
 if ($?) {
    ### This is NOT a show-stopper
@@ -141,6 +113,7 @@ else {
 #### now install the appropriate libraries     #
 ################################################
 if ($distro =~ /debian/i) {
+   system "sudo apt update";
    foreach my $lib (@libs_debian) {
       my $cmd = "sudo apt-get -y install $lib";
       print "$cmd\n";
