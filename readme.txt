@@ -20,7 +20,7 @@ Requirements:
   o An installed or Live Linux distribution (SUSE, Ubuntu, Linux Mint, etc)
   o One of the supported radios:
   
-    ICOM: R7000, IC-R30, IC-705, IC-7300, IC-8600 (untested)
+    ICOM: R7000, IC-R30, IC-705, IC-7300, IC-8600
     KENWOOD: TH-F6A
     UNIDEN:BCD325P2, SDS100, SDS200, BCD396T, BC895xlt
     AOR:AR-8000
