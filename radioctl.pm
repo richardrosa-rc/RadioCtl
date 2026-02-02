@@ -35,7 +35,7 @@ TrueFalse LogIt Strip Time_format Lat_Lon_Parse Parms_Parse Time_Format ConfigFi
 write_log str_cmpr $fdigits $fdecimal check_range
 @gui_modestring @gui_bandwidth @gui_adtype @gui_tonestring @gui_attstring %audio_types
 @rc_modes %rc_modes %tn_type @attstring @ctctone @dcstone @alltones Tone_Xtract
-DebugIt $Logfile_Name DirExist
+DebugIt $Logfile_Name DirExist %Radio_Limits
 );
 use threads;
 use threads::shared;
@@ -208,6 +208,7 @@ name => ucfirst($defaultradio),
 sdir => "$homedir/radioctl",
 },
 );
+our %Radio_Limits = ();
 our %known_locations = (
 'home' => {'lat' => 41.605425, 'lon' => -73.971687},
 );
@@ -221,6 +222,7 @@ our %flagchar = (
 'id_search'    => 'i',
 'agc_analog'   => 'j',
 'skip'         => 'k',
+'locctl'       => 'l',
 'preamp'       => 'm',
 'c_ch'         => 'o',
 'priority'     => 'p',
@@ -239,7 +241,7 @@ our %extra_char = (
 'fleetmap'=> {'system' => TRUE},
 'custmap' => {'system' => TRUE},
 'turnqk'  => {'system' => TRUE,'site'  => TRUE,'group' => TRUE},
-'utag'    => {'system' => TRUE,'min' => 0},
+'utag'    => {'system' => TRUE,'favorites' => TRUE,'min' => 0},
 'turndqk' => {'site'   => TRUE,'group' => TRUE},
 'filter'  => {'site'   => TRUE,'group' => TRUE},
 'dqkey'   => {'site'   => TRUE,'group' => TRUE,'min' => 0},
@@ -283,9 +285,6 @@ our @system_type = (
 );
 our %system_type_valid = ();
 foreach my $st (@system_type) {$system_type_valid{$st} = TRUE;}
-our @dblist = ('system','site','bplan','tfreq','group','freq','search','lookup',
-'powermsg','light','beep','ifxchng','lockfreq');
-our %OneOnly = ('powermsg' => TRUE, 'beep' => TRUE, 'light' => TRUE);
 our %version1 = (
 system => ['index',
 'service',
@@ -433,9 +432,19 @@ ifxchng => ['frequency',
 lockfreq => ['infile',
 'ingrpno',### Input group number to select
 ],
+favorites => [
+'index',
+'service',
+'valid',
+'fnumber',
+'qkey',
+'flags',
+'_extra',
+],
 );
 our %structure = (
-system => ['index',
+system => [
+'index',
 'valid',
 'systemtype',
 'service',
@@ -467,11 +476,13 @@ system => ['index',
 'emgpat',
 'utag',
 'hpd',
+'locctl',
 '_raw',
 'block_addr',
 'turnqk',
 ],
-site => ['index',
+site => [
+'index',
 'valid',
 'sysno',
 'qkey',
@@ -502,6 +513,8 @@ tfreq =>  ['index',
 'ran',
 'block_addr',
 '_raw',
+'_def',
+'_outproc',
 ],
 bplan => ['index',
 'siteno',
@@ -532,6 +545,8 @@ bplan => ['index',
 'spacing_6',
 'offset_6',
 '_raw',
+'_def',
+'_outproc',
 ],
 group  => [
 'index',
@@ -621,7 +636,8 @@ lookup => [
 'frequency',
 'service',
 ],
-tag => [ ],
+tag => [
+],
 powermsg => ['msg1',
 'msg2',
 'msg3',
@@ -664,9 +680,63 @@ toneout => [
 'emgcol',
 '_raw',
 ],
+favorites => [
+'index',
+'valid',
+'service',
+'fnumber',
+'qkey',
+'_extra',
+'locctl',
+'_utag',
+],
 );
-my @non_indexed = ('lookup','ifxchng','lockfreq','beep','powermsg','light',
-'lockfreq','toneout');
+my %non_xrefed = (
+'lookup'   => TRUE,
+'ifxchng'  => TRUE,
+'lockfreq' => TRUE,
+'beep'     => TRUE,
+'powermsg' => TRUE,
+'light'    => TRUE,
+'lockfreq' => TRUE,
+'toneout'  => TRUE,
+'search'   => TRUE,
+'tag'      => TRUE,
+'favorites'=> TRUE,
+);
+my @xrefed = (
+'system','site','bplan','tfreq','group','freq',
+);
+my %non_output = (
+'syskey' => TRUE,'grpkey' => TRUE,
+);
+my %index_required = (
+'system' => TRUE,
+'site' => TRUE,
+'group' => TRUE,
+'log' => TRUE,
+'freq' => TRUE,
+'tfreq' => TRUE,
+'bplan' => TRUE,
+'favorites' => TRUE,
+);
+our @dblist = ('system','site','bplan','tfreq','group','freq','search','lookup',
+'powermsg','light','beep','ifxchng','lockfreq','favorites');
+our %OneOnly = (
+'powermsg' => TRUE,
+'beep' => TRUE,
+'light' => TRUE,
+'favorites' => TRUE,
+);
+my %check = ();
+foreach my $key (keys %non_xrefed,@xrefed,keys %non_output) {
+$check{$key} = TRUE;
+}
+foreach my $key (keys %structure) {
+if (!$check{$key}) {
+LogIt(1680," Missing  xrefed/non_xrefed entry for record type $Yellow$key!");
+}
+}
 our %notsetable = ('count' => TRUE, 'systemname' => TRUE,
 'signal' => TRUE, 'duration' => TRUE,
 'timestamp' => TRUE, 'groupname' => TRUE,
@@ -706,6 +776,7 @@ our %struct_fields = (
 '_noshow'     => ['b',  1,0,     0,0,1        ,0,],
 'polarity'    => ['b',  1,0,     0,0,1        ,0,],
 'idas'        => ['b',  1,0,     0,0,1        ,0,],
+'locctl'      => ['b',  1,0,     0,0,1        ,0,],
 'frequency'    => ['f',11,0,25000000,0,9999999999],
 'start_freq'   => ['f',11,0,25000000,0,9999999999],
 'end_freq'     => ['f',11,0,26000000,0,9999999999],
@@ -767,6 +838,7 @@ our %struct_fields = (
 'srch_ndx'    => ['c', 8,'b',   'S0','.',     '.',0,
 'c0','c1','c2','c3','c4','c5','c6','c7','c8','c9',
 's1','s2','s3','s4','s5','s6','s7','s8','s9','s11','s12','s15'],
+'fnumber'     => ['i',8,'n',    '1',0,999999     ,0,],
 'hld'         => ['i', 3,'n',   '0',0,255       ,0,],
 'hpd'         => ['i', 6,'n',   -1,-1,999999    ,0],
 'p25wait'     => ['i', 7,'n',   '',0,1000      ,0],
@@ -1142,7 +1214,9 @@ my ($fp) = @_;
 my $num = -1;
 my $mhz;
 my $khz;
+if (!$fp) {return 0;}
 $fp =~ s/\,//;                            
+if (!$fp) {return 0;}
 $fp =~ s/^\s*(.*?)\s*$/$1/;               
 if (!$fp) {return 0;}
 if ($fp =~ /^(([ ]*)\d+\.?\d*|\.\d+)/ ) { 
@@ -1218,6 +1292,7 @@ if ($append) {$outspec = ">>$filespec";}
 else {
 }
 }
+my %wrote_it = ();
 if (! open OUT,"$outspec") {
 LogIt(1,"RadioCtl4 l2698:Cannot open $filespec \n      Error was=> $Red $!");
 return $FileErr;
@@ -1362,6 +1437,23 @@ $channel = 0;
 }
 }
 }### Renumber process
+$wrote_it{'favorites'} = TRUE;
+my $favrec = $data->{'favorites'}[1];
+if ($favrec) {
+print OUT "*\n";
+if ((!$nohdr) and ($oformat != 1)) {
+print OUT $head3{'favorites'},"\n";
+print OUT $head4{'favorites'},"\n";
+}
+my $blk_comm = $favrec->{'_block_comments'};
+if ($blk_comm and (scalar @{$blk_comm})) {
+foreach my $rec (@{$blk_comm}) {print OUT "$rec\n";}
+}
+print OUT write_format($favrec,'favorites',$oformat),"\n";
+}
+foreach my $key ('system','site','tfreq','group','freq','bplan') {
+$wrote_it{$key} = TRUE;
+}
 foreach my $sysrec (@{$data->{'system'}}) {
 my $sysno = $sysrec->{'index'};
 if (!$sysno) {next;}
@@ -1619,6 +1711,7 @@ $cnt++;
 if ($cnt) {LogIt(1,"$cnt $rectype orphans were found!");}
 }
 }
+$wrote_it{'search'} = TRUE;
 if ($data->{'search'}[1]{'index'}) {
 print OUT "*\n********************* SEARCH records *****************************\n";
 if (($oformat != 1) and (!$nohdr)) {
@@ -1646,37 +1739,38 @@ foreach my $rec (@{$blk_comm}) {print OUT "$rec\n";}
 print OUT write_format($rec,'search',$oformat),"\n";
 }
 }
-foreach my $rectype (@non_indexed) {
+foreach my $rectype (sort keys %structure) {
+if ($wrote_it{$rectype}) {next;}
+if ($non_output{$rectype}) {next;}
 if (!defined $data->{$rectype}) {next;}
-my $recount = scalar @{$data->{$rectype}};
-if ($recount < 2) {next;}
+if ($index_required{$rectype}  and
+(scalar($data->{$rectype}) < 2)) {next;}
 print OUT
 "*\n********************* " . uc($rectype) . " records *****************************\n" ;
 foreach my $rec  (@{$data->{$rectype}}) {
-if (!$rec->{'index'}) {next;}
-my %non_indexed = ();
+if (!$data->{'index'}) {next;}
+my %outrec = ();
 foreach my $key (keys %{$rec}) {
-if ($key =~ /index/i) { next;}   
 my $value = $rec->{$key};
 if ($key =~ /frequency/i) {
-$non_indexed{'_frequency'} = $value;
-if ($mhz)  {$non_indexed{'_frequency'} = rc_to_freq($value);}
+$outrec{'_frequency'} = $value;
+if ($mhz)  {$outrec{'_frequency'} = rc_to_freq($value);}
 }
 elsif ($key =~ /toneout/i) {
 if (looks_like_number($value)) {
 $value = Strip(sprintf("%6.1f",$value/10));
 }
 }
-$non_indexed{$key} = $value;
+$outrec{$key} = $value;
 }### format certain keys
 my $blk_comm = $rec->{'_block_comments'};
 if ($blk_comm and (scalar @{$blk_comm})) {
 foreach my $rec (@{$blk_comm}) {print OUT "$rec\n";}
 }
-my $outline = write_format(\%non_indexed,$rectype,1);
+my $outline = write_format(\%outrec,$rectype,1);
 print OUT "$outline\n";
 }
-}### non-indexed record types
+}### non-special processed records
 my $blk_comm = $data->{'_block_comments'};
 if ($blk_comm and (scalar @{$blk_comm})) {
 foreach my $rec (@{$blk_comm}) {print OUT "$rec\n";}
@@ -1904,8 +1998,6 @@ my %localdb = ();
 @{$data->{'_block_comments'}} = ();
 @{$data->{'_block_tag'}} = ();
 my %old_xref = ();
-my %index_required = ('system' => TRUE, 'site' => TRUE, 'group' => TRUE, 'log' => TRUE,
-'freq' => TRUE, 'tfreq' => TRUE, 'bplan' => TRUE,);
 my %flag_translate;
 LogIt(0,"READ_RADIOCTL:Input file $filespec is Record type $filetype");
 my $tagstart = FALSE;
@@ -1988,6 +2080,7 @@ print "4622: Linein=>$linein\n";
 next READREC;
 }
 my $rectype = $rec{'_rectype'};
+if ($non_output{$rectype}) {next;}
 my @validate = '';
 if (defined $structure{$rectype}) {
 @validate = @{$structure{$rectype}};
@@ -1996,7 +2089,7 @@ elsif (defined $version1{$rectype}) {
 @validate = @{$version1{$rectype}};
 }
 else {
-LogIt(1,"READ_RADIOCTL l4290:No Structure for $rectype record=$recno in $filespec");
+LogIt(1,"READ_RADIOCTL l4901:No Structure for $rectype record=$recno in $filespec");
 $retcode = 3;
 next READREC;
 }
@@ -2050,7 +2143,7 @@ LogIt(1,"Keyword $Red$kwd$White " .
 "  Value ignored");
 }
 }
-}
+}### Extra process
 foreach my $key ('frequency','splfreq') {
 if (defined $rec{$key}) {
 my $freq = $rec{$key};
@@ -2287,12 +2380,12 @@ $rec{$key} = $toneout;
 }
 if ($OneOnly{$rectype}) {
 my $count = 0;
-if (defined $localdb{$rectype}) {$count = (scalar @{$localdb{$rectype}});}
+if (defined $data->{$rectype}) {$count = (scalar @{$data->{$rectype}});}
 if ( $count > 1) {
 LogIt(1,"READ_RADIOCTL l4010:Multiple $Magenta$rectype$White records ".
 "found in line $Green$recno$White of $Yellow$filespec$White." .
 " Previously specified values discarded");
-$localdb{$rectype} = ();
+next;
 }
 }
 $rec{'_oldindex'} = $rec{'index'};
@@ -2300,8 +2393,13 @@ if ((scalar @{$data->{'_block_comments'}})) {
 push @{$rec{'_block_comments'}},@{$data->{'_block_comments'}};
 @{$data->{'_block_comments'}} = ();
 }
+if ($non_xrefed{$rectype}) {
+my $newndx = add_a_record($data,$rectype,\%rec);
+}
+else {
 my $newndx = add_a_record(\%localdb,$rectype,\%rec);
 $old_xref{$rectype}{$rec{'index'}} = $newndx;
+}
 }### Foreach record in file
 foreach my $rec (@{$localdb{'log'}}) {
 my $freqndx = $rec->{'_oldindex'};
@@ -2344,13 +2442,6 @@ $rec->{'sysno'} = 0;
 }
 }
 }### Checking all GROUP records for SYSTEM references
-foreach my $rectype ('search',@non_indexed) {
-foreach my $rec (@{$localdb{$rectype}}) {
-if (!$rec->{'index'}) {next;}
-my $recno = add_a_record($data,$rectype,$rec);
-$rec->{'_found'} = TRUE;
-}
-}
 my %xrefs = ();
 my $channel = 0;
 foreach my $rec (@{$data->{'freq'}}) {
@@ -2358,7 +2449,7 @@ if ($rec->{'frequency'} and $rec->{'channel'} and ($rec->{'channel'} > $channel)
 $channel = $rec->{'channel'};
 }
 }
-foreach my $rectype ('system','site','bplan','tfreq','group','freq') {
+foreach my $rectype (@xrefed) {
 if (!defined $localdb{$rectype}[0]) {next;}
 foreach my $rec (@{$localdb{$rectype}}) {
 if (!$rec -> {'index'}) {next;}
@@ -3173,6 +3264,16 @@ my $high_key = "gstop_$gap";
 if (!$ref->{$low_key}) {return TRUE;}
 if (($freq >= $ref->{$low_key}) and ($freq < $ref->{$high_key})) {
 return FALSE;
+}
+}
+if ($ref -> {'cellgap'}) {
+foreach my $gap (1,2,3,4,5,6) {
+my $low_key = "cstart_$gap";
+my $high_key = "cstop_$gap";
+if (!$ref->{$low_key}) {return TRUE;}
+if (($freq >= $ref->{$low_key}) and ($freq < $ref->{$high_key})) {
+return FALSE;
+}
 }
 }
 return TRUE;

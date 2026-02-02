@@ -89,24 +89,29 @@ my @ken2state = ('vfo','mem','call','fine','info');
 my %state2ken = ('vfo' => 0, 'mem' => 1, 'call' => 2, 'fine' => 3, 'info' => 4);
 my @vfo_limits = ();
 my %splitdb = ();
-my %radio_limits = (
-&THF6A => {'minfreq'  =>    100000,'maxfreq' =>1299900000 ,
+$Radio_Limits{&THF6A} = {
+'minfreq'  =>    100000,
+'maxfreq'  =>1299900000 ,
 'maxchan'  => 399,
 'origin'   => 0,
 'sigdet'   => 1,
-},
-&THG71 => {'minfreq'  => 144000000,'maxfreq' => 450000000 ,
-'gstart_1' => 148000001,'gstop_1' => 438000000 ,
+};
+$Radio_Limits{&THG71}  = {
+'minfreq'  => 144000000,
+'maxfreq'  => 450000000 ,
+'gstart_1' => 148000001,
+'gstop_1'  => 438000000 ,
 'maxchan'  => 199,
 'origin'   => 0,
 'sigdet'   => 1,
-},
-&THD74 => {'minfreq'  => 000100000,'maxfreq' => 524000000 ,
+};
+$Radio_Limits{&THD74} =  {
+'minfreq'  => 000100000,
+'maxfreq'  => 524000000 ,
 'maxchan'  => 999,
 'origin'   => 0,
 'sigdet'   => 1,
-},
-);
+};
 my $protoname = 'kenwood';
 use constant PROTO_NUMBER => 3;
 $radio_routine{$protoname} = \&kenwood_cmd;
@@ -172,15 +177,15 @@ kenwood_cmd('FL',$parmref);
 %in = ('vfonum' => 1);
 kenwood_cmd('FL',$parmref);
 if ($vfo_limits[1][0]{'low'}) {
-$radio_limits{'minfreq'} = $vfo_limits[1][0]{'low'};
-if ($vfo_limits[1][-1]{'high'}) {$radio_limits{'maxfreq'} = $vfo_limits[1][-1]{'high'};}
+$Radio_Limits{'minfreq'} = $vfo_limits[1][0]{'low'};
+if ($vfo_limits[1][-1]{'high'}) {$Radio_Limits{'maxfreq'} = $vfo_limits[1][-1]{'high'};}
 }
 elsif ($vfo_limits[0][0]{'low'}) {
-$radio_limits{'minfreq'}  = $vfo_limits[0][0]{'low'};
-if ($vfo_limits[0][-1]{'high'}) {$radio_limits{'maxfreq'} = $vfo_limits[0][-1]{'high'};}
+$Radio_Limits{'minfreq'}  = $vfo_limits[0][0]{'low'};
+if ($vfo_limits[0][-1]{'high'}) {$Radio_Limits{'maxfreq'} = $vfo_limits[0][-1]{'high'};}
 }
-foreach my $key (keys %{$radio_limits{$model}}) {
-$defref->{$key} = $radio_limits{$model}{$key};
+foreach my $key (keys %{$Radio_Limits{$model}}) {
+$defref->{$key} = $Radio_Limits{$model}{$key};
 }
 if ($Debug1) {
 DebugIt("Kenwood l1341: Radio minfreq=$defref->{'minfreq'} maxfreq=$defref->{'maxfreq'}");
@@ -326,7 +331,7 @@ if (!$freq) {
 add_message("KENWOOD_CMD:SETVFO-VFO frequency = 0 or undefined not allowed");
 return ($parmref->{'rc'} = $ParmErr);
 }
-if (!check_range($freq,$defref)) {
+if (!check_range($freq,$defref) and (!$parmref->{'ignore'})) {
 add_message(rc_to_freq($freq) . " MHz is NOT valid for this radio");
 return ($parmref->{'rc'} = $NotForModel);
 }
@@ -545,7 +550,7 @@ my $freq = $frqrec->{'frequency'};
 if (!looks_like_number($freq)) {next;}
 my $clear = FALSE;
 if ($freq) {
-if (!check_range($freq,$defref)) {next;}
+if (!check_range($freq,$defref) and (!$parmref->{'_ignore'})) {next;}
 }
 else {$clear = TRUE;}
 my $split = FALSE;
@@ -1208,7 +1213,9 @@ elsif ($cmdcode eq 'mw') {
 LogIt(1,"\nMW returned 'N' to $sent");
 }
 if ($parmref->{'write'}) {
+if (!$parmref->{'_ignore'}) {
 add_message("Radio rejected parameter for cmd=>$sent");
+}
 }
 return ($parmref->{'rc'} = $EmptyChan);
 }
@@ -1640,7 +1647,7 @@ if ($Debug2) {DebugIt("KENWOOD l46221: $Bold Failed Mod value=>$mod");}
 }
 }
 }
-return -1;
+return 0;
 }
 sub set_mode_code {
 my $mode = shift @_;

@@ -30,40 +30,66 @@ use constant BCD325P2 => 'BCD325P2';
 use constant BCD396T => 'BCD396T';
 use constant SDS100 => 'SDS100';
 use constant SDS200 => 'SDS200';
-my %radio_limits = (
-&BCD325P2 => {'minfreq'  =>  25000000,'maxfreq' => 960000000 ,
-'gstart_1' => 512000001,'gstop_1' => 758000000 ,
-'gstart_2' => 823987501,'gstop_2' => 849012500 ,
-'gstart_3' => 868987501,'gstop_3' => 894012500 ,
-'memory' => 'dy',
+$Radio_Limits{&BCD325P2}  = {
+'minfreq'   =>  25000000,
+'maxfreq'   => 960000000 ,
+'gstart_1'  => 512000001,
+'gstop_1'   => 758000000 ,
+'cellgap'  => TRUE,
+'cstart_1'  => 823987501,
+'cstop_1'   => 849012500 ,
+'cstart_2'  => 868987501,
+'cstop_2'   => 894012500 ,
+'memory'    => 'dy',
 'radioscan' => 2,
-},
-&BCD396T => {'minfreq'  =>  25000000,'maxfreq' =>1300000000 ,
-'gstart_1' => 512000001,'gstop_1' => 764000000 ,
-'gstart_2' => 775987501,'gstop_2' => 794000000 ,
-'gstart_3' => 823987501,'gstop_3' => 849012500 ,
-'gstart_4' => 868987501,'gstop_4' => 894012500 ,
-'gstart_5' => 956000001,'gstop_5' =>1240000000 ,
-'memory' => 'dy',
+};
+$Radio_Limits{&BCD396T}  = {
+'minfreq'   =>  25000000,
+'maxfreq'   =>1300000000 ,
+'gstart_1'  => 512000001,
+'gstop_1'   => 764000000 ,
+'gstart_2'  => 775987501,
+'gstop_2'   => 794000000 ,
+'gstart_3'  => 956000001,
+'gstop_3'   =>1240000000 ,
+'cellgap'  => TRUE,
+'cstart_1'  => 823987501,
+'cstop_1'   => 849012500 ,
+'cstart_2'  => 868987501,
+'cstop_2'   => 894012500 ,
+'memory'    => 'dy',
 'radioscan' => 1,
-},
-&SDS100  => {'minfreq'  =>  25000000,'maxfreq' =>1300000000 ,
-'gstart_1' => 512000001,'gstop_1' => 758000000 ,
-'gstart_2' => 824000001,'gstop_2' => 849000000 ,
-'gstart_3' => 869000001,'gstop_3' => 894000000 ,
-'gstart_4' => 960000001,'gstop_4' =>1240000000 ,
-'memory' => 'no dy',
+};
+$Radio_Limits{&SDS100}   = {
+'minfreq'  =>  25000000,
+'maxfreq'  =>1300000000 ,
+'gstart_1' => 512000001,
+'gstop_1'  => 758000000 ,
+'gstart_2' => 960000001,
+'gstop_2'  => 124000000 ,
+'cellgap'  => TRUE,
+'cstart_1' => 823970001,
+'cstop_1'  => 849013000,
+'cstart_2' => 868980001,
+'cstop_2'  => 894020000,
+'memory'   => 'no dy',
 'radioscan' => 2,
-},
-&SDS200  => {'minfreq'  =>  25000000,'maxfreq' =>1300000000 ,
-'gstart_1' => 512000001,'gstop_1' => 758000000 ,
-'gstart_2' => 824000001,'gstop_2' => 849000000 ,
-'gstart_3' => 869000001,'gstop_3' => 894000000 ,
-'gstart_4' => 960000001,'gstop_4' =>1240000000 ,
-'memory' => 'no dy',
+};
+$Radio_Limits{&SDS200}   = {
+'minfreq'  =>  25000000,
+'maxfreq'  =>1300000000 ,
+'gstart_1' => 512000001,
+'gstop_1'  => 758000000 ,
+'gstart_2' => 960000001,
+'gstop_2'  => 124000000 ,
+'cellgap'  => TRUE,
+'cstart_1' => 823975001,
+'cstop_1'  => 849013000,
+'cstart_2' => 868980001,
+'cstop_2'  => 894020000,
+'memory'   => 'no dy',
 'radioscan' => 2,
-},
-);
+};
 my %service_search = ( 1 => 'Public Safety',
 2 => "News",
 3 => "HAM Radio",
@@ -745,7 +771,12 @@ my %hpdrecs = (
 'tgid'  => [ 'myid','parent','service','avoid','tgid','adtype',
 'svcode','dlyrsm','voloff','emgalt','emglvl','emgcol','emgpat',
 'utag','priority','tslot'],
-'f-list'  => ['name','filename','locctl','monitor','qkey','utag',
+'f-list'  => ['name',
+'filename',
+'locctl',
+'monitor',
+'qkey',
+'utag',
 'start0','start1','start2','start3','start4','start5',
 'start6','start7','start8','start9',
 'qk_0','qk_1','qk_2','qk_3','qk_4','qk_5','qk_6','qk_7','qk_8','qk_9',
@@ -782,6 +813,7 @@ my %filter2sds = (
 'iw' => 'Invert Wide',
 'o'  => 'Off'
 );
+my @hpdcolor = ('Off','Red','Blue','Magenta','Green','Cyan','Yellow','White');
 my $f_eol = "\r\n";
 my $tab = "\t";
 my $header_l1 = "TargetModel$tab" . "BCDx36HP$f_eol";
@@ -837,8 +869,26 @@ uniden_cmd('STS',$parmref);
 $parmref->{'out'} = $outsave;
 $out = $outsave;
 $out->{'model'} = $model;
-foreach my $key (keys %{$radio_limits{$model}}) {
-$defref->{$key} = $radio_limits{$model}{$key};
+foreach my $key (keys %{$Radio_Limits{$model}}) {
+$defref->{$key} = $Radio_Limits{$model}{$key};
+}
+if ($defref->{'cellgap'} and $defref->{'cstart_1'}) {
+$in->{'frequency'} = $defref->{'cstart_1'} + 1000000;
+$in->{'mode'} = 'FMn';
+my $ignore = $parmref->{'_ignore'};
+$parmref->{'_ignore'} = TRUE;
+if (uniden_cmd('setvfo',$parmref)) {
+print "UNIDEN l2328: Radio is US version (cellphone gap)\n";
+}
+else {
+print "UNIDEN l2331: Radio is Internation version (no cellphone gap)\n";
+$defref->{'cellgap'} = FALSE;
+}
+$parmref->{'_ignore'} = FALSE;
+if ($ignore) {$parmref->{'_ignore'} = $ignore;}
+}
+else {print "UNIDEN l2340: Cellgap was NOT defined!\n";
+print Dumper($defref),"\n";
 }
 @gui_modestring = ('WFM','FM','AM');
 @gui_bandwidth  = ('(none)','Narrow','Ultra-Narrow');
@@ -946,7 +996,7 @@ $myout{'key_code'} = 'C';
 uniden_cmd('KEY',$parmref);
 }
 else {
-if (check_range($vfo{'frequency'},$defref)) {
+if (check_range($vfo{'frequency'},$defref) or $parmref->{'_ignore'} ) {
 $myout{'frequency'} = $vfo{'frequency'};
 }
 else {$myout{'frequency'} = $defref->{'minfreq'};}
@@ -1032,6 +1082,7 @@ return $parmref->{'rc'};
 }
 my %work_blk = ();
 $parmref->{'out'} = \%work_blk;
+$parmref->{'write'} = FALSE;
 %system_qkeys = ();
 if (uniden_cmd('QSL',$parmref)) {
 exit_prg($parmref,"_GETALL:Could not fetch SYSTEM quick-keys!");
@@ -1750,11 +1801,13 @@ foreach my $tfrec (@{$db->{'tfreq'}}) {
 if ($tfrec->{'_bypass'}) {next;}
 if (!$tfrec->{'index'}) {next;}
 if ($tfrec->{'siteno'} != $siteno) {next;}
-if (!check_range($tfrec->{'frequency'},\%{$radio_limits{$model}})) {
+if (!check_range($tfrec->{'frequency'},$defref)) {
+if (!$parmref->{'_ignore'}) {
 LogIt(1,"SETMEM l4308:Frequency$Yellow" .
 rc_to_freq($tfrec->{'frequency'}) .
 " MHz$White is out of range of the radio. Bypassed..");
 next;
+}
 }
 $tfcnt++;
 }
@@ -1813,12 +1866,14 @@ foreach my $freq (@{$db->{'freq'}}) {
 if ($freq->{'_bypass'}) {next;}
 if (!$freq->{'index'}) {next;}
 if ($freq->{'groupno'} == $grpno) {
-if ($freq->{'frequency'} and (!check_range($freq->{'frequency'},\%{$radio_limits{$model}}))) {
+if ($freq->{'frequency'} and (!check_range($freq->{'frequency'},$defref))) {
+if (!$parmref->{'_ignore'}) {
 LogIt(1,"SETMEM l4429:Frequency$Yellow" .
 rc_to_freq($freq->{'frequency'}) .
 " MHz$White is out of range of the radio. Bypassed..");
 $freq->{'_bypass'} = TRUE;
 next;
+}
 }
 $chanfound = TRUE;
 }
@@ -2242,12 +2297,24 @@ $work_blk{'tslot'} = 'ANY';
 if ($work_blk{'mode'} and ($work_blk{'mode'} =~ /fm/i)) {
 my ($tt,$tone) = Tone_Xtract($freqrec->{'sqtone'});
 if ($tt =~ /ctc/i) {
-$work_blk{'ctcsdcs'} = $valid_ctc{$tone} + 63;
+my $index = $valid_ctc{"$tt$tone"};
+if (defined $index) {
+$work_blk{'ctcsdcs'} = $index + 63;
 $work_blk{'tonelock'} = 1;
 }
+else {
+LogIt(1,"UNDEN line 5314: Could not locate index for $tt$tone");
+}
+}
 elsif ($tt =~ /dcs/i) {
-$work_blk{'ctcsdcs'} = $valid_dcs{$tone} + 127;
+my $index = $valid_dcs{"$tt$tone"};
+if (defined $index) {
+$work_blk{'ctcsdcs'} = $index + 127;
 $work_blk{'tonelock'} = 1;
+}
+else {
+LogIt(1,"UNDEN line 5326: Could not locate index for $tt$tone");
+}
 }
 elsif ($tt =~ /nac/i) { 
 $work_blk{'dsql'} = $tone;
@@ -2725,9 +2792,11 @@ if (!$freq) {
 add_message("VFO cannot have a 0 frequency");
 return ($parmref->{'rc'} = $ParmErr);
 }
-if (!check_range($freq,\%{$radio_limits{$model}})) {
+if (!check_range($freq,$defref)) {
+if (!$parmref->{'_ignore'}) {
 add_message(rc_to_freq($freq) . " MHz is NOT valid for this radio");
 return ($parmref->{'rc'} = $NotForModel);
+}
 }
 if (!$in->{'mode'}) {
 add_message("UNIDEN routine detected empty 'mode'. Changed to 'FM'");
@@ -2735,7 +2804,8 @@ $in->{'mode'} = 'FM';
 }
 $parmref->{'write'} = TRUE;
 foreach my $key ('frequency','atten','mode') {
-$out->{$key} = $in->{$key};
+if (defined $in->{$key}) {$out->{$key} = $in->{$key};}
+else {$out->{$key} = '';}
 }
 $out->{'dlyrsm'} = 0;
 $out->{'code_srch'} = 0;
@@ -2745,7 +2815,7 @@ $out->{'agc_analog'} = 0;
 $out->{'agc_digital'} = 0;
 $out->{'p25wait'} = 400;
 if (uniden_cmd('QSH',$parmref)) {
-add_message("SETVFI:QSH failure");
+if (!$parmref->{'_ignore'}) {add_message("SETVFP:QSH failure");}
 return ($parmref->{'rc'});
 }### failure
 if ($model =~ /sds/i) {
@@ -2894,7 +2964,7 @@ foreach my $parm (@send_validate) {
 my $value = '';
 if ($parm ne 'rsvd') {$value = $out->{$parm};}
 if (!defined $value) {
-LogIt(1,"UNIDEN_CMD l3522:Undefined value for $blockname->$parm ");
+LogIt(1,"UNIDEN_CMD l6969:Undefined value for $blockname->$parm caller=>$callerline");
 $value = '';
 }
 elsif ($parm =~ /freq/)  {
@@ -3174,7 +3244,9 @@ LogIt(1,"Uniden Returned NG. May be in wrong state. Sent=>$Green" . $parmref->{'
 $parmref->{'rc'} = $ParmErr;
 }
 elsif (lc($firstparm) eq 'err') {
+if (!$parmref->{'_ignore'}) {
 LogIt(1,"Uniden Returned ERR. Maybe bad parm. Sent=>$Green" . $parmref->{'sent'});
+}
 $parmref->{'rc'} = $ParmErr;
 }
 elsif (lc($firstparm) eq 'ok') {
@@ -3676,7 +3748,8 @@ elsif ($mode =~ /wf/i) {$uniden = 'WFM';}
 elsif ($mode =~ /fmu/i) {$uniden = 'NFM';} 
 elsif ($mode =~ /fm/i) {$uniden = 'FM';}  
 else {
-LogIt(1,"Uniden l871:No encode for RC Mode:$mode");
+my ($package,$caller,$callerline) = caller();
+LogIt(1,"Uniden l8999:No encode for RC Mode:$mode. Caller=>$callerline");
 $uniden = 'FM';
 }
 return $uniden;
@@ -4190,11 +4263,20 @@ else {return 'Off';}
 }
 sub uniden_sdcard {
 my $retcode = $GoodCode;
-my ($db,$flist,$sd) = @_;
+my $parms = shift @_;
+my $db = $parms->{'dbase'};
+if (!$db) {LogIt(10315,"Uniden l 10315: Missing 'dbase' value!");}
+my $sdcard = $parms->{'sdcard'};
+if (!$db) {LogIt(10317,"Uniden l 10317: Missing 'sdcard' value!");}
+my $flist = $parms->{'flist'};
+if (!$flist) {
+LogIt(1,"Uniden l 10320:FLIST parm not specified, F_LIST.CFG will not be updated!");
+}
 my $file = '';
 my %f_list = ();
 foreach my $rec (@{$flist}) {
 chomp $rec;
+$rec =~ s/$f_eol//;   
 my @fields = split "\t",$rec;
 my $rectype = shift @fields;
 if ($rectype !~ /^f\-list/i) {next;}  
@@ -4207,62 +4289,121 @@ next;
 foreach my $key (@{$hpdrecs{'f-list'}}) {
 if (scalar @fields) {
 my $value = shift @fields;
+$value =~ s/[^\x20-\x7f]+//g; 
 $f_list{$filename}{$key} = $value;
 }
 else {last;}
 }### Every field in the f-list
 }
 my $system_no = 0;
+my $favrec = $db->{'favorites'}[1];
+if (!$favrec) {$favrec = '';}
+my %dqkey = ();
+my $dqrec = 0;
+my $dqk_start = "DQKs_Status$tab";
+my %sd_system = ();
 SYSRCLOOP:
 foreach my $sysrec (@{$db->{'system'}}) {
 my $sysno = $sysrec->{'index'};
 if (!$sysno) {next;}
-my $file_index = $sysrec->{'hpd'};
-if (!defined $file_index) {$file_index = -1;}
-if (!looks_like_number($file_index) or ($file_index < 0)) {
-LogIt(1,"Uniden l10330:HPD key missing or <0! Changed to 0");
-$file_index = 0;
-}
-$file = 'f_' . sprintf("%06.6i",$file_index) . '.hpd';
-$system_no++;
-push @{$sd->{$file}},"$header_l1";
-push @{$sd->{$file}},"$header_l2";
-my $frecs = $sd->{$file};
 my $recno=$sysrec->{'recno'};
-if (!$recno) {$recno = '?';}
-my $systype =  lc($sysrec->{'systemtype'});
-my $service = $sysrec->{'service'};
-if (!$service) {$service = "System $system_no";}
-$service =~ s/\=//g;  
-$sysrec->{'service'} = $service;
-my $qkey = $sysrec->{'qkey'};
-if ((!looks_like_number($qkey)) or ($qkey < 0)) {
-LogIt(1,"UNIDEN l10240:System $service ($file) recno=>$recno " .
-"quickkey is not defined. System bypassed!");
+my $thisfilename = '';
+my $thisqkey = '';
+my $thisname = '';
+my $locctl = 'Off';
+my $thisutag = 'Off';
+my $monitor = 'Off';
+if ($favrec) {
+my $fnumber = $favrec->{'fnumber'};
+$thisfilename  = 'f_' . sprintf("%06.6i",$fnumber) . '.hpd';
+$thisqkey = $favrec->{'qkey'};
+$locctl = $favrec->{'locctl'};
+$thisname = $favrec->{'service'};
+$thisutag = $favrec->{'_utag'};
+if ($favrec->{'valid'}) {$monitor = 'On';}
+}
+else {
+my $fnumber = $sysrec->{'hpd'};
+if ((defined $fnumber) and ($fnumber >= 0)) {
+$thisfilename = 'f_' . sprintf("%06.6i",$fnumber) . '.hpd';
+}
+else {
+$fnumber = 0;
+my $found = FALSE;
+while (!$found) {
+$thisfilename = 'f_' . sprintf("%06.6i",$fnumber) . '.hpd';
+if (defined $f_list{$thisfilename}) {
+$fnumber++;
+if ($fnumber > 999999) {
+LogIt(10537,"UNIDEN:Exceeded limits of number of SDCard files");
+}
+}
+else {
+$found = TRUE;
+last;
+}
+}### Looking for an unused number
+}### Looking for a new file to create
+$thisname = $sysrec->{'service'};
+$thisqkey = $sysrec->{'qkey'};
+$locctl = $sysrec->{'locctl'};
+$thisutag = $sysrec->{'_utag'};
+if ($sysrec->{'valid'}) {$monitor = 'On';}
+}### No FAVORITES record
+$thisname =~ s/\=//g;  
+if (!$thisname) {
+LogIt(1,"Favorites name is empty for $thisfilename. Cannot process!");
+next;
+}
+if ((!defined $thisqkey) or (!looks_like_number($thisqkey))) {
+LogIt(1,"Favorites QKEY not defined for $thisfilename. Cannot process!");
 next SYSRCLOOP;
 }
-my $rectype = 'Conventional';
-if ($systype !~ /cnv/i) {$rectype = 'Trunk';}
-$f_list{$file}{'name'} = $service;
-$f_list{$file}{'filename'} = $file;
-foreach my $fkey ('locctl','monitor','qkey','utag') {
-$f_list{$file}{$fkey} = 'Off';
+if (!defined $thisutag) {$thisutag = 'Off';}
+if ($locctl) {$locctl = 'On';}
+else {$locctl = 'Off';}
+my $clear = FALSE;
+if ($sd_system{'filename'}) {
+if ($sd_system{'filename'} ne $thisfilename) {
+hpd_finish(\%sd_system);
+push @{$sdcard},{%sd_system};
+$clear = TRUE;
+}### New filename
+}### previous filename specified
+else {$clear = TRUE;}
+if ($clear) {
+%sd_system = (
+'filename' => $thisfilename,
+'name'     => $thisname,
+'qkey'     => $thisqkey,
+'monitor'  => $monitor,
+'sysqk'    => {},
+'locctl'   => $locctl,
+'utag'     => $thisutag,
+'records'  => [
+$header_l1,$header_l2,
+],
+'dqkey'    => \%dqkey,
+'flist'    => \%f_list,
+);
 }
-foreach my $no (0..9) {$f_list{$file}{"start$no"} = 'Off';}
-foreach my $no (0..99) {$f_list{$file}{"qk_$no"} = 'Off';}
-$f_list{$file}{'qkey'} = $qkey;
-if ($sysrec->{'valid'}) {
-$f_list{$file}{'monitor'} = 'On';
+my $service = $sysrec->{'service'};
+if (!$service) {$service = "System $sysrec->{'index'}";}
+$service =~ s/\=//g;  
+my $sysqkey = $sysrec->{'qkey'};
+if ((!looks_like_number($sysqkey)) or ($sysqkey < 0)) {
+LogIt(1,"UNIDEN l10587:System $service  recno=>$recno " .
+"Quickkey is not defined. System bypassed!");
+next SYSRCLOOP;
 }
-my $turnqk = $sysrec->{'turnqk'};
-if ($turnqk) {
-if (lc($turnqk) eq 'off')   {$f_list{$file}{'monitor'} = 'Off';}
-elsif (lc($turnqk) eq 'on') {$f_list{$file}{'monitor'} = 'On';}
+my $state = 'Off';
+if ($sysrec->{'valid'}) {$state = 'On';}
+if (defined $sysrec->{'turnqk'}) {
+if ($sysrec->{'turnqk'} =~ /on/i) {$state = 'On';}
+elsif ($sysrec->{'turnqk'} =~ /off/i) {$state = 'Off';}
 }
-$f_list{$file}{"qk_$qkey"} = $f_list{$file}{'monitor'};
-my $value = $sysrec->{'utag'};
-if ((!looks_like_number($value)) or ($value < 0)) {$value = 'Off';}
-$f_list{$file}{'utag'} = $value;
+$sd_system{'sysqk'}{$sysqkey} = $state;
+my $systype =  lc($sysrec->{'systemtype'});
 my $edacs_type = '';
 if ($systype eq 'edn') {$edacs_type = 'Narrow';}
 elsif ($systype eq 'edw') {$edacs_type = 'Wide';}
@@ -4270,30 +4411,18 @@ my $moto_type = '';
 if ($systype eq 'mots')    {$moto_type = 'Standard';}
 elsif ($systype eq 'motp') {$moto_type = 'Sprinter';}
 elsif ($systype eq 'motc') {$moto_type = 'Custom';}
-$sysrec->{'valid'} = TRUE;
 $sysrec->{'tgid_fmt'} = 'NEXEDGE';
 if ($sysrec->{'idas'}) {$sysrec->{'tgid_fmt'}= 'IDAS';}
-push @{$frecs},rckey2hpd($rectype,$sysrec);
-my $dqk_status = "DQKs_Status$tab";
-my $no_rcds = push  @{$sd->{$file}},$dqk_status;
-my $dqk_index = $no_rcds - 1;
-my $custmap = '';
-if (($systype =~ /motc/i) and
-(looks_like_number($sysrec->{'fleetmap'})) and
-($sysrec->{'fleetmap'} == 16) and
-($sysrec->{'custmap'}) ) {
-foreach my $char (split "",$sysrec->{'custmap'}) {
-if (!$char) {next;}
-$custmap = "$custmap\t$char";
-}
-push @{$frecs},"$custmap$f_eol";
-}### Generating custom fleet map
-my %deptqk = ();
-my %dupdqk  = ();
-my %dupdply = ();
+my $rectype = 'Conventional';
+if ($systype !~ /cnv/i) {$rectype = 'Trunk';}
+my $rcd = rckey2hpd($rectype,$sysrec);
+push @{$sd_system{'records'}},$rcd;
+%dqkey = ();
+$dqrec = push @{$sd_system{'records'}},$dqk_start;
+$dqrec--;
 my $group_type = 'C-Group';
 my $freq_type = 'C-Freq';
-if ($systype ne 'cnv') {
+if ($rectype =~ /trunk/i) {
 $group_type = 'T-Group';
 $freq_type = 'TGID';
 my $site_no = 0;
@@ -4310,47 +4439,31 @@ $site_name = "Site $site_no";
 $site_name =~ s/\=//g;
 $siterec->{'service'} = $site_name;
 $site_name = "$Cyan$site_name$White ($Green$siteno$White)";
-my $qkey = $siterec->{'qkey'};
-my $dqkey = $siterec->{'dqkey'};
-if (!defined $dqkey) {$dqkey = -1;}
-if (looks_like_number($dqkey) and ($dqkey >= 0)) {
-$qkey = $dqkey;
-$siterec->{'qkey'} = $dqkey;
-}
-if ( (!looks_like_number($qkey)) or ($qkey < 0)) {
-LogIt(1,"UNIDEN l10560:Cannot use site $site_name! " .
+my ($qkey,$state) = set_dqkey($siterec,\%dqkey);
+if ($qkey < 0) {
+LogIt(1,"UNIDEN l10727:Cannot use site $site_name! " .
 "No quickkey defined!");
 next SITERCLOOP;
 }
-my $last_qkey = $deptqk{$qkey};
-if ($siterec->{'valid'}) {$deptqk{$qkey} = 'On'}
-else {$deptqk{$qkey} = 'Off';}
-my $turnqk = $siterec->{'turndqk'};
-if (!$turnqk) {$turnqk = $siterec->{'turnqk'};}
-if ($turnqk) {
-if (lc($turnqk) eq 'off')   {$deptqk{$qkey} = 'Off';}
-elsif (lc($turnqk) eq 'on') {$deptqk{$qkey} = 'On';}
-}### Override specified
-my $msg = "SITE:$site_name";
-if ($dupdqk{$qkey}[0]) {
-$dupdply{$qkey} = TRUE;
-if ($last_qkey ne $deptqk{$qkey}) {
-$msg = "$msg Conflict with Quickkey ON/OFF detected!";
-}
-}
-push @{$dupdqk{$qkey}},$msg;
 $siterec->{'valid'} = TRUE;
 $siterec->{'mottype'} = $moto_type;
 $siterec->{'edacstype'} = $edacs_type;
 $siterec->{'dsql'} = $sysrec->{'dsql'};
 $siterec->{'loc_type'} = 'Circle';
-$siterec->{'mode'} = 'Auto';
-push @{$frecs},rckey2hpd('Site',$siterec);
+if ($siterec) {
+if ($siterec->{'mode'} =~ /fmn/i) {$siterec->{'mode'} = 'fmn';}
+elsif ($siterec->{'mode'} =~ /fm/i) {$siterec->{'mode'} = 'fm';}
+else {$siterec->{'mode'} = 'Auto';}
+}
+else {$siterec->{'mode'} = 'Auto';}
+my $rcd = rckey2hpd('Site',$siterec);
+push @{$sd_system{'records'}},$rcd;
 if ($systype =~ /motc/i) {
 foreach my $bplan (@{$db->{'bplan'}}) {
 if (!$bplan->{'index'}) {next;}
 if ($bplan->{'siteno'} != $siteno) {next;}
-push @{$frecs},rckey2hpd('BandPlan_Mot',$bplan);
+my %rcd = rckey2hpd('BandPlan_Mot',$bplan);
+push @{$sd_system{'records'}},$rcd;
 last;
 }
 }
@@ -4358,10 +4471,11 @@ my $freqcount = 0;
 foreach my $frqrec (@{$db->{'tfreq'}}) {
 if (!$frqrec->{'index'}) {next;}
 if ($frqrec->{'siteno'} != $siteno) {next;}
-if (!check_range($frqrec->{'frequency'},\%{$radio_limits{'SDS200'}})) {
-LogIt(1,"UNIDEN l0711:Site Frequency$Yellow" .
+if (!check_range($frqrec->{'frequency'},\%{$Radio_Limits{'SDS200'}})) {
+LogIt(1,"UNIDEN l0804:Site Frequency$Yellow" .
 rc_to_freq($frqrec->{'frequency'}) .
 " MHz$White is out of range of the radio. Bypassed..");
+next;
 }
 my $ccran = 'Srch';
 if (($systype =~ /dmr/i) or ($systype =~ /trb/i)) {
@@ -4376,7 +4490,8 @@ $ccran = $frqrec->{'ran'};
 }
 $frqrec->{'ccran'} = $ccran;
 $frqrec->{'valid'} = TRUE;
-push @{$frecs},rckey2hpd('T-Freq',$frqrec);
+my $rcd = rckey2hpd('T-Freq',$frqrec);
+push @{$sd_system{'records'}},$rcd;
 $freqcount++;
 }### TFREQ records
 if (!$freqcount) {
@@ -4384,51 +4499,26 @@ LogIt(1,"Uniden l11184:No TFREQ records found for site $site_name");
 }
 }### SITE Records
 }### Trunked SYSTEM definition
-my $group_no = 0;
 foreach my $grouprec (@{$db->{'group'}}) {
 my $groupno = $grouprec->{'index'};
 if (!$groupno) {next;}
 if ($grouprec->{'sysno'} != $sysno) {next;}
-$group_no++;
 my $service = $grouprec->{'service'};
-if (!$service) {$service = 'Group $group_no';}
+if (!$service) {$service = "Group $groupno";}
 $service =~ s/\=//g;   
 $grouprec->{'service'} = $service;
 my $group_name = "$Cyan$service$White ($Green$groupno$White)";
-my $qkey = $grouprec->{'qkey'};
-my $dqkey = $grouprec->{'dqkey'};
-if (!defined $dqkey) {$dqkey = -1;}
-if (looks_like_number($dqkey) and ($dqkey >= 0)) {
-$qkey = $dqkey;
-$grouprec->{'qkey'} = $dqkey;
-}
-if ( (!looks_like_number($qkey)) or ($qkey < 0)) {
-LogIt(1,"Uniden l10535: No quickkey assigned for group " .
+my ($qkey,$state) = set_dqkey($grouprec,\%dqkey);
+if ($qkey < 0) {
+LogIt(1,"Uniden l10832: No quickkey assigned for group " .
 "$group_name\n" .
 "    Group will not be able to be selected!");
-}
-else {
-my $last_qkey = $deptqk{$qkey};
-if ($grouprec->{'valid'}) {$deptqk{$qkey} = 'On';}
-else {$deptqk{$qkey} = 'Off';}
-my $turnqk = $grouprec->{'turndqk'};
-if (!$turnqk) {$turnqk = $grouprec->{'turnqk'};}
-if ($turnqk) {
-if (lc($turnqk) eq 'off')   {$deptqk{$qkey} = 'Off';}
-elsif (lc($turnqk) eq 'on') {$deptqk{$qkey} = 'On';}
-}### Override specified
-my $msg = "GROUP:$group_name";
-if ($dupdqk{$qkey}[0]) {
-$dupdply{$qkey} = TRUE;
-if ($last_qkey ne $deptqk{$qkey}) {
-$msg = "$msg Conflict with Quickkey ON/OFF detected!";
-}
-}
-push @{$dupdqk{$qkey}},$msg;
+print Dumper($grouprec),"\n";exit;
 }
 $grouprec->{'valid'} = TRUE;
 $grouprec->{'loc_type'} = 'Circle';
-push @{$frecs},rckey2hpd($group_type,$grouprec);
+my $rec = rckey2hpd($group_type,$grouprec);
+push @{$sd_system{'records'}},$rec;
 FREQCLOOP:
 foreach my $freqrec (@{$db->{'freq'}}) {
 my $freqno = $freqrec->{'index'};
@@ -4442,8 +4532,8 @@ my $frequency = $freqrec->{'frequency'};
 if ((!$frequency) and ($systype eq 'cnv')) {
 next FREQCLOOP;
 }
-if ($frequency and (!check_range($frequency,\%{$radio_limits{'SDS200'}}))) {
-LogIt(1,"SETMEM l10864:Frequency$Yellow" . rc_to_freq($frequency) .
+if ($frequency and (!check_range($frequency,\%{$Radio_Limits{'SDS200'}}))) {
+LogIt(1,"UNIDEN l10871:Frequency$Yellow" . rc_to_freq($frequency) .
 " MHz$White is out of range of the radio. Bypassed..");
 next FREQCLOOP;
 }
@@ -4455,26 +4545,42 @@ if (looks_like_number($grpsvcode) and ($grpsvcode > 0)) {
 $freqrec->{'svcode'} = $grpsvcode;
 }
 }
-push @{$frecs},rckey2hpd($freq_type,$freqrec);
+if (!$freqrec->{'voloff'}) {$freqrec->{'voloff'} = 0;}
+my $rcd = rckey2hpd($freq_type,$freqrec);
+push @{$sd_system{'records'}},$rcd;
 }### For every FREQ record
-}### For every GROUP record
-my @dup_key_list = sort Numerically keys %dupdply;
-if (scalar @dup_key_list) {
-LogIt(1,"##  Duplicate SITE/DEPT quickkey assignments found ###");
-foreach my $qk (@dup_key_list) {
-print "Site/Dept QuickKey:$Bold$Green$qk$White:$Eol";
-foreach my $string (@{$dupdqk{$qk}}) {
-print "$Bold    $string$Eol";
-}
-}
-}
-$dqk_status = "DQKs_Status$tab";
+}### Group process
+my $rec = $dqk_start;
 foreach my $ndx (0..99) {
 my $value = 'Off';
-if ($deptqk{$ndx}) {$value = $deptqk{$ndx};}
-$dqk_status = "$dqk_status$tab$value";
+if ($dqkey{$ndx}) {$value = $dqkey{$ndx};}
+$rec = "$rec$tab$value";
 }
-$frecs->[$dqk_index] = "$dqk_status$f_eol";
+$sd_system{'records'}[$dqrec] = "$rec$f_eol";
+}### System record loop
+my $count = scalar @{$sd_system{'records'}};
+if ($count > 2) {
+hpd_finish(\%sd_system);
+push @{$sdcard},{%sd_system};
+}
+if ($flist) {
+@{$flist} = ($header_l1,$header_l2);
+my $first = TRUE;
+foreach my $fn (sort keys %f_list) {
+my $outrec = 'F-List';
+foreach my $key (@{$hpdrecs{'f-list'}}) {
+my $value = $f_list{$fn}{$key};
+if (!defined $value) {
+LogIt(1,"F_LIST key $key for $fn was never set!");
+$value = '';
+}
+$outrec = "$outrec$tab$value";
+}
+push @{$flist},"$outrec$f_eol";
+}
+}### FLIST parm available
+return 0;
+while (FALSE) {
 }### For every SYSTEM record
 @{$flist} = ();
 push @{$flist},"TargetModel\tBCDx36HP$f_eol";
@@ -4549,8 +4655,13 @@ else {$value = 'On';}
 else {$value = 'On';}
 }
 elsif ($key eq 'emgcol') {
-$value = 'Off';
-if ($rcrcd->{'emgalt'}) {$value = 'Red';}
+$value = $rcrcd->{'emgcol'};
+if ((!$value) or ($value =~ /off/i)) {$value = 'Off';}
+else {
+if (looks_like_number($value) and ($value < 8)) {
+$value = $hpdcolor[$value];
+}
+}
 }
 elsif ($key eq 's_bit') {
 if ($value) {$value = 'Yes';}
@@ -4563,7 +4674,13 @@ elsif ($value =~ /^b*/i) {$value = 'Analog+Digital';}
 else {$value = 'Ignore';}
 }
 elsif ($key eq 'mode') {
+if ($value =~ /auto/i) {
+$value = 'AUTO';
+my ($package,$caller,$callerline) = caller();
+}
+else {
 $value = rc2mode($value);
+}
 }
 elsif ($key eq 'dlyrsm') {
 if (!$value) {$value = 0;}
@@ -4690,6 +4807,7 @@ if ($rec{'avoid'} and ($rec{'avoid'} =~ /on/i)) {$rec{'valid'} = FALSE;}
 if ($rec{'mode'}) {
 $rec{'mode'} = mode2rc($rec{'mode'});
 }
+$rec{'adtype'} = '';
 if (($rectype =~ /trunk/i) or ($rectype =~ /conv/i)) {
 if ($rectype =~/conv/i) {$systype = 'cnv';}
 else {$systype = $sds2rctype{lc($rec{'systemtype'})}; }
@@ -4811,6 +4929,7 @@ $rec{'groupno'} = $groupno;
 my $freqno =  add_a_record($db,'freq',\%rec);
 }
 elsif ($rectype =~ /c\-freq/i) {
+$rec{'adtype'} = 'an';
 if ($rec{'squelch'}) {
 $rec{'sqtone'} = 'Off';
 my ($key,$value) = split '=',$rec{'squelch'};
@@ -4828,17 +4947,21 @@ LogIt(1,"UNIDEN l11614:Cannot deal with tone value $rec{'squelch'}");
 }### CTCSS/DCS
 elsif ($key =~ /nac/i) { 
 if ($value !~ /s/i) {$rec{'sqtone'} = "NAC$value";}
+$rec{'adtype'} = 'P2';
 }
 elsif ($key =~ /color/i) { 
 if ($value !~ /s/i) {$rec{'sqtone'} = "CCD$value";}
+$rec{'adtype'} = 'DM';
 }
 elsif ($key =~ /ran/i) {
 if ($value !~ /s/i) {$rec{'sqtone'} = "RAN$value";}
+$rec{'adtype'} = 'NX';
 }
 else  {
 }
 }### Tone processing
 $rec{'groupno'} = $groupno;
+if ($rec{'adtype'} =~ /all/i) {$rec{'adtype'} = '';}
 my $freqno =  add_a_record($db,'freq',\%rec);
 }
 elsif ($rectype =~ /area/i) {next;}
@@ -4878,6 +5001,59 @@ $ok = FALSE;
 }### key is $lat
 }### Lat/Lon key location
 return $ok;
+}
+sub set_dqkey {
+my $rcd = shift @_;
+my $dqkey = shift @_;
+my $qkey = $rcd->{'qkey'};
+if ((!defined $qkey) or ($qkey =~ /off/i)) {$qkey = -1;}
+my $state = 'Off';
+if ($rcd->{'valid'}) {$state = 'On';}
+if ($rcd->{'dqkey'} and ($rcd->{'dqkey'} >= 0)) {
+$qkey = $rcd->{'dqkey'};
+if (($qkey >= 0) and  $rcd->{'turndqk'}) {
+if ($rcd->{'turndqk'} =~ /on/i) {$state = 'On';}
+elsif ($rcd->{'turndqk'} =~ /off/i) {$state = 'Off';}
+else {
+}
+}
+}
+if ($qkey >= 0) {
+if ((defined $dqkey->{$qkey}) and ($dqkey->{$qkey} ne $state)) {
+LogIt(1,"UNIDEN 12371:Conflict with qkey $qkey state for " .
+"$rcd->{'rectype'} $rcd->{'service'}\n" .
+"  Prior state ($dqkey->{$qkey}) not changed!");
+}
+else {$dqkey->{$qkey} = $state;}
+}
+return $qkey,$state;
+}
+sub hpd_finish {
+my $hpdref = shift @_;
+my $filename = $hpdref->{'filename'};
+my $flist = $hpdref->{'flist'};
+my $ref = $flist->{$filename};
+foreach my $key ('name','filename','locctl','monitor','qkey','utag') {
+my $value = $hpdref->{$key};
+if (!defined $value) {
+LogIt(1,"Uniden line 12402: Did not set $key in SD_SYSTEM for $hpdref->{'filename'}");
+}
+$ref->{$key} = $hpdref->{$key};
+}
+foreach my $ndx (0..9) {
+my $key = "start$ndx";
+if ($ref->{$key}) {
+}
+else {$ref->{$key} = 'Off';}
+}
+foreach my $ndx (0..99) {
+my $key = "qk_$ndx";
+if ($hpdref->{'sysqk'}{$key}) {
+$ref->{$key} = $hpdref->{'sysqk'}{$key};
+}
+else {$ref->{$key} = 'Off';}
+}
+return 0;
 }
 sub Numerically {
 use Scalar::Util qw(looks_like_number);

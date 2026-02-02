@@ -6,7 +6,6 @@ use constant TRUE => 1;
 @ISA   = qw(Exporter);
 @EXPORT = qw(R7000 IC703 IC705 R8600 ICR30 IC7300 OTHER
 icom_cmd
-%radio_limits
 %icom_decode
 %icom_encode
 packet_decode
@@ -34,7 +33,7 @@ use constant FE                  => 254;
 use constant FF                  => 255;
 use constant ICOM_TERMINATOR     => FD;
 use constant ICOM_PREAMBLE       => FE;
-my %icom_commands = ('_set_freq_noack' => {'code' => '00'  ,'ack' => 0,},
+my  %icom_commands = ('_set_freq_noack' => {'code' => '00'  ,'ack' => 0,},
 '_set_mode_noack' => {'code' => '01'  ,'ack' => 0,},
 '_get_range'      => {'code' => '02'  ,'ack' => 2,},
 '_get_freq'       => {'code' => '03'  ,'ack' => 2,},
@@ -167,7 +166,7 @@ foreach my $cmd (keys %icom_commands) {$cmd_lookup{$icom_commands{$cmd}{'code'}}
 use constant R7000      => 'R7000';
 use constant IC703      => 'IC703';
 use constant IC705      => 'IC705';
-use constant R8600      => 'R8600';
+use constant R8600      => 'ICR8600';
 use constant IC7300     => 'IC7300';
 use constant ICR30      => 'ICR30';
 use constant OTHER      => 'ICOM';
@@ -178,8 +177,8 @@ my %default_addr = ('68' => IC703,
 'A4' => IC705,
 '94' => IC7300,
 );
-my %radio_limits = (
-&R7000 => {'minfreq'      =>  25000000,'maxfreq'    => 999999000,
+$Radio_Limits{&R7000} = {
+'minfreq'      =>  25000000,'maxfreq'    => 999999000,
 'sigdet'       => 0,
 'radioscan'    => 0,
 'maxchan'      => 99,
@@ -190,8 +189,10 @@ my %radio_limits = (
 'scangrp'      => 0,
 'digital'      => FALSE,
 'dcs'          => FALSE,
-},
-&IC703 => {'minfreq'      =>     30000,'maxfreq'    =>  60000000,
+};
+$Radio_Limits{&IC703} = {
+'minfreq'      =>     30000,
+'maxfreq'      =>  60000000,
 'sigdet'       => 2,
 'radioscan'    => 2,
 'maxchan'      => 99,
@@ -202,9 +203,12 @@ my %radio_limits = (
 'scangrp'      => 0,
 'digital'      => FALSE,
 'dcs'          => FALSE,
-},
-&IC705 => {'minfreq'      =>     30000,'maxfreq'    => 470000000,
-'gstart_1' => 199999001,'gstop_1' => 400000000,
+};
+$Radio_Limits{&IC705}  =  {
+'minfreq'      =>     30000,
+'maxfreq'      => 470000000,
+'gstart_1'     => 199999001,
+'gstop_1'      => 400000000,
 'sigdet'       => 2,
 'radioscan'    => 2,
 'maxchan'      => 9999,
@@ -215,10 +219,15 @@ my %radio_limits = (
 'scangrp'      => 3,
 'digital'      => FALSE,
 'dcs'          => TRUE,
-},
-&ICR30 => {'minfreq'      =>    100000,'maxfreq'    =>3304999990,
-'gstart_1' => 821999991,'gstop_1' => 851000000,
-'gstart_2' => 866999991,'gstop_2' => 896000000,
+};
+$Radio_Limits{&ICR30}  = {
+'minfreq'      =>    100000,
+'maxfreq'      =>3304999990,
+'cstart_1'     => 821999991,
+'cstop_1'      => 851000000,
+'cstart_2'     => 866999991,
+'cstop_2'      => 896000000,
+'cellgap'      => TRUE,
 'sigdet'       => 2,
 'radioscan'    => 2,
 'maxchan'      => 9999,
@@ -228,10 +237,15 @@ my %radio_limits = (
 'scangrp'      => 0,
 'digital'      => TRUE,
 'dcs'          => TRUE,
-},
-&R8600 => {'minfreq'      =>    010000,'maxfreq'    =>3000000000,
-'gstart_1' => 822000000,'gstop_1' => 851000000,
-'gstart_2' => 867999999,'gstop_2' => 896000000,
+};
+$Radio_Limits{&R8600} = {
+'minfreq'      =>    010000,
+'maxfreq'      =>3000000000,
+'cstart_1'     => 821999991,
+'cstop_1'      => 851000000,
+'cstart_2'     => 866999991,
+'cstop_2'      => 896000000,
+'cellgap'      => TRUE,
 'sigdet'       => 2,
 'radioscan'    => 2,
 'maxchan'      => 9999,
@@ -242,8 +256,10 @@ my %radio_limits = (
 'scangrp'      => 9,
 'digital'      => TRUE,
 'dcs'          => TRUE,
-},
-&IC7300 => {'minfreq'      =>  030000,'maxfreq'    => 748000000,
+};
+$Radio_Limits{&IC7300}  = {
+'minfreq'      =>  030000,
+'maxfreq'      => 748000000,
 'sigdet'       => 2,
 'radioscan'    => 2,
 'maxchan'      => 99,
@@ -254,8 +270,10 @@ my %radio_limits = (
 'scangrp'      => 0,
 'digital'      => FALSE,
 'dcs'          => FALSE,
-},
-&OTHER => {'minfreq'      =>  030000,'maxfreq'    => 512000000,
+};
+$Radio_Limits{&OTHER}  = {
+'minfreq'      =>  030000,
+'maxfreq'      => 512000000,
 'sigdet'       => 0,
 'radioscan'    => 0,
 'maxchan'      => 99,
@@ -265,8 +283,7 @@ my %radio_limits = (
 'split'        => FALSE,
 'scangrp'      => 0,
 'digital'      => FALSE,
-},
-);
+};
 my %direct_format = (
 &OTHER => [
 'chan',
@@ -574,6 +591,16 @@ foreach my $key (keys %state_init) {$state_save{$key} = $state_init{$key};}
 $model = uc($defref->{'model'});
 if ($Debug1) {DebugIt("ICOM l2578: Model selected=>$model");}
 $defref->{'model'} = $model;
+if (!defined $Radio_Limits{$model}{'minfreq'}){
+LogIt(1,"No Radio Limts definition for $model");
+print $Bold,"Defined Models=>\n";
+foreach my $key (sort keys %Radio_Limits) {print " $key\n";}
+print $Bold," Changed to$Yellow OTHER$Eol";
+$model = OTHER;
+}
+foreach my $key (keys %{$Radio_Limits{$model}}) {
+$defref->{$key} = $Radio_Limits{$model}{$key};
+}
 if ($model !~ /R7000/i) {### Don't do this for the R7000
 my $rc = icom_cmd('_get_id',$parmref);
 if ($rc) {
@@ -601,11 +628,11 @@ if ($model eq R7000) {
 elsif ($model eq IC703) {
 icom_cmd('_get_range',$parmref);
 if ($out->{'minfreq'}) {
-$radio_limits{$model}{'minfreq'} = $out->{'minfreq'};
+$defref->{'minfreq'} = $out->{'minfreq'};
 }
 else {LogIt(1,"IC-703 did NOT return low range!");}
 if ($out->{'maxfreq'}) {
-$radio_limits{$model}{'maxfreq'} = $out->{'maxfreq'};
+$defref->{'maxfreq'} = $out->{'maxfreq'};
 }
 else {LogIt(1,"IC-703 did NOT return high range!");}
 @gui_modestring = ('FM','AM','LSB','USB','CW','RTTY','CW-R','RTTY-R');
@@ -648,15 +675,33 @@ else {
 @gui_attstring = @attstring;
 @gui_tonestring = (@ctctone,@dcstone[1..$#dcstone]);  
 }
-foreach my $key (keys %{$radio_limits{$model}}) {
-$defref->{$key} = $radio_limits{$model}{$key};
-}
 my $frq = 0;
 my $atten = FALSE;
 if (icom_cmd('_get_freq',$parmref)) {
 return ($parmref->{'rc'} = $CommErr);
 }
 icom_cmd('_get_mode',$parmref);
+if ($defref->{'cellgap'} and $defref->{'cstart_1'}) {
+my $freqsave = $out->{'frequency'};
+$in->{'frequency'} = $defref->{'cstart_1'};
+$in->{'mode'} = 'FMn';
+my $ignore = $parmref->{'_ignore'};
+$parmref->{'_ignore'} = TRUE;
+if (icom_cmd('setvfo',$parmref)) {
+print "ICOM l2829: Radio is US version (cellphone gap)\n";
+}
+else {
+print "ICOM l2832: Radio is Internation version (no cellphone gap)\n";
+$defref->{'cellgap'} = FALSE;
+}
+$parmref->{'_ignore'} = FALSE;
+if ($ignore) {$parmref->{'_ignore'} = $ignore;}
+$out->{'frequency'} = $freqsave;
+icom_cmd('setvfo',$parmref);
+}
+else {print "ICOM l2944: Cellgap was NOT defined!\n";
+print Dumper($defref),"\n";
+}
 if ($Debug2) {DebugIt("$Bold 'init' complete");}
 return ($parmref->{'rc'} = $GoodCode);
 }
@@ -822,7 +867,6 @@ $maxchan = $options->{'lastchan'};
 if ($options->{'noskip'}) {$noskip = TRUE;}
 if ($options->{'nodup'}) {$nodup = TRUE;}
 }
-$parmref->{'_ignore'} = FALSE;
 my %duplist = ();
 if ($nodup) {
 foreach my $rec (@{$db->{'freq'}}) {
@@ -932,14 +976,17 @@ elsif (defined $direct_format{$model}) {
 $rc =  $rc = icom_cmd('_memory_direct',$parmref);
 }
 else {
+my $ignore = $parmref->{'_ignore'};
 $parmref->{'_ignore'} = TRUE;
 icom_cmd('_select_group',$parmref);
 $parmref->{'_ignore'} = FALSE;
+if ($ignore) {$parmref->{'_ignore'} = $ignore;}
 $rc = icom_cmd('_select_chan',$parmref);
 if (!$rc) {$rc = icom_cmd('_get_freq',$parmref);}
 if (!$rc) {$rc = icom_cmd('_get_mode',$parmref);}
 vfo_get_tones($in,$out,$parmref);
 $parmref->{'_ignore'} = FALSE;
+if ($ignore) {$parmref->{'_ignore'} = $ignore;}
 }
 my $freq = $myout{'frequency'} + 0;
 if ($noskip or $freq) {
@@ -996,7 +1043,7 @@ next;
 $found_chan{$channel} = TRUE;
 my $freq = $frqrec->{'frequency'};
 if (!looks_like_number($freq)) {next;}
-if ($freq and (!check_range($freq,\%{$radio_limits{$model}}))) {next;}
+if ($freq and (!check_range($freq,$defref))) {next;}
 my $grpno = $frqrec->{'groupno'};
 foreach my $mdl ('705','8600') {
 if ($model =~ /$mdl/) {  
@@ -1028,9 +1075,11 @@ $parmref->{'write'} = TRUE;
 $rc = icom_cmd('_memory_direct',$parmref);
 }
 else {
+my $ignore = $parmref->{'_ignore'};
 $parmref->{'_ignore'} = TRUE;
 icom_cmd('_select_group',$parmref);
 $parmref->{'_ignore'} = FALSE;
+if ($ignore) {$parmref->{'_ignore'} = $ignore;}
 $rc = icom_cmd('_select_chan',$parmref);
 if ($rc) {
 LogIt(1,"\nCould not set radio to channel $channel");
@@ -1116,6 +1165,7 @@ if (icom_cmd('_get_mode',$parmref)) {
 return $parmref->{'rc'};
 }
 $parmref->{'write'} = FALSE;
+my $ignore = $parmref->{'_ignore'};
 $parmref->{'_ignore'} = TRUE;
 icom_cmd('_vfo_atten',$parmref);
 icom_cmd('_vfo_preamp',$parmref);
@@ -1123,21 +1173,28 @@ if ($out->{'mode'} =~ /fm/i) {
 vfo_get_tones($in,$out,$parmref);
 }### FM modulation detected
 $parmref->{'_ignore'} = FALSE;
+if ($ignore) {$parmref->{'_ignore'} = $ignore;}
 }### A frequency is set
 return ($parmref->{'rc'} = $GoodCode);
 }
 elsif ($cmd eq 'setvfo') {
 if ($Debug2) {DebugIt("ICOM_CMD:Starting 'setvfo' command");}
 $state_save{'cmd'} = $cmd;
+my $ignore = $parmref->{'_ignore'};
 my $freq = $in->{'frequency'};
-if (!looks_like_number($freq)) {$freq = 0;}
+if (!looks_like_number($freq)) {
+print "Invalid frequency in IN=>",Dumper($in),"\n";
+return $parmref->{'rc'} = $ParmErr;
+}
 if (!$freq) {
-add_message("VFO cannot have a 0 frequency");
+add_message("VFO cannot have a 0 frequency ");
 return ($parmref->{'rc'} = $ParmErr);
 }
-if (!check_range($freq,\%{$radio_limits{$model}})) {
+if (!$parmref->{'_ignore'}) {
+if (check_range($freq,$defref)) {
 add_message(rc_to_freq($freq) . " MHz is NOT valid for this radio");
 return ($parmref->{'rc'} = $NotForModel);
+}
 }
 if (!$in->{'mode'}) {
 add_message("ICOM routine detected empty 'mode'. Changed to 'AUTO'");
@@ -1173,6 +1230,7 @@ icom_cmd("_vfo_atten",$parmref);
 icom_cmd('_vfo_preamp',$parmref);
 vfo_set_tones($parmref);
 $parmref->{'_ignore'} = FALSE;
+if ($ignore) {$parmref->{'_ignore'} = $ignore;}
 $out->{'_delay'} = 1000;
 if ($model eq ICR30) {  $out->{'_delay'}  = 39000;}
 elsif ($model eq IC705) {$out->{'_delay'} = 3000;}
@@ -1551,12 +1609,12 @@ my $cs = uc(unpack("H*",'CQ      '));
 foreach my $ky ('ur','r1','r2') {
 $data{"callsign$ky"} = $cs;
 }
-my $count = $radio_limits{$mdl}{'serv_len'};
+my $count = $Radio_Limits{$mdl}{'serv_len'};
 my $service = substr($in->{'service'} . (' ' x $count),0,$count);
 $data{'service'} = uc(unpack("H*",$service));
 if ($in->{'splfreq'}) {
 my $split = $in->{'splfreq'};
-if ($radio_limits{$mdl}{'split'}) {
+if ($Radio_Limits{$mdl}{'split'}) {
 $data{'sfreq'} =  num2bcd($split,5,TRUE);
 $split_flag = 1;
 }
@@ -1664,7 +1722,7 @@ $selection = $in->{'scan705'};
 elsif ($in->{'scan8600'} and ($mdl =~ /8600/)) {
 $selection = $in->{'scan8600'};
 }
-if ($selection > $radio_limits{$mdl}{'scangrp'})  {
+if ($selection > $Radio_Limits{$mdl}{'scangrp'})  {
 $selection = 0;
 }
 if (looks_like_number($selection)) {$selection = $selection + 0;}
@@ -2420,7 +2478,7 @@ my $len = length($callsign);
 elsif ($fld eq 'service') {
 my $service = '';
 my $dummy = '';
-my $count = $radio_limits{$mdl}{'serv_len'};
+my $count = $Radio_Limits{$mdl}{'serv_len'};
 if ($count) {
 $out->{'service'} =  packet_decode(\@rcv_packet,'ascii',$count)
 }
@@ -3056,7 +3114,8 @@ my $parmref = shift @_;
 $out->{'sqtone'} = 'Off';
 $out->{'polarity'} = FALSE;
 $out->{'_tone_state'} = FALSE;
-$in->{'_ignore'} = TRUE;
+my $parmsave = $parmref->{'ignore'};
+$parmref->{'_ignore'} = TRUE;
 $parmref->{'write'} = FALSE;
 foreach my $type ('ctc','dcs') {
 my $cmd = "_vfo_$type" . '_state';
@@ -3068,12 +3127,14 @@ last;
 }
 }
 $parmref->{'_ignore'} = FALSE;
+if ($parmsave) {$parmref->{'_ignore'} = $parmsave;}
 return 0;
 }
 sub vfo_set_tones {
 my $parmref = shift @_;
 my $in = $parmref->{'in'};
 $parmref->{'write'} = TRUE;
+my $ignore = $parmref->{'_ignore'};
 $parmref->{'_ignore'} = TRUE;
 if ((!$in->{'sqtone'}) or ($in->{'sqtone'} =~ /off/i)) {
 $in->{'_tone_state'} = FALSE;
@@ -3097,6 +3158,8 @@ icom_cmd('_vfo_ctc_state',$parmref);
 icom_cmd('_vfo_dcs_state',$parmref);
 }
 }## 'sqtone' is not off
+$parmref->{'_ignore'} = FALSE;
+if ($ignore) {$parmref->{'_ignore'} = $ignore;}
 return 0;
 }### VFO_SET_TONES
 sub rcmode2icom {
@@ -3348,7 +3411,7 @@ my %sd_data = (
 'nxdnkey' => '',
 );
 my $sd_ref = $sd_hash->{$mdl};
-if (!check_range($freq,\%{$radio_limits{$mdl}})) {
+if (!check_range($freq,\%{$Radio_Limits{$mdl}})) {
 LogIt(0,"$Bold ICOM 8854. Skipping channel $Green$fullchan$White for $mdl. " .
 "$Yellow" . rc_to_freq($freq) . "$White is out of range of radio");
 next;

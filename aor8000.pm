@@ -30,15 +30,15 @@ $rcchan++;
 my @rcchan2aor = ();
 foreach my $key (keys %aorchans) {$rcchan2aor[$aorchans{$key}] = $key;}
 use constant AOR8000 => 'AOR-8000';
-my %radio_limits = (
-&AOR8000 => {'minfreq'  =>    500000,'maxfreq' =>1900000000 ,
+$Radio_Limits{&AOR8000} = {
+'minfreq'  =>    500000,
+'maxfreq'  =>1900000000 ,
 'maxchan'  =>       999,
 'group'    =>    FALSE,
 'sigdet'   =>        2,
 'origin'   =>        0,
 'radioscan'=>        0,
-},
-);
+};
 my $model = AOR8000;
 my $warn = TRUE;
 my $chanper = 50;
@@ -85,8 +85,8 @@ my $channel = 0;
 if ($cmdcode eq 'init') {
 $delay = 500;
 $chanper = 50;
-foreach my $key (keys %{$radio_limits{$model}}) {
-$defref->{$key} = $radio_limits{$model}{$key};
+foreach my $key (keys %{$Radio_Limits{$model}}) {
+$defref->{$key} = $Radio_Limits{$model}{$key};
 }
 @gui_modestring = ('WFM','FM','AM','LSB','USB','CW');
 @gui_bandwidth  = ();

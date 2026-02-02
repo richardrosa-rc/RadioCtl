@@ -22,17 +22,26 @@ use constant BEARCAT_SET         => 0;
 use constant BEARCAT_VFOCHAN     => 300;
 use constant RADIOSCAN           => $rc_hash{'radio scan'};
 use constant BC895XLT      => 'BC895XLT';
-my %radio_limits = (
-&BC895XLT => {'minfreq'  =>  29000000,'maxfreq' => 956000000 ,
-'gstart_1' =>  54000001,'gstop_1' => 108000000 ,
-'gstart_2' => 512000001,'gstop_2' => 806000000 ,
-'origin' => 1,
-'maxchan' => 300,
-'group' => FALSE,
-'sigdet' => 2,
+$Radio_Limits{&BC895XLT}  = {
+'minfreq'   =>  29000000,
+'maxfreq'   => 956000000 ,
+'gstart_1'  =>  54000001,
+'gstop_1'   => 108000000 ,
+'gstart_2'  => 174000001,
+'gstop_2'   => 216000000,
+'gstart_3'  => 512000001,
+'gstop_3'   => 806000000,
+'cellgap'   => TRUE,
+'cstart_1'  => 823000001,
+'cstop_1'   => 850000000,
+'cstart_2'  => 868000001,
+'cstop_2'   => 895000000,
+'origin'    => 1,
+'maxchan'   => 300,
+'group'     => FALSE,
+'sigdet'    => 2,
 'radioscan' => 2,
-},
-);
+};
 my @beartone   = ("off",
 " 67.0"," 71.9"," 74.4"," 77.0"," 79.7",
 " 82.5"," 85.4"," 88.5"," 91.5"," 94.8",
@@ -135,8 +144,8 @@ my $rc = 0;
 @gui_adtype = ();
 @gui_attstring = ();
 @gui_tonestring = ();
-foreach my $key (keys %{$radio_limits{$model}}) {
-$defref->{$key} = $radio_limits{$model}{$key};
+foreach my $key (keys %{$Radio_Limits{$model}}) {
+$defref->{$key} = $Radio_Limits{$model}{$key};
 }
 bearcat_cmd('MD',$parmref);
 if ($out->{'state'} =~ /vfo/i) {bearcat_cmd('getvfo',$parmref);}   
@@ -454,7 +463,7 @@ $parmref->{'_nomsg'} = FALSE;
 usleep(100);
 $parmref->{'write'} = FALSE;
 bearcat_cmd('SG',$parmref);
-if ($freq != $out->{'frequency'}){
+if (($freq != $out->{'frequency'}) and (!$parmref->{'_ignore'})){
 LogIt(1,"BEARCAT l1715:Requested $freq but got $out->{'frequency'} set instead");
 }
 if ($state_save{'state'} ne 'vfo') { bearcat_cmd('MD',$parmref);}
@@ -700,7 +709,9 @@ if ($defref->{'rsp'}) {add_message("Radio is responding again...");}
 $defref->{'rsp'} = 0;
 if ($instring eq 'ERR') {
 if ($warn) {
-add_message("$Red$sent$White not recognized by Bearcat.");
+if ($parmref->{'_ignore'}) {
+}
+else {add_message("$Red$sent$White not recognized by Bearcat.");}
 return ($parmref->{'rc'} = $NotForModel);
 }
 else {return $GoodCode;}

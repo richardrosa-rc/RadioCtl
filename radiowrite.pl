@@ -49,13 +49,13 @@ print "$Bold$Green RadioCtl$White Command Line Process$Red Rev=$White$Rev$Eol";
 my %opt_dply = (
 'dir' => "          $Bold$Cyan--dir$Yellow dir$Reset    Directory for output.        $Eol",
 'notrunk' => "         $Bold$Cyan --notrunk$Reset    Don't included trunked systems.     $Eol" ,
-'append' => "          $Bold$Cyan--append$Reset     Append data to existing file instead of overwrite $Eol",
+'append' => "          $Bold$Cyan--append$Reset     Append data to existing file(s) instead of overwrite $Eol",
 'dqkey' => "          $Bold$Cyan--dqkey$Reset      Assign department quickkeys (if missing)         $Eol",
-'fname' => "     $Bold$Cyan-f|--fname$Yellow name$Reset   Output Filename to create (no path or ext).$Eol",
+'fname' => "     $Bold$Cyan-f|--fname$Yellow name$Reset   Full filespec (including path and ext) for output file.$Eol",
 'gqkey' => "          $Bold$Cyan--gqkey$Reset      Assign group quickkeys (if missing)              $Eol",
 'keyfmt' => "       $Bold$Cyan-k|--keyfmt$Reset     Store records as KEYWORD=VALUE fields            $Eol",
 'nohdr' => "          $Bold$Cyan--nohdr$Reset      Don't generate header records.                   $Eol",
-'owrite' => "       $Bold$Cyan-o|--owrite$Reset     Overwrite any existing file without prompt       $Eol",
+'owrite' => "       $Bold$Cyan-o|--owrite$Reset     Overwrite any existing file(s) without prompt       $Eol",
 'posfmt' => "       $Bold$Cyan-p|--posfmt$Reset     Store records as positional fields               $Eol",
 'renum' => "          $Bold$Cyan--renum$Bold$Green x$Reset    Renumber the channels (non-dynamic radios only)$Eol" .
 "                       $Bold$Green x$Reset is optional starting number (Defaults to$Yellow 0$Reset). $Eol",
@@ -85,8 +85,10 @@ my $help =
 "   $Bold$Green BLOCKS  $Reset   Generate block structure of a BCD radio. $Eol" .
 "       Inputs:$Bold Name of radio to process. Must be a BCD type of radio.        $Eol".
 "       Output:$Yellow radio_name$Bold$Yellow-blocks.txt$White in the default directory$Eol" .
-"       Options:                                                              \n" .
-$opt_dply{'dir'} .
+"       Options:    \n" .
+$opt_dply{'append'} .
+$opt_dply{'fname'} .
+$opt_dply{'owrite'} .
 $opt_dply{'notrunk'} .
 "          $Bold$Cyan--raw$Reset        Include raw responses from the radio                $Eol" .
 "$Eol$Eol" .
@@ -123,7 +125,6 @@ $opt_dply{'dir'} .
 "       Output:$Bold {input_filename}.csv saved in the default directory.          $Eol" .
 "       Options:                                                              \n" .
 $opt_dply{'append'} .
-$opt_dply{'dir'} .
 $opt_dply{'dqkey'} .
 $opt_dply{'fname'} .
 "          $Bold$Cyan--force$Reset      Force quickkey re-assignment                     $Eol" .
@@ -151,7 +152,6 @@ $opt_dply{'append'} .
 "          $Bold$Cyan--count$Yellow n$Reset    Only process 'n' systems or channels. $Eol" .
 "                             For Uniden radios, this will be systems.      $Eol" .
 "                             For all other radios, this will be channels.  $Eol" .
-$opt_dply{'dir'} .
 $opt_dply{'fname'} .
 "          $Bold$Cyan--first$Yellow n$Reset    First system or channel Number to read.$Eol" .
 "          $Bold$Cyan--last$Yellow n$Reset     Last system or channel Number to read.$Eol" .
@@ -185,7 +185,6 @@ $opt_dply{'hz'} .
 "       Output:$Bold 'temp.csv' saved in the default directory.                 $Eol" .
 "       Options:                                                              \n" .
 $opt_dply{'append'} .
-$opt_dply{'dir'} .
 $opt_dply{'dqkey'} .
 $opt_dply{'fname'} .
 "          $Bold$Cyan--force$Reset      Force quickkey re-assignment                     $Eol" .
@@ -348,6 +347,7 @@ if (! -e $altport) {LogIt(988,"Serial/USB port $altport does NOT exist!");}
 }
 if ($deffile) {spec_read($deffile)};
 if ($cmd eq '?') {help();}
+elsif ($cmd =~ /help/i) {help();}
 elsif ($cmd eq 'csv2icom') {
 my @filelist = ();
 get_files(\@filelist);
@@ -658,12 +658,53 @@ my $radio_dir = '';
 if ($radio_def{'sdir'}) {$radio_dir = $radio_def{'sdir'};}
 my $tdir = get_directory($radio_dir);
 my $outfile = "$tdir/$radiosel-blocks.txt";
-if (open OUTFILE,">$outfile") {
+if ($user_filename) {
+$outfile = $user_filename;
+my ($fname,$fpath,$fext) = fileparse($outfile,qr/\.[^.]*/);
+if ($fpath) {$tdir = $fpath;}
+else {
+$tdir = cwd();
+LogIt(1,"No path given for $Cyan--fname$White option. File will be generated in current directory!");
+}
+}
+my $skip = FALSE;
+my $msg = "Created $outfile";
+my $outspec = ">$outfile";
+if (-e $outfile) {
+if ($append) {
+LogIt(1,"Data will be appended to existing file $Yellow$outfile");
+$msg = "Appended to $outfile";
+$outspec = ">>$outfile";
+}
+else {
+LogIt(1,"existing file $Yellow$outfile$White will be overwritten.");
+if (!$overwrite) {
+print "   OK (Y/N)=>";
+my $answer = <STDIN>;
+chomp($answer);
+print STDERR "$Eol";
+if (uc(substr($answer,0,1)) ne 'Y') {
+$skip = TRUE;
+}
+}
+$msg = "Recreated $outfile";
+$outspec = ">$outfile";
+}
+}
+else {
+$outspec = ">$outfile";
+}
+if ($skip) {
+LogIt(0,"$Bold Output file generation was bypassed!");
+}
+else {
+if (open OUTFILE,"$outspec") {
 print OUTFILE @outrecs;
 close OUTFILE;
-print "Created $outfile\n";
+print $Bold,$msg,$Eol;
 }
 else {LogIt(1,"Could not create $outfile");}
+}
 $bench{'end_block'}  = time();
 BenchMark(\%bench);
 exit 0;
@@ -686,7 +727,17 @@ select_radio($radio[0]);
 if ($radio_def{'sdir'}) {$radio_dir = $radio_def{'sdir'};}
 }
 my $tdir = get_directory($radio_dir);
-print "Files will be generated in directory=>$tdir\n";
+my $outfile = "$tdir/rewrite.csv";
+if ($user_filename) {
+$outfile = $user_filename;
+my ($fname,$fpath,$fext) = fileparse($outfile,qr/\.[^.]*/);
+if ($fpath) {$tdir = $fpath;}
+else {
+$tdir = cwd();
+LogIt(1,"No path given for $Cyan--fname$White option.");
+}
+}
+print "File(s) will be generated in directory=>$tdir\n";
 if ($keep) {
 LogIt(0,"Output files will be named same as input files");
 my %used_sqkey = ();
@@ -699,6 +750,7 @@ next;
 my %database = ();
 read_radioctl(\%database,$fs);
 my ($filename,$filepath,$fileext) = fileparse($fs,qr/\.[^.]*/);
+$outfile = "$tdir/$filename";
 if ($sqkey) {
 foreach my $sysrec (@{$database{'system'}}) {
 if (!$sysrec->{'index'}) {next;}
@@ -717,22 +769,19 @@ $last_skey = qkey_proc($sysrec,\%used_sqkey,'qkey',"$sysname ($sysno)",$last_ske
 }
 }
 update_qkey(\%database);
-write_data($filename,\%database,$radio_dir);
+write_data($outfile,\%database);
 }
 }
 else {
-my $outfile = "rewrite";
-if ($user_filename) {$outfile = "$user_filename";}
-my $output = "$tdir/$outfile.csv";
 %radiodb = ();
 foreach my $fs (@filelist) {
-if ($fs eq $output) {
-LogIt(2635,"Input $fs cannot be the same as output!");
+if ($fs eq $outfile) {
+LogIt(1723,"Input $fs cannot be the same as output!");
 }
 read_radioctl(\%radiodb,$fs);
 }
 update_qkey(\%radiodb);
-write_data($outfile,\%radiodb,$radio_dir);
+write_data($outfile,\%radiodb);
 exit $GoodCode;
 }### Generate a single output file
 }
@@ -762,12 +811,38 @@ if ($radio_dir) {
 print "Using $radio_dir specification for output from $Bold$radio_def{'name'}$Eol";
 }
 my $tdir = get_directory($radio_dir);
-$tdir = "$tdir/BCDx36HP/favorites_lists";
+if (-d "$tdir/BCDx36HP") {$tdir = "$tdir/BCDx36HP";}
 if (DirExist($tdir)) {
-LogIt(1795,"CSV2HPD:Unable to create output directory $tdir");
+LogIt(1862,"CSV2HPD:$tdir MUST exist and be writable. Please create!");
 }
-my %flist = ();
-my $flist_file = "$tdir/f_list.cfg";
+my %hpdformat = (
+'favorites' => "$tdir/FavoriteLists",
+'profile'   => "$tdir/Profile",
+'format' => 'Sentinal',
+);
+if (-d "$hpdformat{'favorites'}") {
+LogIt(0,"Found Sentinal format directories");
+}
+elsif (-d "$tdir/favorites_list") {
+%hpdformat = (
+'favorites' => "$tdir/favorites_list",
+'profile'   => $tdir,
+'format' => 'sdcard',
+);
+LogIt(0,"Found SDCard format directories");
+}
+else {
+LogIt(1,"No existing HPD directories found in $tdir. \n" .
+" Creating Sentinal format directories...");
+foreach my $dir ('favorites','profile') {
+if (DirExist($hpdformat{$dir},TRUE)) {
+LogIt(1892,"CSV2HPD:Could not create directory $hpdformat{$dir}!");
+}
+}
+}
+LogIt(0,".hpd files + f-list.cfg will be written to $Bold$Yellow$hpdformat{'favorites'}");
+LogIt(0,"profile.cfg will be read and updated from $Bold$Yellow$hpdformat{'profile'}");
+my $flist_file = "$hpdformat{'favorites'}/f_list.cfg";
 my @flistrecs = ();
 if (-e $flist_file) {
 if (open INFILE,"$flist_file") {
@@ -780,58 +855,40 @@ LogIt(1,"Could not open $flist_file for reading!");
 }
 else {LogIt(1,"RADIOWRITE l2714:Existing Flist:$Yellow$flist_file$White was not found!\n" .
 "   A new one will be created.");}
-foreach my $rec (@flistrecs) {
-chomp $rec;
-$rec =~ s/\r//g;  
-$rec = "$rec\r\n";
-}
-my %hpd = ();
-my @need_hpd = ();
-my $hpd_no = 0;
-if ($firstnum >= 0) {$hpd_no = $firstnum;}
-my $retcode = 0;
-foreach my $sysrec (@{$radiodb{'system'}}) {
-if (!$sysrec->{'index'}) {next;}
-my $hpd_num = $sysrec->{'hpd'};
-if (!defined $hpd_num) {$hpd_num = -1;}
-if ($force) {
-$sysrec->{'hpd'} = $hpd_no;
-$hpd_no++;
-}### Forcing a renumber of filenames
-else {
-if ((!looks_like_number($hpd_num)) or ($hpd_num < 0)) {
-push @need_hpd,$sysrec;
+my $profile_file = "$hpdformat{'profile'}/profile.cfg";
+my @profrecs = ();
+my $config = \@profrecs;
+if (-e $profile_file) {
+if (open INFILE,"$profile_file") {
+@profrecs = <INFILE>;
+close INFILE;
 }
 else {
-my $sysname = $sysrec->{'service'};
-if (!$sysname) {$sysname = "System $sysrec->{'index'}";}
-if ($hpd{$hpd_num}) {
-LogIt(1,"Uniden L2742: Duplicate HPD number $hpd_num in 'SYSTEM' " .
-"$hpd{$hpd_num} and $sysname!");
-$retcode = 1;
+LogIt(1,"Could not open $profile_file for reading!");
 }
-else {$hpd{$hpd_num} = $sysname;}
-}### Unique number check
-}### Not FORCEing renumber
 }
-if ($retcode) {
-LogIt(2751,"Please fix above problems before running again!");
+else {
+LogIt(1,"RADIOWRITE l1935:Existing profile:$Yellow$flist_file$White was not found!\n" .
+"   No updates will be made.");
+$config = 0;
 }
-foreach my $sysrec (@need_hpd) {
-while ($hpd{$hpd_no}) {$hpd_no++;}
-$sysrec->{'hpd'} = $hpd_no;
-my $sysname = $sysrec->{'service'};
-if (!$sysname) {$sysname = "System $sysrec->{'index'}";}
-$hpd{$hpd_no} = $sysname;
+if ($radiodb{'favorites'}[1]) {
+print "Found a favorites record\n";
 }
-my %sdcard = ();
-my $rc = uniden_sdcard(\%radiodb,\@flistrecs,\%sdcard);
-foreach my $fn (sort keys %sdcard) {
+my @sdcard = ();
+my %parms = ('sdcard' => \@sdcard,
+'dbase'  => \%radiodb,
+'flist'  => \@flistrecs,
+'config' => $config,
+);
+my $rc = uniden_sdcard(\%parms);
+foreach my $rec (@sdcard) {
+my $fn = $rec->{'filename'};
 my $fspec = "$tdir/$fn";
 if (open OUTFILE, ">$fspec") {
-print OUTFILE @{$sdcard{$fn}};
+print OUTFILE @{$rec->{'records'}};
 close OUTFILE;
-print "RadioWrite l2761:Created SD Card Data for $Bold$Yellow$fspec$Eol";
+print "RadioWrite l1998:Created Favorites file  $Bold$Yellow$fspec$Eol";
 }
 else {
 LogIt(1,"RadioWrite l2784:Could not open file $fspec for output!");
@@ -842,17 +899,12 @@ my $backup = $flist_file . "_backup";
 `mv $flist_file $backup`;
 }
 if (open OUTFILE,">$flist_file") {
-foreach my $rec (@flistrecs) {
-chomp $rec;
-$rec =~ s/\r//g;  
-if (!$rec) {next;}
-print OUTFILE "$rec\r\n";
-}
+print OUTFILE @flistrecs;
 close OUTFILE;
-print "RadioWrite l2797:Created $Bold$Yellow$flist_file$Eol";
+print "RadioWrite l2027:Created $Bold$Yellow$flist_file$Eol";
 }
 else {
-LogIt(1,"RadioWrite l2800:Could not create $flist_file!");
+LogIt(1,"RadioWrite l2030:Could not create $flist_file!");
 }
 print $Bold,"All SDCard files created on $tdir$Eol";
 exit $GoodCode;
@@ -886,6 +938,11 @@ LogIt(2790,"Invalid $type Coordinate $Yellow$value$White specified!");
 }
 }### Checking Latitude & logitude
 my ($filename,$filepath,$fileext) = fileparse($fs,qr/\.[^.]*/);
+my $tfile = get_directory();
+my $outfile = "$tfile/$filename.csv";
+if ($user_filename) {
+$outfile = $user_filename;
+}
 if ($user_filename) {$filename = $user_filename;}
 my @inrecs = ();
 if (open INFILE,$fs) {
@@ -900,7 +957,7 @@ if (defined $radiodb{'system'}[1]{'index'}) {
 LogIt(0,"All input records processed. Generating output file...");
 update_qkey(\%radiodb);
 my $radio_dir = '';
-write_data($filename,\%radiodb,$radio_dir);
+write_data($outfile,\%radiodb);
 exit $GoodCode;
 }
 else {LogIt(1,"No input records were processed! No file created.");}
@@ -916,8 +973,6 @@ $firstnum = 1;
 }
 my $radiosel = lc($radioname);
 select_radio($radiosel);
-my $filename = $radioname;
-if ($user_filename) {$filename = $user_filename;}
 my $protocol = $radio_def{'protocol'};
 my $routine = $radio_routine{$protocol};
 if (!$routine) {LogIt(2971,"FETCH:Radio routine not set for protocol $protocol");}
@@ -999,7 +1054,10 @@ LogIt(0,"All input records processed. Generating output file $user_filename");
 update_qkey(\%radiodb);
 my $radio_dir = '';
 if ($radio_def{'sdir'}) {$radio_dir = $radio_def{'sdir'};}
-write_data($filename,\%radiodb,$radio_dir);
+my $tdir = get_directory($radio_dir);
+my $outfile = "$tdir/$radioname";
+if ($user_filename) {$outfile = $user_filename;}
+write_data($outfile,\%radiodb);
 }
 else {LogIt(1,"No data was processed from radio! No file created.");}
 $bench{'end_read'}  = time();
@@ -1137,6 +1195,92 @@ else {LogIt(1,"Tone-out is ONLY for Uniden BCD radios");}
 $bench{'end_write'}  = time();
 BenchMark(\%bench);
 exit $rc;
+}
+elsif ($cmd eq 'range') {
+my $radioname =  shift @ARGV;
+if (!$radioname) {LogIt(2686,"Need to specify the radio!");}
+my %settings = ();
+foreach my $key ('start','end','step') {
+my $value = shift @ARGV;
+if ($value) {
+if ($value eq '.') {next;}
+elsif (!looks_like_number($value)) {
+LogIt(2696,"$key Value MUST be a number or '.'");
+}
+else {$settings{$key} = $value;}
+}
+}
+if (!$settings{'start'}){$settings{'start'} =      10000;}
+if (!$settings{'end'})  {$settings{'end'}   = 1000000000;}
+if (!$settings{'step'}) {$settings{'step'}  =     100000;}
+$bench{'start_range'} = time();
+foreach my $key (keys %settings) {
+if ($settings{$key} =~ /\./) { 
+my $hz = freq_to_rc($settings{$key});
+if ($hz < 0) {
+LogIt(2715,"$key for $settings{$key} is not a valid frequency");
+}
+$settings{$key} = $hz;
+}
+}
+my $frequency = $settings{'start'};
+my $endfreq =  $settings{'end'};
+my $step = $settings{'step'};
+my $radiosel = lc($radioname);
+select_radio($radiosel);
+my $protocol = $radio_def{'protocol'};
+my $routine = $radio_routine{$protocol};
+if ($altport) {$radio_def{'port'} = $altport;}
+else {
+if (&$routine('autobaud',\%parmref) ) {
+LogIt(2687,"AUTOBAUD:Failed to determine baud/port for radio: $radioname ");
+}
+LogIt(0,"$Bold Radio $Yellow$radiosel$White is on port " .
+"$Magenta$radio_def{'port'}$White with baud $Green$radio_def{'baudrate'}");
+}
+$parmref{'portobj'} = open_serial();
+&$routine('init',\%parmref);
+my @valid_ranges = ();
+my $okstart = 0;
+my $okstop = 0;
+my $defref    = $parmref{'def'};
+$defref ->{'minfreq'} = $frequency;
+$defref ->{'maxfreq'} = $endfreq;
+$defref ->{'gstart_1'} = 0;
+$defref ->{'gstart_2'} = 0;
+$defref ->{'gstop_1'} = 0;
+$defref ->{'gstop_2'} = 0;
+$defref ->{'cellgap'} = FALSE;
+$parmref{'_ignore'} = TRUE;
+print $Eol,$Bold," Starting range test: $Green",Strip(rc_to_freq($frequency)),$White,
+' MHz -> ', $Yellow,Strip(rc_to_freq($endfreq)),$White,
+' MHz  by ',$Magenta,Strip(rc_to_freq($step)),$White," Mhz$Eol$Eol";
+my $cleareol = "\e[K";
+while ($frequency < $endfreq) {
+print STDERR "   $Bold$Green",
+sprintf("%10.6f",rc_to_freq($frequency)),$Reset," Mhz",
+"$cleareol\r";
+%in = ('frequency' => $frequency, 'mode' => 'fmn');
+my $rc = &$routine('setvfo',\%parmref);
+if ($rc) {
+if ($okstart) {
+push @valid_ranges,rc_to_freq($okstart) . '->' . rc_to_freq($okstop);
+$okstop = 0;
+$okstart = 0;
+}
+}
+else {
+if (!$okstart) {$okstart = $frequency;}
+$okstop = $frequency;
+}
+$frequency = $frequency + $step;
+}
+if ($okstart) { push @valid_ranges,rc_to_freq($okstart) . '->' . rc_to_freq($frequency);}
+print $Bold,"\n\nRanges:$Eol";
+foreach my $range (@valid_ranges) {print "$Bold$Green$range$Eol";}
+$bench{'end_range'}  = time();
+BenchMark(\%bench);
+exit 0;
 }
 elsif ($cmd eq 'edit') {
 my $fs = shift @ARGV;
@@ -2252,10 +2396,8 @@ if ($errors) {LogIt(806,"$errors missing files in input file. Please repair befo
 return 0;
 }
 sub write_data {
-my $fs  = shift @_;
+my $outfile  = shift @_;
 my $database = shift @_;
-my $sdir = shift(@_);
-if (!$sdir) {$sdir = '';}
 my @opt = ();
 if ($append) {$nohdr = TRUE;}
 if ($keyformat) {push @opt,'keyformat';}
@@ -2268,8 +2410,6 @@ if (looks_like_number($renum)) {
 if ($renum < 0) {push @opt,'nochan';}
 else {push @opt,"renum=$renum";}
 }
-my $tdir = get_directory($sdir);
-my $outfile = "$tdir/$fs.csv";
 if (-e $outfile) {
 if ($append) {
 LogIt(1,"Data will be appended to existing file $Yellow$outfile");

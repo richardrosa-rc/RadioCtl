@@ -18,15 +18,15 @@ use strict;
 use autovivification;
 no  autovivification;
 use constant LOCAL => 'LOCAL';
-my %radio_limits = (
-&LOCAL => {'minfreq'  =>        30,'maxfreq' =>MAXFREQ ,
+$Radio_Limits{&LOCAL} = {
+'minfreq'  =>        30,
+'maxfreq'  =>MAXFREQ ,
 'maxchan'  =>       999,
 'origin'   =>         1,
 'radioscan'=>     FALSE,
 'sigdet'   =>         2,
 'memory'   =>      'ro',
-}
-);
+};
 my %local = ();
 my @localgroups = ('','AM Radio','Ham Radio','Fire','FM Radio', 'Air','Police','Railroad');
 my @freqsamp = (
@@ -97,8 +97,8 @@ my $db = $parmref->{'database'};
 my $rc = 0;
 if ($cmd eq 'init') {
 $model = LOCAL;
-foreach my $key (keys %{$radio_limits{$model}}) {
-$defref->{$key} = $radio_limits{$model}{$key};
+foreach my $key (keys %{$Radio_Limits{$model}}) {
+$defref->{$key} = $Radio_Limits{$model}{$key};
 }
 $defref->{'model'} = $model;
 @gui_modestring = ('FM','WFM','AM','LSB','USB','CW','CW-R','RTTY','RTTY-R');
