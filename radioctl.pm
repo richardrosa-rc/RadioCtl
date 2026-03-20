@@ -50,7 +50,7 @@ use autovivification;
 no  autovivification;
 use Scalar::Util qw(looks_like_number);
 use strict;
-our  $Rev = '0.4.119';
+our  $Rev = '0.4.120';
 use constant MAXCHAN         => 9999;
 use constant MAXINDEX        => 99999;
 use constant MAXFREQ         => 9999999999;
@@ -1415,6 +1415,12 @@ push @freqs,$frq;
 }
 if ($sortfreq) {
 @freqs = sort {$a->{'frequency'} <=> $b->{'frequency'} } @freqs;
+@freqs = sort {
+if (looks_like_number($a->{'tgid'}) and (looks_like_number($b->{'tgid'}))) {
+$a->{'tgid'} <=> $b->{'tgid'};
+}
+else {$a->{'tgid'} cmp $b->{'tgid'};}
+} @freqs;
 }
 my $freq_index = 1;
 foreach my $rec (@freqs) {
@@ -1745,6 +1751,8 @@ if ($non_output{$rectype}) {next;}
 if (!defined $data->{$rectype}) {next;}
 if ($index_required{$rectype}  and
 (scalar($data->{$rectype}) < 2)) {next;}
+elsif (!$data->{$rectype}[1]) {next;}
+if ($rectype =~ /tag/i) {next;} 
 print OUT
 "*\n********************* " . uc($rectype) . " records *****************************\n" ;
 foreach my $rec  (@{$data->{$rectype}}) {

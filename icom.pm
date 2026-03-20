@@ -1124,7 +1124,7 @@ add_message("ICOM l3223:channel/group $channel is outside range of the radio");
 return ($parmref->{'rc'} = $NotForModel);
 }
 my $retcode = $GoodCode;
-if  (!$state_save{'state'} ne 'mem'){
+if  ($state_save{'state'} ne 'mem'){
 if ($model eq ICR30) {
 $in->{'state'} = 'mem';
 $parmref->{'write'} = TRUE;

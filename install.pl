@@ -2,6 +2,7 @@
 ##############################################################
 #   Install RadioCtl                                         #
 #  Run this script from the command line  
+# UPDATED 03/01/26 - Added ARCH Linux support 
 ##############################################################
 use strict;
 my $Bold = "\e[1m";
@@ -16,23 +17,62 @@ my @required = (
                 "radioctl.desktop",
                 "radioctl.conf",
                 );
-#### Libraries required for Debian distro
-my @libs_debian = (
-   'libgtk3-perl','libdevice-serialport-perl','libtext-csv-perl','libautovivification-perl'
-   );
-my @libs_suse = ( 
-   'perl-Gtk3','perl-Device-SerialPort','perl-Text-CSV','perl-autovivification',
-     'gdk-pixbuf-devel','perl-Text-CSV_XS','typelib-1_0-Gtk-3_0','typelib-1_0-GdkPixdata-2_0',
-   );
-my $distro = '';
-my $rc = `grep -i suse /etc/os-release`;
-### Not Suse
-if ($?) {
-   $distro = 'debian'; ### for now
-}
-else {$distro = 'suse';}
-print "Distro found = $distro\n";
 
+#############################################
+#### Libraries required for each distro    ##
+#############################################
+my %libraries = (
+   ### Debian based distros (Mint/Ubuntu)
+   'debian' => [
+       'libgtk3-perl',
+       'libdevice-serialport-perl',
+       'libtext-csv-perl',
+       'libautovivification-perl'
+       ],
+       
+   ### Suse + Tumbleweed    
+   'suse' => [   
+      'perl-Gtk3',
+      'perl-Device-SerialPort',
+      'perl-Text-CSV',
+      'perl-autovivification',
+      'gdk-pixbuf-devel',
+      'perl-Text-CSV_XS',
+      'typelib-1_0-Gtk-3_0',
+      'typelib-1_0-GdkPixdata-2_0',
+      ],
+   ### Arch Linux
+   'arch' => [
+      'perl-autovivification',
+      'perl-device-serialport',
+      'perl-text-csv',
+      'perl-gtk3',
+      ],
+   ### Additional distros here  
+   );
+   
+### Determine the distro based on OS-RELEASE
+my $distro = '(n/a)';
+my @os_release = ();
+if (open INFILE,"/etc/os-release") {
+   @os_release = <INFILE>;
+   close INFILE;
+   foreach my $rec (@os_release) {
+      if ($rec =~ /^name/i) {  ### Name record
+         chomp $rec;
+         if ($rec =~ /mint/i) {$distro = 'debian';}
+         elsif ($rec =~ /arch/i) {$distro = 'arch';}
+         elsif ($rec =~ /ubun/i) {$distro = 'debian';}
+         elsif ($rec =~ /suse/i) {$distro = 'suse';}
+         else {
+            ($distro) = $rec =~ /\"(.*?)\"/;
+         }
+         last;
+      }
+   }
+}
+else {print $Bold,"Could not read /etc/os-release to determine distro!$Eol";}
+            
 
    
 my $all_found = 1;    
@@ -112,24 +152,37 @@ else {
 ################################################
 #### now install the appropriate libraries     #
 ################################################
-if ($distro =~ /debian/i) {
-   system "sudo apt update";
-   foreach my $lib (@libs_debian) {
-      my $cmd = "sudo apt-get -y install $lib";
+my $cmd = '';
+if ($libraries{$distro}) {
+   print "Installing perl libraries for $distro type distribution..\n";
+   if ($distro =~ /debian/i) {
+      system "sudo apt update";  ### debian systems need this first
+   }
+   foreach my $lib (@{$libraries{$distro}}) {
+      my $cmd = '';
+      if ($distro =~ /debian/i) {$cmd = "sudo apt-get -y install $lib";}
+      elsif ($distro =~ /suse/i) {$cmd =  "sudo zypper -n install -l --force-resolution $lib";}
+      elsif ($distro =~ /arch/i) {$cmd = "sudo pacman -S $lib --noconfirm";}
+      ### Should not happen, but just in case
+      else {
+         print $Bold,"Command needed for $distro$Eol";
+         last;
+      }
       print "$cmd\n";
       `$cmd`;
       if ($?) {print "$Bold could not install library $lib$Eol";}
    }
-   `sudo apt install --fix-broken`;
+   
+   ### For Debian, need this after all installation
+   if ($distro =~ /debian/i) {
+      `sudo apt install --fix-broken`;
+   }
 }
 else {
-   foreach my $lib (@libs_suse) {
-      my $cmd = "sudo zypper -n install -l --force-resolution $lib";
-      print "$cmd\n";
-      `$cmd`; 
-      if ($?) {print "$Bold could not install library $lib$Eol";}
-   }  
+   print $Bold,"No automatic installation available for PERL libraries for $distro\n";
+   print " Libraries will need to be installed manually!$Eol";
 }
+        
 
 print "$Bold RadioCtl is now installed$Eol";
 

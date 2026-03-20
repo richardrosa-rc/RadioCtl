@@ -884,11 +884,15 @@ my %parms = ('sdcard' => \@sdcard,
 my $rc = uniden_sdcard(\%parms);
 foreach my $rec (@sdcard) {
 my $fn = $rec->{'filename'};
-my $fspec = "$tdir/$fn";
+my $fspec = "$hpdformat{'favorites'}/$fn";
+if (-e $fspec) {
+my $backup = $fspec . "_backup";
+`mv $fspec $backup`;
+}
 if (open OUTFILE, ">$fspec") {
 print OUTFILE @{$rec->{'records'}};
 close OUTFILE;
-print "RadioWrite l1998:Created Favorites file  $Bold$Yellow$fspec$Eol";
+print "RadioWrite l2012:Created Favorites file  $Bold$Yellow$fspec$Eol";
 }
 else {
 LogIt(1,"RadioWrite l2784:Could not open file $fspec for output!");
@@ -1540,7 +1544,7 @@ my $sysid = $grec->{'sysno'};
 if ($sysid != $sysno) {next;}
 my $grpno = $grec->{'index'};
 if (!$grpno) {next;}
-if (!$grec->{'valid'}) {next;}
+my $grpvalid = $grec->{'valid'};
 my $grpname = $grec->{'service'};
 foreach my $frec (@{$radiodb{'freq'}}) {
 my $index =$frec->{'index'};
@@ -1550,6 +1554,7 @@ if (!$grpid) {next;}
 if ($grpid != $grpno) {next;}
 my $freq = $frec->{'frequency'};
 if (!$freq) {next;}
+if (!$grpvalid) {$freq->{'valid'} = FALSE;}
 $freq = Strip($freq);
 if ($freqs{$freq}) {
 LogIt(1,"Skipping duplicate frequency $freq in record $frec->{'_recno'}");
@@ -1562,9 +1567,11 @@ foreach my $freq (@sort) {
 my $index = $freqs{$freq};
 my $service = $radiodb{'freq'}[$index]{'service'};
 $service =~ s/\&/ and /g;
+my $order = '-1';
+if ($radiodb{'freq'}[$index]{'valid'}) {$order = '1';}
 my $outrec = "\n <!-- $service -->\n" .
 '<channel system="' . $service . '" name="' . $service . '" ' .
-'enabled="false" order="1">' . "\n" .
+'enabled="false" order="' . $order . '">' . "\n" .
 '   <alias_list_name/> ' . "\n" .
 '   <source_configuration type="sourceConfigTuner" frequency="' .
 $freq . '" source_type="TUNER"/>' . "\n" .
@@ -1594,7 +1601,7 @@ my $sysid = $grec->{'sysno'};
 if ($sysid != $sysno) {next;}
 my $grpno = $grec->{'index'};
 if (!$grpno) {next;}
-if (!$grec->{'valid'}) {next;}
+my $grpvalid = $grec->{'valid'};
 my $grpname = Strip($grec->{'service'});
 $grpname =~ s/\&/ and /g;
 foreach my $frec (@{$radiodb{'freq'}}) {
@@ -1607,6 +1614,7 @@ my $tgid = $frec->{'tgid'};
 if (!$tgid) {next;}
 $tgid = Strip($tgid);
 my $valid = $frec->{'valid'};
+if (!$grpvalid) {$valid = FALSE;}
 my $service = Strip($frec->{'service'});
 $service =~ s/\&/ and /g;
 my $icon = '';

@@ -5020,8 +5020,15 @@ else {
 }
 if ($qkey >= 0) {
 if ((defined $dqkey->{$qkey}) and ($dqkey->{$qkey} ne $state)) {
+my $rectype = $rcd->{'_rectype'};
+my $service = $rcd->{'service'};
+if (!$rectype) {
+print $Bold,"Line 12455:No rectype for record=>",Dumper($rcd),$Eol;
+exit;
+}
+if (!$service) {$service = '?';}
 LogIt(1,"UNIDEN 12371:Conflict with qkey $qkey state for " .
-"$rcd->{'rectype'} $rcd->{'service'}\n" .
+"rectype=>$rectype service=>$rcd->{'service'}\n" .
 "  Prior state ($dqkey->{$qkey}) not changed!");
 }
 else {$dqkey->{$qkey} = $state;}
@@ -5031,8 +5038,13 @@ return $qkey,$state;
 sub hpd_finish {
 my $hpdref = shift @_;
 my $filename = $hpdref->{'filename'};
+print "Called HPD_Finish for $filename\n";
 my $flist = $hpdref->{'flist'};
 my $ref = $flist->{$filename};
+if (!$ref) {
+%{$flist->{$filename}} = ('filename' => $filename);
+$ref = $flist->{$filename};
+}
 foreach my $key ('name','filename','locctl','monitor','qkey','utag') {
 my $value = $hpdref->{$key};
 if (!defined $value) {
