@@ -22,9 +22,6 @@ use constant PANGO_WEIGHT_BOLD => 700;
 use constant PANGO_WEIGHT_LIGHT => 300;
 use Data::Dumper;
 use Time::HiRes qw( usleep ualarm gettimeofday tv_interval );
-my $os = $^O;
-my $linux;
-my $homedir;
 use FindBin qw($RealBin);
 use lib "$RealBin";
 my $callpath = "$RealBin/";
@@ -32,18 +29,6 @@ print STDERR "callpath = $callpath\n";
 use scanner;
 use radioctl;
 print "$Bold RadioCtl GUI$Red Rev=$White$Rev$Eol";
-if (substr($os,0,3) eq 'MSW') {
-$os = 'WINDOWS';
-$homedir = $ENV{"USERPROFILE"};
-$linux = FALSE;
-print STDERR "$Bold$Red WARNING! $White This program MAY not work correctly on Windows$Eol";
-}
-else {
-$os = 'LINUX';
-$homedir = $ENV{"HOME"};
-$linux = TRUE;
-my $progname = $0;
-}
 use constant MINCHAN         => 20;
 use constant MAXMESSAGE      => 10;
 use constant MESSAGELENGTH   => 200;
@@ -97,38 +82,12 @@ add_message($msg,1);
 $File_load = '';
 }
 }
-if ($User_conf) {
-if (!-f $User_conf) {
-my $msg = "'$User_conf' does not exist or is not a text file. Ignored!";
-add_message($msg,1);
-$User_conf = '';
-}
-}
-our $deffile = "$homedir/radioctl.conf";
-if (!-f $deffile) {$deffile = "$callpath/radioctl.conf";}
-if ($User_conf) {$deffile = $User_conf;}
-if (-f $deffile) {add_message("Set configuration file to $deffile",0);}
-else {
-my $msg = "No$Yellow radioctl.conf$White file was located in " .
-"$Yellow$homedir$White or $Yellow$callpath$White\n" .
-"Program MAY fail!";
-if ($User_conf) {
-LogIt(1,"Configuration file $Yellow$User_conf$White was not located!\n" .
-"Program MAY fail!");
-$deffile = '';
-}
-$deffile = '';
-add_message($msg,2);
-}### Configuration file missing
-our $inifile = "$homedir/radioctl.vars";
 @dblist = ('system','group','freq','search','lookup');
 our @sub_windows = ('ops','vfo','status','select','signal','global');
 our %col_active = ();
 our %drop_lookup = ();
 our %menu_hash = ();
 our $lastdir = "";
-our @ports = ();
-our %ports = ();
 our $pop_up = FALSE;
 our %col_xref = ();
 our %db_view_menus = ();
@@ -155,10 +114,8 @@ our @progstates = (
 {'state' => 'init',        'dply' => ''},
 {'state' => 'quit',        'dply' => ''},
 );
-if ($deffile) {
-LogIt(0,"RadioCtl l413:reading configuration file $deffile");
-spec_read($deffile);
-}
+if (ReadProfile($User_conf)) {exit;};
+my $inifile = "$RCSettings{'inidir'}/radioctl.vars";
 my %w_info = (
 'main'      => {'xsize' => 700,'ysize'=> 300,'xpos'=> 550, 'ypos' =>  80, 'active'=> 1,'init' => 0},
 'freq'      => {'xsize' => 900,'ysize'=> 320,'xpos'=>  90, 'ypos' => 270, 'active'=> 1,'init' => 0},
@@ -181,7 +138,7 @@ foreach my $key (keys %control) {$control{$key} = $clear{$key};}
 $vfo{'_last_radio_name'} = 'local';
 }
 if (!$vfo{'_last_radio_name'}) {$vfo{'_last_radio_name'} = 'local';}
-$control{'autobaud'} = TRUE;
+$control{'autobaud'} = FALSE;
 delete $control{'logging_file'};
 my %colors = ('channel'    => 'blanchedalmond',
 'groupno'    => 'aliceblue',
@@ -739,12 +696,12 @@ my @opt_button_dply = (
 {'key' => 'scansys',  'panel' => $op_scan, 'dply' => 'Scans Use System Records'},
 {'key' => 'scangroup','panel' => $op_scan, 'dply' => 'Scans Use Group Records'},
 {'key' => 'manlog',   'panel' => $op_other, 'dply' => 'Update Database In Manual'},
-{'key' => 'recorder', 'panel' => $op_other, 'dply' => "Record Audio (=>$settings{'recdir'})"},
+{'key' => 'recorder', 'panel' => $op_other, 'dply' => "Record Audio (=>$RCSettings{'recdir'})"},
 {'key' => 'recorder_multi','panel'=>$op_other,'dply'=>'Separate Recordings For Each Squelch Break'},
-{'key' => 'logging',  'panel' => $op_other, 'dply' => "Log To File (=>$settings{'recdir'})"},
+{'key' => 'logging',  'panel' => $op_other, 'dply' => "Log To File (=>$RCSettings{'recdir'})"},
 );
-$control{'logging_dir'} = $settings{'logdir'};
-$control{'recording_dir'} = $settings{'recdir'};
+$control{'logging_dir'} = $RCSettings{'logdir'};
+$control{'recording_dir'} = $RCSettings{'recdir'};
 foreach my $rec (@opt_button_dply) {
 my $key = $rec->{'key'};
 if (!defined $control{$key}) {$control{$key} = FALSE;}
@@ -781,9 +738,9 @@ elsif ($key eq 'start') { }
 elsif ($key eq 'stop') {  }
 elsif ($key eq 'logging') {
 if ($control{$key}) {
-if (DirExist($settings{'logdir'},TRUE)) {
+if (DirExist($RCSettings{'logdir'},TRUE)) {
 $control{$key} = $widget->set_active(FALSE);
-err_dialog("Cannot create log.  Directory:$settings{'logdir'}" .
+err_dialog("Cannot create log.  Directory:$RCSettings{'logdir'}" .
 "Does not exist and cannot be created!","error");
 }### Cannot create directory
 }### Turning on the logging
@@ -795,7 +752,7 @@ if (!-e "/usr/bin/sox") {$missing = 'Application /usr/bin/sox Missing/Not Instal
 elsif (!-e "/usr/bin/parecord") {$missing = 'Application /usr/bin/parecord Missing/Not Installed';}
 else {
 foreach my $set ('tempdir','recdir') {
-my $dir = $settings{$set};
+my $dir = $RCSettings{$set};
 if (DirExist($dir,TRUE)) {
 $missing = "Directory $dir (settings{$set} is not present and cannot be created";
 last;
@@ -881,28 +838,26 @@ foreach my $key (@status_keys,@status2_keys) {$status_ctl{$key} = Gtk3::Label->n
 my $connect_status = Gtk3::Button->new_with_label("");
 $connect_status->signal_connect(pressed =>
 sub {
-my %req = ('_cmd' => 'connect',
-'baudrate' => $combo{'baud'}->get_active_text(),
-'port' => $combo{'port'}->get_active_text(),
-);
-if ($radio_def{'active'}) {### Radio is already active
-%req = ('_cmd' => 'disconnect');
+my $baud = '';
+my $port = '';
+if ($control{'autobaud'}) {
+$baud = '';
+$port = '';
 }
 else {
-my $name = $radio_def{'name'};
-my $combo_name = lc($combo{'name'}->get_active_text);
-if ((!$name) or ($name ne $combo_name) ) {
-radioselproc();
-return TRUE;
-}### New radio name being selected
-}### Radio is Active
-$req{'_caller'} = 2480;
+$baud  = $combo{'baud'}->get_active_text();
+$port  = $combo{'port'}->get_active_text();
+}
+my %req = ('_cmd' => 'connect',
+'baud' => $baud, 'port' =>$port,
+);### Request
+$req{'_caller'} = 2486;
 push @req_queue,{%req};
 });
 my $rescan_button = Gtk3::Button->new_with_label("rescan");
 $rescan_button->signal_connect(pressed =>
 sub {refreshserial();});
-my $autobaud_button = Gtk3::CheckButton ->new("Autobaud");
+my $autobaud_button = Gtk3::CheckButton ->new("Auto");
 $autobaud_button->signal_connect(toggled => sub {
 my $widget = shift @_;
 $control{'autobaud'} = $widget->get_active;
@@ -918,13 +873,7 @@ $combo{'baud'}->set_sensitive(TRUE);
 $autobaud_button->set_active($control{'autobaud'});
 refreshserial();
 $combo{'port'} ->signal_connect(popup => \&refreshserial);
-my $bdndx = 0;
-foreach my $baud (reverse sort numerically keys %baudrates) {
-$combo{'baud'} -> append_text($baud);
-$baudrates{$baud} = $bdndx;
-$bdndx++;
-}
-$combo{'baud'}->set_active(0);
+refreshbaud();
 my $lastradio = '';
 if ($User_radio) {$lastradio = lc($User_radio);}
 elsif ($vfo{'_last_radio_name'}) {$lastradio = lc($vfo{'_last_radio_name'});}
@@ -1425,6 +1374,9 @@ set_db_data($dbndx,\@selected,\%scan_request);
 else {LogIt(1,"TIMEPOP l3428:No selection for BATCH scanner request!");}
 }
 elsif ($command eq 'vfodply') {
+foreach my $key ('frequency','index','channel','step') {
+if (!defined $vfo{$key}) {$vfo{$key} = 0;}
+}
 my $freq = $vfo{'frequency'};
 if (!$freq) {$freq = 0;}
 if (!$freq and $vfo{'tgid'}) {
@@ -1463,7 +1415,7 @@ if ($dark) {$fg = ' foreground="white" ';}
 else {$fg = ' foreground="black" ';}
 if ($control{'logging'}) {
 $fg = 'foreground="green"';
-$msg = "Logging=>$settings{'logdir'}/$Logfile_Name";
+$msg = "Logging=>$RCSettings{'logdir'}/$Logfile_Name";
 $weight = 'weight="heavy"';
 }
 $child->set_markup("<span $fg $bgc $weight > $msg </span>");
@@ -1573,14 +1525,12 @@ err_dialog($scan_request{'msg'},'info','queue');
 return 1;
 }
 elsif ($command eq 'baud') {
-my $baud_text = $scan_request{'rate'};
-my $port_text = $scan_request{'port'};
-if ($baud_text and (defined $baudrates{$baud_text})) {
-$combo{'baud'}->set_active($baud_text);
+my  $radiosel = lc($combo{'name'}->get_active_text);
+foreach my $key (keys %scan_request) {
+if ($key =~ /^\_/) {next;}   
+$All_Radios{$radiosel}{$key} = $scan_request{$key};
 }
-if ($port_text and (defined $ports{$port_text})) {
-$combo{'port'}->set_active($port_text);
-}
+refreshserial();
 }### 'baud' command
 elsif ($command eq 'control') {
 foreach my $key (keys %scan_request) {
@@ -1900,7 +1850,7 @@ $digit{'vchan'}{$key}{'ctl'}->set_sensitive($dbactive);
 $entry{'vchan'}->set_sensitive($dbactive);
 if (!$active) {return 0;}
 my %ctl_value = ();
-my $vfo_mode =  $vfo{'mode'};
+my $vfo_mode =  Strip($vfo{'mode'});
 if (!$vfo_mode) {$vfo_mode = 'fmn';}
 my $mode = Strip(lc($vfo_mode));
 my $bw = '';
@@ -1910,7 +1860,12 @@ $bw = lc($bw);
 $mode = substr($mode,0,2);
 if ($mode =~ /wf/i) {$bw = '(';}   
 if (($mode !~ /fm/i) and ($bw =~ /u/i)) {$bw = 'n';}
-$ctl_value{'vmode'} = $rc_modes{uc($mode)};
+my $vmode_key = $rc_modes{uc($mode)};
+if (!$vmode_key) {
+print "RadioCtl 5106:Empty VMODE_KEY for mode=$mode vfo_mode=>$vfo_mode<=\n";
+$vmode_key = 'FM';
+}
+$ctl_value{'vmode'} = $vmode_key;
 $ctl_value{'vbw'} = $bw;
 my $att = $attstring[0];
 if ($vfo{'atten'}) {$att = $attstring[1];}
@@ -1941,14 +1896,19 @@ $combo{'adtype'}->set_sensitive(FALSE);
 foreach my $ctl ('vmode','vbw','att_amp','sqtone','adtype') {
 if (!scalar keys %{$combo_text{$ctl}}) {next;}
 $combo{$ctl}->signal_handler_block($handler_id{$ctl});
-my $value = lc($ctl_value{$ctl});
-my $index = $combo_text{$ctl}{$value};
+my $value = $ctl_value{$ctl};
+if (defined $value) {
+my $index = $combo_text{$ctl}{lc($value)};
 if (!defined $index) {
 print "RADIOCTL l5078:Got bad index for $ctl => $value\n";
 print Dumper($combo_text{$ctl}),"\n";
 next;
 }
 $combo{$ctl}->set_active($index);
+}
+else {
+print "RadioCtl line 5177: Undefined value for $ctl.\n";
+}
 $combo{$ctl}->signal_handler_unblock($handler_id{$ctl});
 }### For all supported controls
 }
@@ -2146,27 +2106,131 @@ return 0;
 sub radioselproc {
 my ($cell, $dbinfo) = @_;
 if ($response_pending) {return 0;}
-my $combo_name = lc($combo{'name'}->get_active_text);
-if ($radio_def{'active'} and ($radio_def{'name'} eq $combo_name)) {return 0;}
+my $radio_name = lc($combo{'name'}->get_active_text);
+if ($radio_def{'active'} and ($radio_def{'name'} eq $radio_name)) {return 0;}
 my %req = ('_cmd' => 'newradio');
-foreach my $key (keys %{$All_Radios{$combo_name}}) {
-$req{$key} = $All_Radios{$combo_name}{$key};
+foreach my $key (keys %{$All_Radios{$radio_name}}) {
+$req{$key} = $All_Radios{$radio_name}{$key};
 }
-$req{'baudrate'} = $combo{'baud'}->get_active_text();
-$req{'port'} = $combo{'port'}->get_active_text();
-$req{'_caller'} = 5770;
+$req{'_caller'} = 5797;
 push @req_queue,{%req};
+if ($All_Radios{$radio_name}{'recdir'}) {
+$control{'recording_dir'} = $All_Radios{$radio_name}{'recdir'};
+}
+else {$control{'recording_dir'} = $RCSettings{'recdir'};}
+if ($All_Radios{$radio_name}{'logdir'}) {
+$control{'logging_dir'} = $All_Radios{$radio_name}{'logdir'};
+}
+else {$control{'logging_dir'} = $RCSettings{'logdir'};}
+if ($All_Radios{$radio_name}{'tmpdir'}) {
+$control{'temp_dir'} = $All_Radios{$radio_name}{'tmpdir'};
+}
+else {$control{'temp_dir'} = $RCSettings{'tmpdir'};}
+$RCSettings{'radiorec_dir'} = $control{'recording_dir'};
+$RCSettings{'radiotmp_dir'} = $control{'temp_dir'};
+$RCSettings{'radiolog_dir'} = $control{'logging_dir'};
+refreshserial();
 return 0;
 }## radioselproc
 sub refreshserial {
-port_read();
-my $default = 0;
+my @ports = ();
+my @bauds = ();
+my $default_baud = '';
+my $default_port = '';
+my $protocol = 'n/a';
+my $radiosel = $combo{'name'}->get_active_text;
+if ($radiosel) {
+$radiosel = lc($radiosel);
+$protocol = $All_Radios{$radiosel};
+if ($All_Radios{$radiosel}{'port'}) {
+$default_port = $All_Radios{$radiosel}{'port'};
+}
+elsif ($All_Radios{$radiosel}{'default_port'}) {
+$default_port = $All_Radios{$radiosel}{'default_port'};
+}
+if ($All_Radios{$radiosel}{'baud'}) {
+$default_baud = $All_Radios{$radiosel}{'baud'};
+}
+elsif ($All_Radios{$radiosel}{'default_baud'}) {
+$default_baud = $All_Radios{$radiosel}{'default_baud'};
+}
+$default_port = Strip($default_port);
+if ($default_port) {
+if (-e $default_port) {
+push @ports,$default_port;
+}
+else {
+if ($Verbose) {
+print "RadioCtl.pl line 5893:Did Not Find default port=>$default_port<-\n";
+}
+$default_port = '';
+}
+}
+else {
+if ($Verbose) {
+print "RadioCtl.pl line 5901:No default port specified for $radiosel$Eol";
+}
+}
+if ($default_baud) {push @bauds,$default_baud;}
+}### Radio is selected
+foreach my $dev ('/dev/ttyACM*','/dev/ttyUSB*') {
+my @list = sort glob($dev);
+foreach my $port (@list) {
+if ($default_port and ($port eq $default_port)) {next;}
+push @ports,$port;
+}### For each port in the device type list
+}### For each device type
+foreach my $baud (reverse sort numerically keys %baudrates) {
+if ($default_baud and ($baud == $default_baud)) {next;}
+push @bauds,$baud;
+}
+if ($protocol and ($protocol =~ /local/i)) {
+@ports = ('(none)');
+@bauds = ('(none)');
+}
 $combo{'port'}->remove_all();
 foreach my $pt (@ports) {
 $combo{'port'}->append_text($pt);
 }
-$combo{'port'}->set_active($default);
+$combo{'port'}->set_active(0);
+$combo{'baud'}->remove_all();
+foreach my $bd (@bauds) {
+$combo{'baud'}->append_text($bd);
+}
+$combo{'baud'}->set_active(0);
 return 1;
+}
+sub refreshbaud {
+return 1;
+my @bauds = ();
+my $default_baud = '';
+my $radiosel = $combo{'name'}->get_active_text;
+if ($radiosel) {
+$radiosel = lc($radiosel);
+if ($All_Radios{$radiosel}{'baud'}) {
+$default_baud = $All_Radios{$radiosel}{'baud'};
+}
+elsif ($All_Radios{$radiosel}{'default_baud'}) {
+$default_baud = $All_Radios{$radiosel}{'default_baud'};
+}
+if ($default_baud) {
+push @bauds,$default_baud;
+$baudrates{$default_baud} = 0;
+if ($Verbose) {
+print "Radioctl line 5976:Set default baud to $default_baud\n";
+}
+}
+}
+foreach my $baud (reverse sort numerically keys %baudrates) {
+if ($default_baud and ($baud == $default_baud)) {next;}
+my $len = push @bauds,$baud;
+$baudrates{$baud} = ($len - 1 );
+}
+$combo{'baud'}->remove_all();
+foreach my $bd (@bauds) {
+$combo{'baud'}->append_text($bd);
+}
+$combo{'baud'}->set_active(0);
 }
 sub operation_select {
 my $widget = shift @_;
@@ -2451,7 +2515,7 @@ $control{$ctlname} = '';
 $opt_button{$ctl}->set_sensitive(FALSE);
 return TRUE;
 }
-my $filespec = "$settings{'logdir'}/$value";
+my $filespec = "$RCSettings{'logdir'}/$value";
 if (-l $filespec) {### Symlink?
 $filespec = readlink $filespec;
 }
@@ -3078,30 +3142,6 @@ sub testclick {
 foreach my $parm (@_) {
 print "parm=$parm\n";
 }
-}
-sub port_read {
-@ports = ();
-%ports = ();
-push @ports, "(none)";
-$ports{"(none)"} = 0;
-if ($os eq "LINUX") {
-my @tty = </dev/tty*> ;
-foreach my $type ('ttyacm','ttyusb','ttys') {
-foreach my $file (@tty) {
-if ($file =~ /$type/i) {
-my $len = push @ports,$file;
-$ports{$file} = ($len - 1 );
-}
-}
-}
-}
-elsif ($os eq "WINDOWS") {
-foreach my $port ('com1','com2','com3','com4') {
-my $len = push @ports,$port;
-$ports{$port} = ($len - 1 );
-}
-}
-return 0,
 }
 sub find_combo_string {
 my $combo = shift @_;

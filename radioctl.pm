@@ -6,19 +6,19 @@ use constant TRUE => 1;
 @ISA   = qw(Exporter);
 @EXPORT = qw(
 CR
-%clear equate %valid_protocols spec_read
-MAXSIGNAL radio_send %radio_routine %mutual_exclusive
+%clear equate %Radio_Validation ReadProfile
+MAXSIGNAL radio_send %Radio_Routine %mutual_exclusive
 rc_to_freq freq_to_rc KeyVerify
 $Red $Bold $Green $Blue $Magenta $Yellow $White $Reset $Eol
 %scan_request %gui_request $scanner_thread
 SQUELCH_MAX MAXCHAN MAXINDEX MAXFREQ MINFREQ %xrefs
 @db_channel_max $progstate %vfo %version1
-%radio_def %systypes %modelookup
+%systypes %modelookup
 %usleep %rc_hash @modestring @bandwidthstring @system_type
 @database $Debug1 $Debug2 $Debug3
-%db_kwd cvt_signal %models %settings
+%db_kwd cvt_signal %models %RCSettings
 write_radioctl write_radioctl2 read_radioctl read_def %struct_fields
-write_format read_line
+write_format read_line %radio_def
 @dblist %structure %struct_format %binary
 %chan_active $initial_local %dummy_record add_a_record
 %version2 %ifexchange %freq_lock %syskey AutoMode
@@ -35,7 +35,7 @@ TrueFalse LogIt Strip Time_format Lat_Lon_Parse Parms_Parse Time_Format ConfigFi
 write_log str_cmpr $fdigits $fdecimal check_range
 @gui_modestring @gui_bandwidth @gui_adtype @gui_tonestring @gui_attstring %audio_types
 @rc_modes %rc_modes %tn_type @attstring @ctctone @dcstone @alltones Tone_Xtract
-DebugIt $Logfile_Name DirExist %Radio_Limits
+DebugIt $Logfile_Name DirExist %Radio_Limits AutoBaud $Verbose
 );
 use threads;
 use threads::shared;
@@ -50,7 +50,7 @@ use autovivification;
 no  autovivification;
 use Scalar::Util qw(looks_like_number);
 use strict;
-our  $Rev = '0.4.120';
+our  $Rev = '0.4.121';
 use constant MAXCHAN         => 9999;
 use constant MAXINDEX        => 99999;
 use constant MAXFREQ         => 9999999999;
@@ -73,13 +73,16 @@ our @Warning_Log = ();
 our @Error_Log = ();
 our @Info_Log = ();
 our $Debug = 0;
+our $Verbose = 0;
 our %Options = (
 'b|debug' => \$Debug,
 'h|help' => \&Help_Me,
+'v|verbose' => \$Verbose,
 );
 our %OptDescript = (
 'b|debug' => 'Turn On Debugging Stuff',
 'h|help'  => 'Display Help',
+'v|verbose' => 'Turn on additional informational messages',
 );
 our $fdigits = 11;
 our $fdecimal = 6;
@@ -192,10 +195,13 @@ our %All_Radios = (lc($defaultradio) => {
 model      => '',
 radioaddr  => 0,
 protocol   => 'local',
-baudrate   => 9600,
-handshake  => "none",
-port       => "none",
-portset    => FALSE,
+name => ucfirst($defaultradio),
+sdir => "$homedir/radioctl",
+default_port => '(none)',
+default_baud => '115200',
+recdir => '/tmp/local/recording',
+tmpdir => '/tmp/local/temp',
+logdir => '/tmp/local/log',
 origin     => 0,
 maxchan    => MAXCHAN,
 maxfreq    => MAXFREQ,
@@ -204,8 +210,10 @@ radioscan  => 0,
 signal     => 2,
 active     => FALSE,
 group      => FALSE,
-name => ucfirst($defaultradio),
-sdir => "$homedir/radioctl",
+baudrate   => 115200,
+port       => "(none)",
+portset    => FALSE,
+handshake  => "none",
 },
 );
 our %Radio_Limits = ();
@@ -259,11 +267,11 @@ our %extra_char = (
 'splfreq' => {'freq'   => TRUE},
 );
 our %baudrates = (
-'9600'   => -1,
-'19200'  => -1,
-'38400'  => -1,
-'57600'  => -1,
-'115200' => -1,
+'9600'   => TRUE,
+'19200'  => TRUE,
+'38400'  => TRUE,
+'57600'  => TRUE,
+'115200' => TRUE,
 );
 our %handshake = ('none' => TRUE, 'rts' => TRUE);
 our @system_type = (
@@ -414,22 +422,17 @@ toneout => [
 'emgcol',
 ],
 lookup => [
+'index',
 'frequency',
 'service',
 ],
-powermsg => ['msg1',
-'msg2',
-'msg3',
-'msg4',
+ifxchng => [
+'index',
+'frequency',
 ],
-light    => ['event',
-'bright',
-],
-beep     => ['volume',
-],
-ifxchng => ['frequency',
-],
-lockfreq => ['infile',
+lockfreq => [
+'index',
+'infile',
 'ingrpno',### Input group number to select
 ],
 favorites => [
@@ -440,6 +443,16 @@ favorites => [
 'qkey',
 'flags',
 '_extra',
+],
+global => [
+'index',
+'light',
+'bright',
+'beep',
+'msg1',
+'msg2',
+'msg3',
+'msg4',
 ],
 );
 our %structure = (
@@ -638,20 +651,12 @@ lookup => [
 ],
 tag => [
 ],
-powermsg => ['msg1',
-'msg2',
-'msg3',
-'msg4',
-],
-light    => ['event',
-'bright',
-],
-beep     => ['volume',
-],
 lockfreq => [
+'index',
 'frequency',
 ],
 ifxchng => [
+'index',
 'frequency',
 ],
 syskey => [
@@ -690,19 +695,29 @@ favorites => [
 'locctl',
 '_utag',
 ],
+global => [
+'index',
+'light',
+'bright',
+'beep',
+'msg1',
+'msg2',
+'msg3',
+'msg4',
+],
 );
 my %non_xrefed = (
 'lookup'   => TRUE,
 'ifxchng'  => TRUE,
 'lockfreq' => TRUE,
 'beep'     => TRUE,
-'powermsg' => TRUE,
 'light'    => TRUE,
 'lockfreq' => TRUE,
 'toneout'  => TRUE,
 'search'   => TRUE,
 'tag'      => TRUE,
 'favorites'=> TRUE,
+'global'   => TRUE,
 );
 my @xrefed = (
 'system','site','bplan','tfreq','group','freq',
@@ -719,13 +734,15 @@ my %index_required = (
 'tfreq' => TRUE,
 'bplan' => TRUE,
 'favorites' => TRUE,
+'lookup' => TRUE,
+'ifxchng' => TRUE,
+'lockfreq' => TRUE,
+'global'   => TRUE,
 );
-our @dblist = ('system','site','bplan','tfreq','group','freq','search','lookup',
-'powermsg','light','beep','ifxchng','lockfreq','favorites');
+our @dblist = ('system','site','bplan','tfreq','group','freq','search','toneout','lookup',
+'global',
+'ifxchng','lockfreq','favorites');
 our %OneOnly = (
-'powermsg' => TRUE,
-'beep' => TRUE,
-'light' => TRUE,
 'favorites' => TRUE,
 );
 my %check = ();
@@ -800,13 +817,13 @@ our %struct_fields = (
 '_comment'     => ['c',-20,'a'],
 'site_number ' => ['c', 6,'a',''],
 'channel'     => ['i', 4,'0','-'   ,-1,MAXCHAN  ,0,'-'],
-'msg1'     => ['c',-20,'a',''],
-'msg2'     => ['c',-20,'a',''],
-'msg3'     => ['c',-20,'a',''],
-'msg4'     => ['c',-20,'a',''],
-'volume'    => ['i',  2,0,     0,0,15       ,0,],
-'event'     => ['c', 6,0,   'Off',0,0        ,0,'on','off','key','sq','10','30'],
-'bright'   =>  ['i', 1,0,       1,1,3        ,0,    ],
+'beep'    => ['i',  5,  0,'',-1,15       ,0,'on','off','auto',''],
+'light'   => ['c',  6,  0,'',-1,30       ,0,'on','off','key','sq','10','30',''],
+'bright'  => ['i',  7,  0,'', 1,3        ,0,''  ],
+'msg1'    => ['c',-20,'a',''                    ],
+'msg2'    => ['c',-20,'a',''                    ],
+'msg3'    => ['c',-20,'a',''                    ],
+'msg4'    => ['c',-20,'a',''                    ],
 'tgid'        => ['g', 8,'ar',     '',0,0      ,0,],
 'index'       => ['i', 5,'r',      0,0,'.'    ,0,],
 'groupno'     => ['i', 5,'x',      0, 0,'.'      ,0,],
@@ -842,9 +859,9 @@ our %struct_fields = (
 'hld'         => ['i', 3,'n',   '0',0,255       ,0,],
 'hpd'         => ['i', 6,'n',   -1,-1,999999    ,0],
 'p25wait'     => ['i', 7,'n',   '',0,1000      ,0],
-'emgalt'      => ['i', 6,'n',    '',0,9         ,0,],
-'emgpat'      => ['i', 6,'n',    '',0,2         ,0,],
-'emglvl'      => ['i', 6,'n',    '',0,15        ,0,],
+'emgalt'      => ['i', 6,'n',    '',0,9         ,0,'on','off'],
+'emgpat'      => ['i', 6,'n',    '',0,2         ,0,'on','off'],
+'emglvl'      => ['i', 6,'n',    '',0,15        ,0,'auto'],
 'emgcol'      => ['i', 6,'n',    '',0,7         ,0,],
 'toneout_a'   => ['n', 6,'n', 00000,00000,99999 ,0,],
 'toneout_b'   => ['n', 6,'n', 00000,00000,99999 ,0,],
@@ -972,8 +989,8 @@ my %edacs_types = ('wide' =>1,'narrow' => 1);
 my %moto_types = ('std'=>1,'spl' => 1,'custom'=>1);
 our %dummy_record = ('_comment' => 'Reserved record');
 our %clear = ();
-our %radio_routine = ();
-our %valid_protocols = ();
+our %Radio_Routine = ();
+our %Radio_Validation = ();
 our $GoodCode = 0;
 our $CommErr  = 1;
 our $ParmErr  = 2;
@@ -989,10 +1006,11 @@ share(our %gui_request);
 %gui_request = ();
 share(our %scan_request);
 %scan_request = ();
-share(our %settings);
-%settings = ('tempdir' => "$homedir/radioctl",
+share(our %RCSettings);
+%RCSettings = ('tempdir' => "$homedir/radioctl",
 'recdir'  => "$homedir/radioctl",
 'logdir'  => "$homedir/radioctl",
+'inidir'  => "$homedir/radioctl",
 );
 share (our @messages);
 @messages = ();
@@ -1063,7 +1081,7 @@ my ($parms,$outstr) = @_;
 if (!$parms) {LogIt(993,"RADIO_SEND:No $parms for call!");}
 my $portobj = $parms->{'portobj'};
 if (!$portobj) {
-print STDERR "## Radio_Send called without a portobj!\n";
+print "$Bold ## Radio_Send called without a portobj!\n";
 return -2;
 }
 my $debug = FALSE;
@@ -1075,6 +1093,7 @@ if (defined $parms->{'clear'}) {$clear = $parms->{'clear'};}
 my $len = length($term);
 $parms->{'rcv'} = '';
 $parms->{'sent'} = $outstr;
+if ($debug) {LogIt(0,"$Bold RadioCtl l2600: Called Radio_Send for =>$outstr");}
 while ($clear) {
 my ($count_in, $data_in) = $portobj->read(1);
 if ($count_in) {
@@ -1093,8 +1112,11 @@ $countout = $portobj->write($outstr);
 if ($debug) {
 my $dply = $outstr;
 if ($parms->{'binary'}) {$dply = hexdply($outstr)}
-if ($debug) {LogIt(0, "RADIO_WRITE:Sent=>$dply<=\n count=$countout");}
+if ($debug) {LogIt(0,"RADIO_WRITE:Sent=>$dply<=\n count=$countout");}
 }
+}
+else {
+if ($debug) {LogIt(0,"RADIO_WRITE:No data was sent");}
 }
 if ($term eq '') {return 0 ;}
 my $instr = '';
@@ -1106,6 +1128,7 @@ my $delay = 10;
 if ($parms->{'delay'}) {$delay = $parms->{'delay'};}
 while (TRUE) {
 my ($count_in, $data_in) = $portobj->read(1);
+if ($debug) {print "Read returned $count_in bytes\n";}
 if ($count_in) {
 if ($data_in eq $term) {
 $parms->{'rcv'} = $instr;
@@ -1745,18 +1768,77 @@ foreach my $rec (@{$blk_comm}) {print OUT "$rec\n";}
 print OUT write_format($rec,'search',$oformat),"\n";
 }
 }
+$wrote_it{'global'} = TRUE;
+if ($data->{'global'}[1]{'index'}) {
+print OUT "*\n********************* Global records *****************************\n";
+if (($oformat != 1) and (!$nohdr)) {
+print OUT $head3{'global'},"\n";
+print OUT $head4{'global'},"\n";
+}
+foreach my $rec (@{$data->{'global'}}) {
+my $ndxno = $rec->{'index'};
+if (!$ndxno) {next;}
+my $blk_comm = $rec->{'_block_comments'};
+if ($blk_comm and (scalar @{$blk_comm})) {
+foreach my $blkrec (@{$blk_comm}) {print OUT "$blkrec\n";}
+}
+print OUT write_format($rec,'global',$oformat),"\n";
+}
+}
+$wrote_it{'toneout'} = TRUE;
+if ($data->{'toneout'}[1]{'index'}) {
+print OUT "*\n********************* Toneout records *****************************\n";
+if (($oformat != 1) and (!$nohdr)) {
+print OUT $head3{'toneout'},"\n";
+print OUT $head4{'toneout'},"\n";
+}
+foreach my $rec (@{$data->{'toneout'}}) {
+my $ndxno = $rec->{'index'};
+if (!$ndxno) {next;}
+$rec->{'frequency'} =
+my $freq = freq_to_rc($rec->{'frequency'});
+if ($freq <= 0) {
+foreach my $key (keys %{$structure{'toneout'}}) {
+if ($key =~ /index/i) {next;}
+elsif ($key =~ /service/i) {$rec->{$key} = '';}
+elsif ($key =~ /raw/i) {next;}
+else {$rec->{$key} = 0;}
+}
+}
+else {
+if ($mhz) {$freq = rc_to_freq($freq);}
+$rec->{'frequency'} = $freq;
+foreach my $key ('toneout_a','toneout_b') {
+if (looks_like_number($rec->{$key})) {
+$rec->{$key} = Strip(sprintf("%6.1f",$rec->{$key}/10));
+}
+else {$rec->{$key} = '0.0';}
+}
+}
+my $blk_comm = $rec->{'_block_comments'};
+if ($blk_comm and (scalar @{$blk_comm})) {
+foreach my $blkrec (@{$blk_comm}) {print OUT "$blkrec\n";}
+}
+print OUT write_format($rec,'toneout',$oformat),"\n";
+}### Foreach toneout record
+}### Toneout process
 foreach my $rectype (sort keys %structure) {
 if ($wrote_it{$rectype}) {next;}
 if ($non_output{$rectype}) {next;}
 if (!defined $data->{$rectype}) {next;}
+my $reccount = scalar @{$data->{$rectype}};
 if ($index_required{$rectype}  and
 (scalar($data->{$rectype}) < 2)) {next;}
 elsif (!$data->{$rectype}[1]) {next;}
 if ($rectype =~ /tag/i) {next;} 
 print OUT
 "*\n********************* " . uc($rectype) . " records *****************************\n" ;
+my $first = TRUE;
 foreach my $rec  (@{$data->{$rectype}}) {
-if (!$data->{'index'}) {next;}
+if ($first) {
+$first = FALSE;
+next;
+}
 my %outrec = ();
 foreach my $key (keys %{$rec}) {
 my $value = $rec->{$key};
@@ -2689,6 +2771,7 @@ my $opt = '';
 if ($upper_req) {$opt = 'u';}
 if ($first_char) {$to_check = substr($to_check,0,1);}
 foreach my $cmp (@add_values) {
+if (!$cmp) {print "Line 6279:To_check=>$cmp\n";}
 my ($bad,$new) = str_cmpr($to_check,Strip($cmp),$opt);
 if (!$bad) {
 $blk->{$key} = $new;
@@ -2886,20 +2969,55 @@ $blk->{$key} = $default;
 }
 return $retcode;
 }
-sub spec_read {
-my %val_check = (#'maxchan' => {'min' => 1,'max' => MAXCHAN},
-);
+use FindBin qw($RealBin);
+use lib "$RealBin";
+sub ReadProfile {
+my $callpath = "$RealBin/";
 my $filespec = shift @_;
-if (!$filespec) {LogIt(3913,"SPEC_READ:What happened to the radio definition spec?");}
+if (!$filespec) {$filespec = '';}
+my $name = 'local';
+$All_Radios{$name}{'name'} = $name;
+$All_Radios{$name}{'realname'} = 'Simulated Radio';
+$All_Radios{$name}{'protocol'} = 'local';
+foreach my $key ('model','radioaddr','baud','default_baud','port','default_port') {
+$All_Radios{$name}{$key} = '';
+}
+my %needed_dir = ("$homedir/radioctl" => TRUE);
+my %valid_dirs = (
+'tmpdir' => 'tmp',
+'logdir' => 'log',
+'recdir' => 'rec',
+'sddir'  => 'sdd',
+);
+foreach my $dir (keys %valid_dirs) {
+$RCSettings{$dir} = "$homedir/radioctl/$valid_dirs{$dir}";
+$needed_dir{$valid_dirs{$dir}} = TRUE;
+}
+my $profile = "radioctl.conf";
+my @locations = (
+"$homedir/radioctl",
+"$homedir",
+"$callpath",
+);
+foreach my $loc (@locations) {
+if ($filespec) {last;}
+if (-f "$loc/$profile") {
+$filespec = "$loc/$profile";
+}
+}
+if ($filespec and (-f $filespec)) {
+my $msg = "Configuration file used=>$filespec";
+if ($Verbose) {LogIt(0,"$Bold$msg");}
+add_message($msg);
 my @input = ();
 my $retcode = ConfigFileProc($filespec,\@input,'p','c');
 if ($retcode) {
 if ($retcode == 1) {
-LogIt(1,"RADIOCTL.PM l3739:SPEC_READ:Config file $filespec was not found!");
+LogIt(1,"RADIOCTL.PM l6768:SPEC_READ:Config file $filespec was not found!");
 return $retcode;
 }
 elsif ($retcode == 2) {
-LogIt(1,"RADIOCTL.PM l3743:SPEC_READ:Could not read config file $filespec!");
+LogIt(1,"RADIOCTL.PM l6772:SPEC_READ:Could not read config file $filespec!");
 return $retcode;
 }
 else {
@@ -2908,113 +3026,174 @@ if ($rcd->{'errmsg_'}) {LogIt(0,$rcd->{'errmsg_'});}
 }
 }
 }### file failed something
+PROFREC:
 foreach my $rcd (@input) {
-my %values = ();
-my $rectype = '';
-foreach my $num (keys %{$rcd}) {
-if ($num eq '0001') {$rectype = lc($rcd->{$num});}
-elsif ($num =~ /\_/) {   
-$values{$num} = $rcd->{$num};
-}
-elsif ($rcd->{$num} =~ /\=/) {  
-my ($key,$value) = split '=',$rcd->{$num},2;
-if ($key =~ /freq/) {
-if (looks_like_number($value)) {$value = freq_to_rc($value);}
-}### freq convert
-$values{lc(Strip($key))} = Strip($value);
-}
-else {
+my $rectype = $rcd->{'0001'};
+my $recno = $rcd->{'recno_'};
+if (!$recno) {
 print Dumper($rcd),"\n";
-LogIt(4440,"Unable to deal with record key $num");
+LogIt(6793,"Bad process from ConfigFileProc!. No Recno returned!");
 }
+my $errmsg = $rcd->{'errmsg_'};
+if (!$rectype) {
+LogIt(0,"$Bold$Red ERROR!$White " .
+"No name key specified in line $Green$recno$White of $Yellow$filespec$White! Line Ignored.");
+$retcode = 3;
+next;
 }
-my $recno = $values{'recno_'};
-if ($rectype eq 'radio') {
+my %values = ();
+foreach my $fieldnum (keys %{$rcd}) {
+if (looks_like_number($fieldnum)) {
+if ($fieldnum == 1) {next;}
+elsif ($rcd->{$fieldnum} =~ /\=/) {  
+my ($key,$value) = split '=',$rcd->{$fieldnum},2;
+if ($key) {$values{lc(Strip($key))} = $value;}
+else {
+LogIt(0,"$Bold$Red ERROR!$White " .
+"Empty key specified in line $Green$recno$White of $Yellow$filespec$White! Line Ignored.");
+$retcode = 3;
+next PROFREC;
+}
+}### there is an '='
+}
+else {next;}
+}### For each field number
+if ($rectype =~ /radio/i) {
 my $name = $values{'name'};
 my $proto = $values{'protocol'};
 if (!$name) {
 LogIt(0,"$Bold$Red ERROR!$White " .
 "No name key specified in line $Green$recno$White of $Yellow$filespec$White! Line Ignored.");
 $retcode = 3;
-next;
+next PROFREC;
 }
 if (!$proto) {
 LogIt(0,"$Bold$Red ERROR!$White " .
 "No protocol key specified in line $Green$recno$White of $Yellow$filespec$White! Line Ignored.");
 $retcode = 3;
-next;
+next PROFREC;
 }
-if (!$valid_protocols{Strip(lc($proto))}) {
+if (!$Radio_Routine{Strip(lc($proto))}) {
 LogIt(0,"$Bold$Red ERROR!$White " .
-"Invalid protocol $proto specified in line $Green$recno$White of $Yellow$filespec$White! Line Ignored.");
+"Unsupported protocol $proto specified in line $Green$recno$White of $Yellow$filespec$White! Line Ignored.");
 $retcode = 3;
-next;
+next PROFREC;
 }
 $name = lc($name);
+$All_Radios{$name}{'name'} = $name;
 $All_Radios{$name}{'realname'} = $values{'name'};
-$All_Radios{$name}{'baudrate'} = '';
-$All_Radios{$name}{'port'} = '';
+$All_Radios{$name}{'protocol'} = lc($proto);
 $All_Radios{$name}{'chanper'} = '100';
-$All_Radios{$name}{'sdir'} = "$homedir/radioctl";
-$All_Radios{$name}{'model'} = '';
 $All_Radios{$name}{'radioaddr'} = '08';
-foreach my $key (keys %values) {
-if ($key =~ '_') {next;}  
-my $value = $values{$key};
-if ($val_check{$key}) {
-my $min = $val_check{$key}{'min'};
-my $max = $val_check{$key}{'max'};
-if (!looks_like_number($value) or ($value < $min) or ($value > $max)) {
-LogIt(0,"$Bold$Red Error! '$Magenta$value$White'" .
-"is not a number between $Red$min$White and $Red$max$White for $Blue$key$White in line ".
-"$Green$recno$White of $Yellow$filespec$White!");
+foreach my $key ('baud','default_baud','port','default_port',
+'sddir','logdir','tmpdir','recdir','model') {
+$All_Radios{$name}{$key} = '';
+}
+foreach my $key (sort keys %values) {
+if ($key =~ /baud/i) {   
+my $baud = $values{$key};
+if ($baud and looks_like_number($baud)) {
+$All_Radios{$name}{'default_baud'} = $baud;
+}
+else {
+LogIt(0,"$Bold$Red ERROR!$White " .
+"Invalid baudrate $baud specified in line $Green$recno$White of $Yellow$filespec$White! Line Ignored.");
 $retcode = 3;
-next;
 }
-$All_Radios{$name}{$key} = $value;
+}### BAUD key
+elsif ($key =~ /port/i) {
+my $port = $values{$key};
+if (defined $port) {$port = Strip($port);}
+else {$port = '';}
+$All_Radios{$name}{'default_port'} = $values{$key};
 }
-elsif ($key eq 'baudrate') {
-if (!defined $baudrates{lc($value)}) {
-LogIt(0,"$Bold$Red Error! '$Magenta$value$White'" .
-" is not a valid baudrate in line ".
-"$Green$recno$White of $Yellow$filespec$White!");
-$retcode = 3;
-next;
-}
-}
-elsif (($key eq 'sdir') and (! -d $value) ) {
-LogIt(0,"$Bold$Red Error! $Blue$key$White " .
-"'$Magenta$value$White' does not exist or is not a directory in line ".
-"$Green$recno$White of $Yellow$filespec$White!");
-$retcode = 3;
-next;
-}
-else {$All_Radios{$name}{$key} = $value;}
-}### foreach key
-}### Radio definition record
-elsif ($rectype eq 'directory') {
-foreach my $key (keys %values) {
-if ($key =~ /\_/) {next;}  
+elsif ($key =~ /dir/i) {
 my $dir = $values{$key};
+$dir =~ s/\"//g;    
+$dir =~ s/\'//g;    
+$dir =~ s/\~/$homedir/; 
+if ($dir) {
+if (substr($dir,0,1) ne '/') {
+LogIt(0,"$Bold$Red Error! Absolute path required for $Blue$dir$White " .
+" in line $Green$recno$White of $Yellow$filespec$White!");
+$retcode = 3;
+}
+else {
+my $spec = lc($key);
+if ($spec eq 'tempdir') {$spec = 'tmpdir'}
+elsif ($spec eq 'sdir') {$spec = 'sddir';}
+if ($valid_dirs{lc($spec)}) {
+$dir = Strip($dir);
+$All_Radios{$name}{$spec} = $dir;
+$needed_dir{$dir} = $recno;
+if ($Verbose) {
+print $Bold,"Set $Green$spec$White for $Yellow$name$White to $Blue$dir$Eol";
+}
+}### Valid spec
+else {
+LogIt(0,"$Bold$Red Error! $key is not a recognized directory type" .
+" in line $Green$recno$White of $Yellow$filespec$White!");
+$retcode = 3;
+}### Not valid spec
+}### $dir starts with '/
+}### Dir is not blank
+else {
+LogIt(0,"$Bold$Red Error! Blank directory spec is not allowed" .
+" in line $Green$recno$White of $Yellow$filespec$White!");
+$retcode = 3;
+}
+}### Key is dir
+elsif ($key =~ /radioaddr/i) {
+my $addr = $values{$key};
+if ($addr and ($addr =~ /[0-9a-fA-F]+/ )) {
+$All_Radios{$name}{'radioaddr'} = $addr;
+}
+else {
+LogIt(0,"$Bold$Red ERROR!$White " .
+"Address $addr is not valid hex specified in line $Green$recno$White of $Yellow$filespec$White! Line Ignored.");
+$retcode = 3;
+}
+}### Hex address specified
+else {$All_Radios{$name}{lc($key)} = $values{$key};}
+}### Key validation for RADIO record
+}### Radio definition record
+elsif ($rectype =~ /^dir/i) {
+foreach my $key (keys %values) {
+my $dir = $values{$key};
+if (!$dir) {
+LogIt(0,"$Bold$Red Error! Empty value not allowed for $key" .
+" in line $Green$recno$White of $Yellow$filespec$White!");
+$retcode = 3;
+next;
+}
+$dir =~ s/\"//g;
+$dir =~ s/\'//g;
+$dir =~ s/\~/$homedir/; 
+$dir = Strip($dir);
 if (substr($dir,0,1) ne '/') {
 LogIt(0,"$Bold$Red Error! Absolute path required for $Blue$dir$White " .
 " in line $Green$recno$White of $Yellow$filespec$White!");
 $retcode = 3;
 next;
 }
-my $rc = DirExist($dir,TRUE);
-if ($rc) {
-LogIt(1,"Specified directory $Blue$dir$White " .
-" in line $Green$recno$White of $Yellow$filespec$White" .
-" does not exist, cannot be created, or is not writable!\n" .
-" Value is ignored ");
+my $spec = lc($key);
+if ($spec eq 'tempdir') {$spec = 'tmpdir';}
+if ($valid_dirs{$spec}) {
+$RCSettings{$spec} = $dir;
+$needed_dir{$dir} = $recno;
+if ($Verbose) {
+print $Bold,"RadioCtl.cfg set default $spec => $RCSettings{$spec}$Eol";
+}
+}
+else {
+LogIt(0,"$Bold$Red Error! $key is not a recognized directory type " .
+" in line $Green$recno$White of $Yellow$filespec$White!");
+$retcode = 3;
 next;
 }
-$settings{$key} = $dir;
-print "Set $key to $dir\n";
-}
+}### For each key in the DIR record
 }### Directory record
-elsif ($rectype eq 'location') {
+elsif ($rectype =~ /^loc/i) {
 my $name = $values{'name'};
 my $lat = $values{'lat'};
 my $lon = $values{'lon'};
@@ -3059,7 +3238,32 @@ $retcode = 3;
 next;
 }
 }## For Each record
-if ($retcode) {LogIt(4570,"Config file $filespec. Retcode=$retcode. Please fix config file errors before restarting");}
+if ($retcode) {LogIt(7217,"Config file $filespec. Retcode=$retcode. Please fix config file errors before restarting");}
+}#### Profile was found
+else  {
+if ($filespec) {
+LogIt(1,"Unable to locate specified profile $Yellow$filespec");
+return 1;
+}
+else {
+LogIt(1,"Unable to locate required profile $Yellow radioctl.conf$Eol" .
+"$Bold Must be located in one of the following:");
+foreach my $loc (@locations) {print $Bold,$Yellow,"   $loc$Eol";}
+}
+LogIt(1,"Only defaults will be avalable!");
+add_message("radioctl.conf not located. Only defaults available",1);
+}
+foreach my $dir (sort keys %needed_dir) {
+my $recno = $needed_dir{$dir};
+my $rc = DirExist($dir,TRUE);
+if ($rc) {
+my $msg = " in line $Green$recno$White of $Yellow$filespec$White";
+if ($recno == 1) {$msg = " (default directory)";}
+LogIt(1,"Specified directory $Blue$dir$White $msg" .
+" does not exist, cannot be created, or is not writable!\n");
+return 4;
+}
+}
 return 0;
 }
 sub no_quotes {
@@ -3156,7 +3360,7 @@ return 0;
 sub write_log {
 my $ref = shift @_;
 if (!$ref) {LogIt(5845,"WRITE_LOG:No record given!");}
-my $logdir = $settings{'logdir'};
+my $logdir = $RCSettings{'logdir'};
 my $logfile = "$logdir/$Logfile_Name";
 my @rec_fields = ('time_stamp',
 'frequency_mhz',
@@ -3202,9 +3406,8 @@ if ($opt =~ /e/i) {$trunc = TRUE;}
 my $case = FALSE;
 if ($opt =~ /c/i) {$case = TRUE;}
 if (!$cmp) {
-my ($pkg,$fn,$caller) = caller;
-LogIt(1,"Null compare string in RADIOCTL.PM:STR_CMP. Caller=>$fn $caller");
-return 0;
+if ($to_check eq '') {return 0,$to_check;}
+else {return 1,$to_check;}
 }
 if ($opt =~ /u/i) {
 $to_check = uc($to_check);
@@ -3300,6 +3503,123 @@ close DEBUG;
 }
 return 0;
 }
+sub AutoBaud {
+use Device::SerialPort qw ( :PARAM :STAT 0.07 );
+my $parmref = shift @_;
+if (!$parmref) {LogIt(7916,"AUTOBAUD:Missing required PARMREF parameter!");}
+my $defref = $parmref->{'def'};
+my $protocol = $defref->{'protocol'};
+my $routine = $Radio_Routine{$protocol};
+my $cmd = $Radio_Validation{$protocol};
+if (!$defref)  {
+print Dumper($parmref),"\n";
+LogIt(7926,"AUTOBAUD:Missing REF value");
+}
+if (!$protocol){LogIt(7927,"Cannot locate protocol in 'DEF'");}
+if (!$routine) {LogIt(7928,"Cannot locate radio routine for $protocol");}
+if (!$cmd)     {LogIt(7929,"Cannot locate radio command for $protocol");}
+my @ports = ();
+if (($defref->{'port'}) and (-e $defref->{'port'})) {
+@ports = ($defref->{'port'});
+}
+else {
+my $pref = $defref->{'default_port'};
+if ($pref) {$pref = Strip($pref);}
+if ($pref and (-e $pref)) {
+@ports = ($pref);
+if ($Verbose) {
+print "RadioCtl l7960:Autobaud added $pref to port list\n";
+}
+}
+else {
+if ($Verbose) {
+print "RadioCtl L7967:No Pref found ", Dumper($defref),"\n";
+}
+}
+foreach my $dev (
+'/dev/ttyACM*',
+'/dev/ttyUSB*',
+) {
+my @list = sort glob($dev);
+foreach my $port (@list) {
+if ($pref and ($pref eq $port)) {next;}
+push @ports,$port;
+}### For each port in the device type list
+}### For each device type
+}
+my @bauds = ();
+if ($defref->{'baud'}) {@bauds = ($defref->{'baud'});}
+else {
+my $pref = $defref->{'default_baud'};
+if ($pref) {@bauds = ($pref);}
+foreach my $baud (sort {$b <=> $a} keys %baudrates) {
+if ($pref and ($pref == $baud)) {next;}
+push @bauds,$baud;
+}
+}
+my $startstate = $progstate;
+$parmref->{'_autobaud'} = TRUE;
+foreach my $port (@ports) {
+if (!$port) {next;}
+if (! -e $port) {next;}
+if ($Verbose) {print "AUTOBAUD line 8007: Checking port $port\n";}
+threads->yield;
+if ($progstate ne $startstate) {
+my $msg = "Autobaud interrupted by user";
+$parmref->{'_autobaud'} = FALSE;
+add_message($msg,2);
+if ($Debug1) {
+DebugIt("RADIOCTL.PM l8018:Exited loop as progstate changed");
+}
+return ($parmref->{'rc'} = 2);
+}
+my $portobj =  Device::SerialPort->new($port) ;
+if (!$portobj) {next;}
+$parmref->{'portobj'} = $portobj;
+$portobj->databits(8);
+$portobj->stopbits(1);
+$portobj->handshake('none');
+$portobj->parity_enable(0);
+$portobj->dtr_active(1);
+$portobj->rts_active(1);
+$portobj->user_msg(1);
+$portobj->error_msg(1);
+$portobj->read_const_time(100);
+$portobj->read_char_time(5);
+foreach my $baud (@bauds) {
+$portobj->baudrate($baud);
+$portobj->write_settings;
+$defref->{'baud'} = $baud;
+$defref->{'port'} = $port;
+if ($Verbose) {
+}
+else {$parmref->{'_nowarn'} = TRUE;}
+system "stty -F $port $baud -ixon -crtscts -icrnl -brkint ignbrk igncr ignpar -iuclc -ocrnl -ofdel -ofill -olcuc -onlcr -onlret -onocr -opost -cooked raw -istrip -imaxbel -inlcr -inpck -iutf8 -ixoff -parmrk";
+if ($Verbose) {
+print "Autobaud l8029: Testing baud=>$baud port=$port cmd=>$cmd\n";
+}
+my $rc = &$routine($cmd,$parmref);
+$parmref->{'_nowarn'} = FALSE;
+if ($rc) {
+if ($Verbose) {print "Autobaud L8070: RC=$rc from routine$Eol";}
+next;
+}
+$defref->{'active'} = TRUE;
+return ($parmref->{'rc'} = $GoodCode);
+}### For each baudrate
+$portobj->close;
+$defref->{'baud'} = '';
+$defref->{'port'} = '';
+$defref->{'active'} = FALSE;
+$parmref->{'portobj'} = undef;
+$parmref->{'_nowarn'} = FALSE;
+$parmref->{'_autobaud'} = FALSE;
+}### For each port
+my $msg = "Could not determine port and/or baud rate. Radio may be powered off";
+add_message($msg,1);
+LogIt(1,$msg);
+return ($parmref->{'rc'} = 1);
+}### End of AutoBaud routine
 use Scalar::Util qw(looks_like_number);
 sub Lat_Lon_Parse {
 my $instr = shift @_;
@@ -3796,6 +4116,10 @@ if (!$path) {return 99;}
 if ($path eq '/') {return 3;}
 my $create = shift @_;
 if (!-d $path) {
+if ($path =~ /perl/) {
+my ($pkg,$fn,$caller) = caller;
+LogIt(9295,"Got path $path to create! Caller=$caller fn=$fn");
+}
 if ($create) { `mkdir -p $path`;}
 else {return 2;}
 }

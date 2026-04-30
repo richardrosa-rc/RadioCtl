@@ -114,8 +114,8 @@ $Radio_Limits{&THD74} =  {
 };
 my $protoname = 'kenwood';
 use constant PROTO_NUMBER => 3;
-$radio_routine{$protoname} = \&kenwood_cmd;
-$valid_protocols{'kenwood'} = TRUE;
+$Radio_Routine{$protoname} = \&kenwood_cmd;
+$Radio_Validation{$protoname} = 'ID';
 return TRUE;
 sub kenwood_cmd {
 my $cmdcode = lc(shift @_);
@@ -187,8 +187,8 @@ if ($vfo_limits[0][-1]{'high'}) {$Radio_Limits{'maxfreq'} = $vfo_limits[0][-1]{'
 foreach my $key (keys %{$Radio_Limits{$model}}) {
 $defref->{$key} = $Radio_Limits{$model}{$key};
 }
-if ($Debug1) {
-DebugIt("Kenwood l1341: Radio minfreq=$defref->{'minfreq'} maxfreq=$defref->{'maxfreq'}");
+if ($Verbose) {
+DebugIt("Kenwood l1385: Radio minfreq=$defref->{'minfreq'} maxfreq=$defref->{'maxfreq'}");
 }
 $parmref->{'write'} = FALSE;
 kenwood_cmd('BC',$parmref);
@@ -196,68 +196,7 @@ kenwood_cmd('VMC',$parmref);
 $parmref->{'in'} = $insave;
 return ($parmref->{'rc'} = $GoodCode);
 }
-elsif ($cmdcode eq 'autobaud') {
-if (!$defref->{'model'}) {
-LogIt(1,"Model number not specified in .CONF file. " .
-" Cannot automatically determine port/baud");
-return ($parmref->{'rc'} = 1);
-}
-my $model_save = $defref->{'model'};
-if (lc($model_save) eq 'thf6a') {$model_save = THF6A;}
-elsif (lc($model_save) eq 'th-f6a') {$model_save = THF6A;}
-$model_save = uc($model_save);
-my @allports = ();
-if ($in->{'noport'} and $defref->{'port'}) {push @allports,$defref->{'port'};}
-else {
-push @allports,glob("/dev/ttyUSB*");
-}
-my @allbauds = ();
-if ($in->{'nobaud'}) {push @allbauds,$defref->{'baudrate'};}
-else {
-push @allbauds,keys %baudrates;
-if ($Debug2) {DebugIt("KENWOOD l1400:model_save=>$model_save");}
-if ($model_save eq THF6A) {@allbauds = (9600);}
-}
-@allbauds = sort {$b <=> $a} @allbauds;
-@allports = sort {$b cmp $a} @allports;
-PORTLOOP:
-foreach my $port (@allports) {
-my $portobj =  Device::SerialPort->new($port) ;
-if (!$portobj) {next;}
-$parmref->{'portobj'} = $portobj;
-$portobj->user_msg("ON");
-$portobj->databits(8);
-$portobj->handshake('none');
-$portobj->read_const_time(100);
-$portobj->write_settings || undef $portobj;
-$portobj->read_char_time(0);
-foreach my $baud (@allbauds) {
-LogIt(0,"Trying port=>$port baudrate=>$baud");
-$portobj->baudrate($baud);
-$warn = FALSE;
-$rc = kenwood_cmd('ID',$parmref);
-$warn = TRUE;
-if (!$rc) {### command succeeded
-if ($model eq $model_save) {
-$defref->{'baudrate'} = $baud;
-$defref->{'port'} = $port;
-$portobj->close;
-$parmref->{'portobj'} = undef;
-return ($parmref->{'rc'} = $GoodCode);
-}
-else {
-$defref->{'model'} = $model_save;
-$model = $model_save;
-next PORTLOOP;
-}
-}
-}
-$portobj->close;
-$parmref->{'portobj'} = undef;
-}
-return ($parmref->{'rc'} = 1);
-}
-elsif (($cmdcode eq 'manual') or ($cmdcode eq 'vfoinit')) {
+elsif ($cmdcode eq 'vfoinit') {
 my %in = ();
 $parmref->{'in'} = \%in;
 if ($model ne THG71) {
@@ -274,6 +213,7 @@ $parmref->{'in'} = $insave;
 return ($parmref->{'rc'} = $GoodCode);
 }
 elsif ($cmdcode eq 'meminit') {
+if ($Verbose) {print "Kenwood l1438: Calling MEMINIT\n";}
 my %in = ('state' => 'mem');
 $parmref->{'in'} = \%in;
 $parmref->{'write'} = TRUE;
@@ -331,7 +271,7 @@ if (!$freq) {
 add_message("KENWOOD_CMD:SETVFO-VFO frequency = 0 or undefined not allowed");
 return ($parmref->{'rc'} = $ParmErr);
 }
-if (!check_range($freq,$defref) and (!$parmref->{'ignore'})) {
+if (!check_range($freq,$defref) and (!$parmref->{'_nowarn'})) {
 add_message(rc_to_freq($freq) . " MHz is NOT valid for this radio");
 return ($parmref->{'rc'} = $NotForModel);
 }
@@ -380,18 +320,24 @@ $out->{'igrp'} = 0;
 my %myin = ();
 my $writesave = $parmref->{'write'};
 $parmref->{'in'} = \%myin;
+if ($Verbose) {print "Kenwood l1760:SELMEM Model=$model Current state:$state_save{'state'}\n";}
 if ($model ne THD74) {
 if ($state_save{'state'} ne 'mem') {
 $myin{'state'} = 'mem';
 $parmref->{'write'} = TRUE;
+print "Issuing VMC command\n";
 if (kenwood_cmd('VMC',$parmref) ) {
 $retcode = $parmref->{'rc'};
+if ($Verbose) {print "VMC command returned code $retcode\n";}
 goto SELMEMRTN;
 }
 }
 $parmref->{'write'} = TRUE;
 $myin{'channel'} = $ch;
-if (kenwood_cmd ('mc',$parmref)) {$retcode = $EmptyChan;}
+if (kenwood_cmd ('mc',$parmref)) {
+if ($Verbose) {print "Kenwood 1662: Channel $ch appears to be empty\n";}
+$retcode = $EmptyChan;
+}
 }
 else {
 }
@@ -403,18 +349,25 @@ return ($parmref->{'rc'} = $retcode);
 elsif ($cmdcode eq 'getmem') {
 if ($Debug2) {DebugIt("KENWOOD l1784:Started 'getmem'");}
 my $startstate = $progstate;
-my $maxcount = 999;
 my $maxchan = $defref->{'maxchan'};
 my $channel =  $defref->{'origin'};
+my $maxcount = $maxchan;
+if (!$channel) {$maxcount++;}
 my $nodup = FALSE;
 my $noskip = FALSE;
 my $options = $parmref->{'options'};
 if ($options) {
-if ($options->{'count'}) {$maxcount = $options->{'count'};}
-if ($options->{'firstchan'} and ($options->{'firstchan'} > 0)) {
+if ($options->{'count'} and ($options->{'count'} < $maxcount)) {
+$maxcount = $options->{'count'};
+}
+if ($options->{'firstchan'} and
+($options->{'firstchan'} > 0) and
+($options->{'firstchan'} < $maxchan)) {
 $channel = $options->{'firstchan'};
 }
-if ($options->{'lastchan'} and ($options->{'lastchan'} > 0)) {
+if ($options->{'lastchan'} and
+($options->{'lastchan'} > 0) and
+($options->{'lastchan'} <= $maxchan)) {
 $maxchan = $options->{'lastchan'};
 }
 if ($options->{'noskip'}) {$noskip = TRUE;}
@@ -550,7 +503,7 @@ my $freq = $frqrec->{'frequency'};
 if (!looks_like_number($freq)) {next;}
 my $clear = FALSE;
 if ($freq) {
-if (!check_range($freq,$defref) and (!$parmref->{'_ignore'})) {next;}
+if (!check_range($freq,$defref) and (!$parmref->{'_nowarn'})) {next;}
 }
 else {$clear = TRUE;}
 my $split = FALSE;
@@ -595,28 +548,35 @@ my $writesave = $parmref->{'write'};
 $parmref->{'in'} = \%myin;
 $parmref->{'out'} = \%myout;
 $parmref->{'write'} = FALSE;
+my %rec = (
+'bright' => 1,
+'beep' => 'Off',
+'light' => 'Off',
+'msg1'  => '-',
+'msg2'  => '-',
+'msg3'  => '-',
+'msg4'  => '-',
+);
 if (!kenwood_cmd('bep',$parmref)) {
-my $value = 0;
-if ($myout{'beep'}) {$value = 15;}
-my %rec = ('volume' => $value);
-$db->{'beep'} = ();
-add_a_record($db,'beep',\%rec);
+if ($myout{'beep'}) {$rec{'beep'} = 'On';}
 }
-else {LogIt(1,"Kenwood l1994:Could not get BEEP setting");}
+else {
+LogIt(1,"Kenwood l1994:Could not get BEEP setting");
+$rec{'beep'} = '';
+}
 if (!kenwood_cmd('lmp',$parmref)) {
-my $value = 'Off';
-if ($myout{'light'}) {$value = 'On';}
-$db->{'light'} = ();
-my %rec = ('event' => $value, 'bright' => 3);
-add_a_record($db,'light',\%rec);
+if ($myout{'light'}) {$rec{'light'} = 'On';}
 }
-else {LogIt(1,"Kenwood l2012:Could not get BEEP setting");}
+else {
+LogIt(1,"Kenwood l2012:Could not get BEEP setting");
+$rec{'light'} = '';
+}
 if (!kenwood_cmd('mes',$parmref)) {
 my %rec = ('msg1' => $myout{'msg1'},
 'msg2' => '', 'msg3' => '', 'msg4' => '');
-add_a_record($db,'powermsg',\%rec);
 }
 else {LogIt(1,"Kenwood l2018:Could not get Power On Message");}
+add_a_record($db,'global',\%rec);
 $parmref->{'write'} = $writesave;
 $parmref->{'in'} = $insave;
 $parmref->{'out'} = $outsave;
@@ -624,29 +584,58 @@ return ($parmref->{'rc'});
 }
 elsif ($cmdcode eq 'setglob') {
 my %myin = ();
-my %myout = ();
+my %work_blk = ();
 my $writesave = $parmref->{'write'};
 $parmref->{'in'} = \%myin;
-$parmref->{'out'} = \%myout;
+$parmref->{'out'} = \%work_blk;
 $parmref->{'write'} = TRUE;
-%myin = ('beep' => 0);
-if ($db->{'beep'}[1]{'volume'}) {$myin{'beep'} = 1;}
-if (kenwood_cmd('bep',$parmref)) {
-LogIt(1,"Kenwood l2051:Could not set the BEEP value");
+my $retcode = $GoodCode;
+my $set_msg = FALSE;
+my $set_backlight = FALSE;
+my $set_beep = FALSE;
+foreach my $rec (@{$db->{'global'}}) {
+if (!$rec ->{'index'}) {next;}
+my $msg1 = $rec->{'msg1'};
+if (defined $msg1) {
+$msg1 =~ s/\"//g; 
+if (($msg1 ne '') and ($msg1 ne '-') and ($msg1 ne '.')) {
+$set_msg = TRUE;
+$work_blk{'msg1'} = $msg1;
 }
-if ($db->{'light'}[1]{'event'}) {
-%myin = ('light' => 0);
-if (lc($db->{'light'}[1]{'event'}) ne 'off') {$myin{'light'} = 1;}
-if (kenwood_cmd('lmp',$parmref)) {
-LogIt(1,"Kenwood l2062:Could not set the LIGHT value");
+}### Msg1 defined
+my $light = $rec->{'light'};
+if ((defined $light) and ($light ne '') and ($light ne '.') and ($light ne '-')) {
+$set_backlight = TRUE;
+$work_blk{'light'} = 1;
+$light = Strip($light);
+if (($light =~ /off/i) or ($light eq '0')) {$work_blk{'light'} = 0;}
+}### Setting light
+my $beep = $rec->{'beep'};
+if ((defined $beep) and ($beep ne '') and ($beep ne '-') and ($beep ne '.')) {
+$set_beep = TRUE;
+$work_blk{'beep'} = 0;
+if ($beep =~ /on/i) {$work_blk{'beep'} = 1;}
+elsif (looks_like_number($beep) and ($beep > 0)) {$work_blk{'beep'} = 1;}
 }
-}
-if (defined $db->{'powermsg'}[1]{'msg1'}) {
-%myin = ('msg1' => $db->{'powermsg'}[1]{'msg1'});
+}### For every global record
+if ($set_msg) {
 if (kenwood_cmd('mes',$parmref)) {
-LogIt(1,"Kenwood l2062:Could not set the Power On Message value");
+add_message("Kenwood: Command failed to set opening message!");
+$retcode = $parmref->{'rc'}
+}
+}### Set PON msg
+if ($set_backlight) {
+if (kenwood_cmd('lmp',$parmref)) {
+add_message("Kenwood:Command failed to set BackLight setting!");
+$retcode = $parmref->{'rc'};
 }
 }
+if ($set_beep) {
+if (kenwood_cmd('bep',$parmref)) {
+add_message("Kenwood:Command failed to set Keyboard Beep setting!");
+$retcode = $parmref->{'rc'};
+}### failure
+}### Set Beep
 $parmref->{'write'} = $writesave;
 $parmref->{'in'} = $insave;
 $parmref->{'out'} = $outsave;
@@ -1061,6 +1050,7 @@ return ($parmref->{'rc'} = $NotForModel);
 $parmstr = $state_save{'vfonum'};
 if ($parmref->{'write'}) {
 if (! defined $in->{'state'}) {LogIt(2321,"Missing STATE for VMC command!");}
+if ($Verbose) {print "Kenwood l3317:State change=>$in->{'state'}\n";}
 my $state = $state2ken{lc(Strip($in->{'state'}))};
 if (!defined $state) {
 LogIt(2716,"KENWOOD l2716:Undefined state translation for $in->{'state'}");
@@ -1146,6 +1136,7 @@ elsif ($cmdcode eq 'TYD') {}
 elsif ($cmdcode eq 'UP') {}
 elsif ($cmdcode eq 'VOX') {}
 else {LogIt(1,"No preprocess for Kenwood command code $cmdcode!");}
+SENDIT:
 my %sendparms = (
 'portobj' => $parmref->{'portobj'},
 'term' => KENWOOD_TERMINATOR,
@@ -1162,7 +1153,7 @@ elsif ($cmdcode eq 'poll') {$outstr = '';}
 else {
 $outstr = Strip("$outstr $parmstr");
 }
-if ($Debug3) {DebugIt("KENWOOD l3459:sent =>$outstr");}
+if ($Debug3) {DebugIt("KENWOOD l3611:sent =>$outstr");}
 my $sent = $outstr;
 if ($outstr) {$outstr = $outstr . KENWOOD_TERMINATOR;}
 WAIT:
@@ -1170,7 +1161,9 @@ if ($Debug3) {DebugIt("KENWOOD l3467:Waiting for Radio_Send..");}
 if (radio_send(\%sendparms,$outstr)) {### send with retry
 if ($cmdcode eq 'poll') {return ($parmref->{'rc'} = $GoodCode);}
 if (!$outstr) {
+if (!$parmref->{'_nowarn'}) {
 add_message("Radio did not like $sent...");
+}
 $defref->{'rsp'} = 0;
 $parmref->{'rc'} = $CommErr;
 return $CommErr;
@@ -1179,7 +1172,7 @@ else {
 if ($defref->{'rsp'}) {$defref->{'rsp'}++;}
 else {
 $defref->{'rsp'} = 1;
-if ($warn) {
+if (!$parmref->{'_nowarn'}) {
 LogIt(1,"no response to $outstr");
 add_message("KENWOOD_CMD l3491:Radio is not responding...");
 }
@@ -1213,7 +1206,7 @@ elsif ($cmdcode eq 'mw') {
 LogIt(1,"\nMW returned 'N' to $sent");
 }
 if ($parmref->{'write'}) {
-if (!$parmref->{'_ignore'}) {
+if (!$parmref->{'_nowarn'}) {
 add_message("Radio rejected parameter for cmd=>$sent");
 }
 }
@@ -1225,7 +1218,9 @@ add_message("KENWOOD_CMD:$sent not recognized by radio. retrying...");
 $sendparms{'fails'}--;
 goto RESEND;
 }
+if (!$parmref->{'_nowarn'}) {
 add_message("KENWOOD_CMD:Radio rejected command $sent");
+}
 $parmref->{'rsp'} = FALSE;
 return($parmref->{'rc'} = $NotForModel);
 }

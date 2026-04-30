@@ -110,8 +110,8 @@ my @ranges = ( {'low' =>  29000000,'high' =>  54000000,},
 );
 my $protoname = 'bearcat';
 use constant PROTO_NUMBER => 4;
-$radio_routine{$protoname} = \&bearcat_cmd;
-$valid_protocols{'bearcat'} = TRUE;
+$Radio_Routine{$protoname} = \&bearcat_cmd;
+$Radio_Validation{$protoname} = 'manual';
 TRUE;
 sub bearcat_cmd {
 my ($cmdcode,$parmref) = @_;
@@ -150,47 +150,6 @@ $defref->{$key} = $Radio_Limits{$model}{$key};
 bearcat_cmd('MD',$parmref);
 if ($out->{'state'} =~ /vfo/i) {bearcat_cmd('getvfo',$parmref);}   
 return ($parmref->{'rc'} = $rc);
-}
-elsif ($cmdcode eq 'autobaud') {
-my $model_save = BC895XLT;
-my @allports = ();
-if ($in->{'noport'} and $defref->{'port'}) {push @allports,$defref->{'port'};}
-else {
-@allports = glob("/dev/ttyUSB*");
-}
-my @allbauds = ();
-if ($in->{'nobaud'}) {push @allbauds,$defref->{'baudrate'};}
-else {push @allbauds,9600;}
-@allbauds = sort {$b <=> $a} @allbauds;
-@allports = sort {$b cmp $a} @allports;
-PORTLOOP:
-foreach my $port (@allports) {
-my $portobj =  Device::SerialPort->new($port) ;
-if (!$portobj) {next;}
-$parmref->{'portobj'} = $portobj;
-$portobj->user_msg("ON");
-$portobj->databits(8);
-$portobj->handshake('none');
-$portobj->read_const_time(100);
-$portobj->write_settings || undef $portobj;
-$portobj->read_char_time(0);
-foreach my $baud (@allbauds) {
-$portobj->baudrate($baud);
-$warn = FALSE;
-my $rc = bearcat_cmd('md',$parmref);
-$warn = TRUE;
-if (!$rc) {### command succeeded
-$defref->{'baudrate'} = $baud;
-$defref->{'port'} = $port;
-$portobj->close;
-$parmref->{'portobj'} = undef;
-return ($parmref->{'rc'} = $GoodCode);
-}
-}
-$portobj->close;
-$parmref->{'portobj'} = undef;
-}
-return ($parmref->{'rc'} = 1);
 }
 elsif (($cmd eq 'manual') or ($cmd eq 'meminit')) {
 my $rc = $GoodCode;
@@ -245,8 +204,9 @@ return ($parmref->{'rc'});
 elsif ($cmd eq 'getmem') {
 if ($Debug2) {DebugIt("BEARCAT l1234: 'getmem' started");}
 my $startstate = $progstate;
-my $maxcount = 999;
+my $maxcount = 300;
 my $maxchan = $defref->{'maxchan'};
+print "MAXCHAN=>$maxchan\n";
 my $channel =  $defref->{'origin'};
 my $nodup = FALSE;
 my $noskip = FALSE;
@@ -255,6 +215,10 @@ if ($options) {
 if ($options->{'count'}) {$maxcount = $options->{'count'};}
 if ($options->{'firstchan'} and ($options->{'firstchan'} > 0)) {
 $channel = $options->{'firstchan'};
+if ($channel > $defref->{'maxchan'}) {
+LogIt(1,"First channel specified ($channel) is greater than radio memory");
+return ($parmref->{'rc'} = 2);
+}
 }
 if ($options->{'lastchan'} and ($options->{'lastchan'} > 0)) {
 $maxchan = $options->{'lastchan'};
@@ -262,6 +226,8 @@ $maxchan = $options->{'lastchan'};
 if ($options->{'noskip'}) {$noskip = TRUE;}
 if ($options->{'nodup'}) {$nodup = TRUE;}
 }
+if ($maxchan >  $defref->{'maxchan'}) {$maxchan = $defref->{'maxchan'};}
+if ($maxcount > ($defref->{'maxchan'})) {$maxcount = $defref->{'maxchan'};}
 my %duplist = ();
 if ($nodup) {
 foreach my $rec (@{$db->{'freq'}}) {
@@ -302,11 +268,11 @@ $vfo{'channel'} = $channel;
 $vfo{'groupno'} = $grpndx;
 threads->yield;
 if ($progstate ne $startstate) {
-LogIt(0,"\nBearcat l1359: Exited loop as progstate changed");
+LogIt(0,"\nBearcat l1296: Exited loop as progstate changed");
 last CHANLOOP;
 }
 if (!$parmref->{'gui'}) {
-print STDERR "\rReading channel:$Bold$Green" . sprintf("%02.2u",$channel) .$Reset ;
+print STDERR "\rReading channel:$Bold$Green" . sprintf("%02.2u",$channel) . $Reset ;
 }
 $myout{'valid'} = FALSE;
 $myout{'mode'} = 'auto';
@@ -325,7 +291,7 @@ if ($Debug2) {DebugIt("BEARCAT l1392: Skipping duplicate channel $channel");}
 else {
 my $rc = bearcat_cmd('PM',$parmref);
 if ($rc) {
-if ($Debug2) {DebugIt("BEARCAT:line 1405: Return code $rc from 'PM'");}
+++$channel;
 next CHANLOOP;
 }
 else {
@@ -463,7 +429,7 @@ $parmref->{'_nomsg'} = FALSE;
 usleep(100);
 $parmref->{'write'} = FALSE;
 bearcat_cmd('SG',$parmref);
-if (($freq != $out->{'frequency'}) and (!$parmref->{'_ignore'})){
+if (($freq != $out->{'frequency'}) and (!$parmref->{'_nowarn'})){
 LogIt(1,"BEARCAT l1715:Requested $freq but got $out->{'frequency'} set instead");
 }
 if ($state_save{'state'} ne 'vfo') { bearcat_cmd('MD',$parmref);}
@@ -611,11 +577,15 @@ elsif ($cmd eq 'pm') {
 my $channel = $in->{'channel'};
 if (!$channel) {
 LogIt(1,"BEARCAT_CMD channel = 0 for PM");
-return ($parmref->{'rc'} = 2);
+$parmref->{'rc'} = 2;
+return ($parmref->{'rc'});
 }
 if ($channel > $defref->{'maxchan'}) {
 LogIt(1,"channel $channel exceeds radio memory of $defref->{'maxchan'}");
-return ($parmref->{'rc'} = 2);
+$parmref->{'rc'} = 2;
+my ($pkg,$fn,$caller) = caller;
+print "Parmref rc=>$parmref->{'rc'} caller=>$caller\n";
+return ($parmref->{'rc'});
 }
 $parmstr = sprintf("%03.3u",$channel);
 $out->{'channel'} = $channel;
@@ -636,7 +606,8 @@ if ($parmref->{'write'}) {
 my $freq = $in->{'frequency'};
 if (!$freq) {
 LogIt(1,"BEARCAT-CMD:RF command, Frequency CANNOT be 0");
-return ($parmref->{'rc'} = 2);
+$parmref->{'rc'} = 2;
+return ($parmref->{'rc'});
 }
 $parmstr = freq_rc2bear($freq);
 }
@@ -661,12 +632,14 @@ elsif ($cmd eq 'WI') { }
 else {
 add_message("Warning! Bearcat command code $cmd no preprocess!");
 }
+SENDIT:
 my %sendparms = (
 'portobj' => $parmref->{'portobj'},
 'term' => BEARCAT_TERMINATOR,
 'delay' => $delay,
 'resend' => 0,
 'debug' => 0,
+'defref' => $parmref->{'def'},
 'fails' => 1,
 'wait' => 30,
 );
@@ -684,8 +657,10 @@ WAIT:
 if (radio_send(\%sendparms,$outstr)) {
 if ($cmdcode eq 'poll') {return ($parmref->{'rc'} = $GoodCode);}
 if (!$outstr) {
+if (!$parmref->{'_warn'}) {
 add_message("Radio did not respond to $sent correctly...");
 LogIt(1,"Bearcat: No response to $sent");
+}
 $defref->{'rsp'} = 0;
 return ($parmref->{'rc'} = $ParmErr);
 }
@@ -693,7 +668,7 @@ else {
 if ($defref->{'rsp'}) {$defref->{'rsp'}++;}
 else {
 $defref->{'rsp'} = 1;
-if ($warn) {
+if (!$parmref->{'_warn'}) {
 LogIt(1,"no response to $outstr");
 add_message("BEARCAT_CMD l2484:Radio is not responding...");
 }
@@ -709,7 +684,7 @@ if ($defref->{'rsp'}) {add_message("Radio is responding again...");}
 $defref->{'rsp'} = 0;
 if ($instring eq 'ERR') {
 if ($warn) {
-if ($parmref->{'_ignore'}) {
+if ($parmref->{'_warn'}) {
 }
 else {add_message("$Red$sent$White not recognized by Bearcat.");}
 return ($parmref->{'rc'} = $NotForModel);
@@ -717,7 +692,7 @@ return ($parmref->{'rc'} = $NotForModel);
 else {return $GoodCode;}
 }
 elsif ($instring eq 'NG') {### command format problem
-if (!$parmref->{'_nomsg'}) {
+if (!$parmref->{'_warn'}) {
 add_message("$sent was rejected by Radio...");
 }
 return ($parmref->{'rc'} = $ParmErr);

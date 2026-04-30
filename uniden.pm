@@ -23,8 +23,8 @@ use constant TRUE => 1;
 use strict;
 my $protoname = 'uniden';
 use constant PROTO_NUMBER => 1;
-$radio_routine{$protoname} = \&uniden_cmd;
-$valid_protocols{'uniden'} = TRUE;
+$Radio_Routine{$protoname} = \&uniden_cmd;
+$Radio_Validation{$protoname} =  'MDL';
 my $ready = TRUE;
 use constant BCD325P2 => 'BCD325P2';
 use constant BCD396T => 'BCD396T';
@@ -856,7 +856,7 @@ if ($model eq 'BCD325P2') {
 $bcd325p2 = TRUE;
 if ($Debug1) {DebugIt("UNIDEN l2216: Model returned $model");}
 }
-if ($model !~ /sda/i)   {
+if ($model !~ /^sds/i)   {
 if (uniden_cmd('STS',$parmref)) {return  $parmref->{'rc'};}
 if ($myout{'state'} =~ /prg/i)  {exit_prg($parmref);}
 elsif ($myout{'state'} =~ /mnu/i) {
@@ -872,24 +872,6 @@ $out->{'model'} = $model;
 foreach my $key (keys %{$Radio_Limits{$model}}) {
 $defref->{$key} = $Radio_Limits{$model}{$key};
 }
-if ($defref->{'cellgap'} and $defref->{'cstart_1'}) {
-$in->{'frequency'} = $defref->{'cstart_1'} + 1000000;
-$in->{'mode'} = 'FMn';
-my $ignore = $parmref->{'_ignore'};
-$parmref->{'_ignore'} = TRUE;
-if (uniden_cmd('setvfo',$parmref)) {
-print "UNIDEN l2328: Radio is US version (cellphone gap)\n";
-}
-else {
-print "UNIDEN l2331: Radio is Internation version (no cellphone gap)\n";
-$defref->{'cellgap'} = FALSE;
-}
-$parmref->{'_ignore'} = FALSE;
-if ($ignore) {$parmref->{'_ignore'} = $ignore;}
-}
-else {print "UNIDEN l2340: Cellgap was NOT defined!\n";
-print Dumper($defref),"\n";
-}
 @gui_modestring = ('WFM','FM','AM');
 @gui_bandwidth  = ('(none)','Narrow','Ultra-Narrow');
 @gui_adtype = ();
@@ -900,61 +882,10 @@ $defref->{'model'} = $model;
 $defref->{'maxchan'} = -1;
 uniden_cmd('getvfo',$parmref);
 uniden_cmd('getsig',$parmref);
+if ($Verbose) {
+print "Uniden radio $model initialized\n";
+}
 return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmdcode eq 'autobaud') {
-if (!$defref->{'model'}) {
-LogIt(1,"Model number not specified in .CONF file. " .
-" Cannot automatically determine port/baud");
-return ($parmref->{'rc'} = 1);
-}
-my $model_save = $defref->{'model'};
-my @allports = ();
-if ($in->{'noport'} and $defref->{'port'}) {push @allports,$defref->{'port'};}
-else {
-if (lc($model_save) ne 'bcd396t') {@allports = glob("/dev/ttyACM*");}
-else {push @allports,glob("/dev/ttyUSB*");}
-}
-my @allbauds = ();
-if ($in->{'nobaud'}) {push @allbauds,$defref->{'baudrate'};}
-else {push @allbauds,115200;}
-@allbauds = sort {$b <=> $a} @allbauds;
-@allports = sort {$b cmp $a} @allports;
-PORTLOOP:
-foreach my $port (@allports) {
-my $portobj =  Device::SerialPort->new($port) ;
-if (!$portobj) {next;}
-$parmref->{'portobj'} = $portobj;
-$portobj->user_msg("ON");
-$portobj->databits(8);
-$portobj->handshake('none');
-$portobj->read_const_time(100);
-$portobj->write_settings || undef $portobj;
-$portobj->read_char_time(0);
-foreach my $baud (@allbauds) {
-$portobj->baudrate($baud);
-$warn = FALSE;
-my $rc = uniden_cmd('MDL',$parmref);
-$warn = TRUE;
-if (!$rc) {### command succeeded
-if ($model and ($model eq $model_save)) {
-$defref->{'baudrate'} = $baud;
-$defref->{'port'} = $port;
-$portobj->close;
-$parmref->{'portobj'} = undef;
-return ($parmref->{'rc'} = $GoodCode);
-}
-else {
-$defref->{'model'} = $model_save;
-$model = $model_save;
-next PORTLOOP;
-}
-}
-}
-$portobj->close;
-$parmref->{'portobj'} = undef;
-}
-return ($parmref->{'rc'} = 1);
 }
 if ($cmdcode eq 'manual') {
 my $outsave = $parmref->{'out'};
@@ -996,7 +927,7 @@ $myout{'key_code'} = 'C';
 uniden_cmd('KEY',$parmref);
 }
 else {
-if (check_range($vfo{'frequency'},$defref) or $parmref->{'_ignore'} ) {
+if (check_range($vfo{'frequency'},$defref) or $parmref->{'_nowarn'} ) {
 $myout{'frequency'} = $vfo{'frequency'};
 }
 else {$myout{'frequency'} = $defref->{'minfreq'};}
@@ -1802,7 +1733,7 @@ if ($tfrec->{'_bypass'}) {next;}
 if (!$tfrec->{'index'}) {next;}
 if ($tfrec->{'siteno'} != $siteno) {next;}
 if (!check_range($tfrec->{'frequency'},$defref)) {
-if (!$parmref->{'_ignore'}) {
+if (!$parmref->{'_nowarn'}) {
 LogIt(1,"SETMEM l4308:Frequency$Yellow" .
 rc_to_freq($tfrec->{'frequency'}) .
 " MHz$White is out of range of the radio. Bypassed..");
@@ -1867,7 +1798,7 @@ if ($freq->{'_bypass'}) {next;}
 if (!$freq->{'index'}) {next;}
 if ($freq->{'groupno'} == $grpno) {
 if ($freq->{'frequency'} and (!check_range($freq->{'frequency'},$defref))) {
-if (!$parmref->{'_ignore'}) {
+if (!$parmref->{'_nowarn'}) {
 LogIt(1,"SETMEM l4429:Frequency$Yellow" .
 rc_to_freq($freq->{'frequency'}) .
 " MHz$White is out of range of the radio. Bypassed..");
@@ -2062,6 +1993,9 @@ foreach my $key ('frequency_l1','spacing_1','offset_1',
 'frequency_l3','spacing_3','offset_3','mfid') {
 $work_blk{$key} = '.';
 }
+if ($work_blk{'emglvl'} =~ /auto/i) {$work_blk{'emglvl'} = 0;}
+if ($work_blk{'emgalt'} =~ /on/i) {$work_blk{'emgalt'} = 5;}
+elsif ($work_blk{'emgalt'} =~ /off/i) {$work_blk{'emgalt'} = 0;}
 $parmref->{'write'} = TRUE;
 if ($ready) {
 if (uniden_cmd('TRN',$parmref)) {
@@ -2419,7 +2353,7 @@ add_message("GETGLOB: command failed $cmd!");
 $retcode = $parmref->{'rc'};
 }
 else {
-foreach my $key (keys %work_blk) {
+foreach my $key (sort keys %work_blk) {
 if ($key eq 'block_type') {next;}
 if ($key eq 'rsvd') {next;}
 my $value = Strip($work_blk{$key});
@@ -2427,27 +2361,18 @@ $radio_def{$key} = $value;
 }
 }
 }
-$db->{'powermsg'} = ();
 my %newrec = ();
 foreach my $key ('msg1','msg2','msg3','msg4') {$newrec{$key} = $radio_def{$key};}
-my $pwndx = add_a_record($db,'powermsg',\%newrec);
-$db->{'light'} = ();
 my $event = $radio_def{'event'};
 if (!$event) {
 if ($Debug2) {DebugIt("Unden l5562:Empty event!");}
 $event = '';
 }
-$event = lc($event);
-my $dimmer = $radio_def{'dimmer'};
-if ($event eq 'if') {$event = 'on';}
-%newrec = ('event' => $event, 'bright' => $dimmer);
-my $lightdx = add_a_record($db,'light',\%newrec);
-$db->{'beep'} = ();
-my $level = $radio_def{'beep'};
-if ($level == 0) {$level = 15;}
-elsif ($level == 99) {$level = 0;}
-%newrec = ('volume' => $level);
-my $beepdx =  add_a_record($db,'beep',\%newrec);
+if ($event =~ /if/i) {$event = 'On';}
+$newrec{'light'} = $event;
+$newrec{'bright'} = $radio_def{'bright'};
+$newrec{'beep'} = $radio_def{'beep'};
+my $pwndx = add_a_record($db,'global',\%newrec);
 if ($p2) {
 $db ->{'ifxchng'} = ();
 my $ifcount = 0;
@@ -2511,77 +2436,95 @@ my $p2 = FALSE;
 if ($radio_def{'model'} eq 'BCD325P2') {$p2 = TRUE;}
 my $clear = FALSE;
 if ($in->{'erase'}) {$clear = TRUE;}
+my %work_blk = ();
+$parmref->{'out'} = \%work_blk;
+my $program_mode = FALSE;
+$retcode = $GoodCode;
+my $set_msg = FALSE;
+my $set_backlight = FALSE;
+my $set_beep = FALSE;
+foreach my $rec (@{$db->{'global'}}) {
+if (!$rec ->{'index'}) {next;}
+my $msg1 = $rec->{'msg1'};
+if (defined $msg1) {
+$msg1 =~ s/\"//g; 
+if (($msg1 ne '') and ($msg1 ne '-') and ($msg1 ne '.')) {
+$set_msg = TRUE;
+$work_blk{'msg1'} = $msg1;
+foreach my $key ('msg2','msg3','msg4') {
+my $msg = $rec->{$key};
+if (!defined $msg) {$msg = '';}
+$msg =~ s/\"//g; 
+$work_blk{$key} = $msg;
+}
+}## MSG is being set
+}### MSG1 is defined
+my $light = $rec->{'light'};
+if ((defined $light) and ($light ne '') and ($light ne '.') and ($light ne '-')) {
+$set_backlight = TRUE;
+$light = Strip($light);
+my $event = '10';
+if (looks_like_number($light)) {
+if ($light > 30) {$event = '30';}
+elsif ($light > 10) {$event = '10';}
+elsif ($light < 1 ) {$event = 'IF';}
+}
+elsif ($light =~ /on/i) {$event = 'IF';}
+elsif ($light =~ /off/i) {$event = 'IF';}    
+elsif (($light =~ /key/i) or ($light =~ /ky/i)) {$event = 'KY';}
+elsif ($light =~ /sq/i) {$event = 'SQ';}
+else {
+LogIt(1,"Unknown LIGHT setting $Green$light$White. Changed to '10'");
+}
+$work_blk{'event'} = $event;
+my $bright = $rec->{'bright'};
+if (!$bright) {$bright = 1;}
+$work_blk{'bright'} = $bright;
+}### Backlight beeing set
+my $beep = $rec->{'beep'};
+if ((defined $beep) and ($beep ne '') and ($beep ne '-') and ($beep ne '.')) {
+$set_beep = TRUE;
+$work_blk{'lock'} = 0;
+$work_blk{'safe'} = 0;
+$work_blk{'beep'} = $beep;
+}### BEEP setting
+}### For every GLOBAL record
+if (($set_msg) or ($set_backlight) or ($set_beep)) {
 $parmref->{'write'} = FALSE;
 if (enter_prg($parmref)) {
 add_message("SETGLOB: command failed to get Uniden into program mode!");
 return $parmref->{'rc'};
 }
-my %work_blk = ();
-$parmref->{'out'} = \%work_blk;
-$retcode = $GoodCode;
-if (defined $db->{'powermsg'}[1]) {
-%work_blk = ();
-foreach my $key ('msg1','msg2','msg3','msg4') {
-my $msg = $db->{'powermsg'}[1]{$key};
-if (!$msg) {$msg = '';}
-$work_blk{$key} = $msg;
+$program_mode = TRUE;
 }
 $parmref->{'write'} = TRUE;
-if ($ready) {
+if ($set_msg) {
 if (uniden_cmd('OMS',$parmref)) {
-add_message("SETGLOB:Command failed to set opening message!");
+add_message("Uniden: Command failed to set opening message!");
 $retcode = $parmref->{'rc'};
 }### failure
-}### ready
-}
-if ($db->{'light'}[1]{'index'}) {
-%work_blk = ('event' => '10','bright' => 3);
-if ($db->{'light'}[1]{'event'}) {
-my $event = uc($db->{'light'}[1]{'event'});
-if ($event eq 'ON') {$event = 'IF';}
-elsif ($event eq 'OFF') {$event = '10';}
-elsif ($event eq 'KEY') {$event = 'KY';}
-elsif (($event ne '30') and ($event ne '10')
-and ($event ne 'KY') and ($event ne 'SQ') ) {
-LogIt(1,"Unknown LIGHT event $Green$event$White. Changed to '10'");
-$event = '10';
-}
-$work_blk{'event'} = $event;
-}
-if ($db->{'light'}[1]{'bright'}) {
-my $bright = $db->{'light'}[1]{'bright'};
-if (!$bright) {$bright = 0;}
-if (!looks_like_number($bright) or ($bright < 1) or ($bright > 3)) {
-LogIt(1,"Light bright level of $Green$bright$White not valid. Set to 3");
-}
-else {$work_blk{'bright'} = $bright;}
-}
-$parmref->{'write'} = TRUE;
-if ($ready) {
+}### Set PON msg
+if ($set_backlight) {
 if (uniden_cmd('BLT',$parmref)) {
-add_message("SETGLOB:Command failed to set BackLight setting!");
+add_message("Uniden:Command failed to set BackLight setting!");
 $retcode = $parmref->{'rc'};
 }### failure
-}### ready
-}### 'LIGHT' setting defined.
-if (defined $db->{'beep'}[1]{'beep'}) {
-%work_blk = ('beep' => 0,'lock' => 0,'safe' => 0);
-my $beep = $db->{'beep'}[1]{'beep'};
-if (looks_like_number($beep)) {
-if ($beep < 1) {$beep = 99;}
-elsif ($beep > 15) {$beep = 0;}
-$work_blk{'beep'} = $beep;
-}
-else {LogIt(1,"Beep value of $Green$beep$White is not valid!. Set to default.")}
-$parmref->{'write'} = TRUE;
-if ($ready) {
+}### Set Backlight
+if ($set_beep) {
 if (uniden_cmd('KBP',$parmref)) {
-add_message("SETGLOB:Command failed to set Keyboard Beep setting!");
+add_message("Uniden:Command failed to set Keyboard Beep setting!");
 $retcode = $parmref->{'rc'};
 }### failure
-}### ready
-}### Keyboard beep
+}## Set Beep
 if ($p2 and $db->{'ifxchng'}[1]{'frequency'}) {
+if (!$program_mode) {
+$parmref->{'write'} = FALSE;
+if (enter_prg($parmref)) {
+add_message("SETGLOB: command failed to get Uniden into program mode!");
+return $parmref->{'rc'};
+}
+$program_mode = TRUE;
+}
 if ($clear) {
 my @clrfreq = ();
 my $lastfreq = '1';
@@ -2622,6 +2565,14 @@ last;
 }### ifxchng records
 }### process IF exchange frequencies
 if ($db->{'lockfreq'}[1]{'frequency'}) {
+if (!$program_mode) {
+$parmref->{'write'} = FALSE;
+if (enter_prg($parmref)) {
+add_message("SETGLOB: command failed to get Uniden into program mode!");
+return $parmref->{'rc'};
+}
+$program_mode = TRUE;
+}
 if ($clear) {
 }
 foreach my $rec (@{$db->{'lockfreq'}}) {
@@ -2639,11 +2590,13 @@ last;
 }### Debug
 }### For each lockout record
 }### Process lockfreq records
+if ($program_mode) {
 exit_prg($parmref);
+}
 $parmref->{'out'} = $outsave;
 LogIt(0,"SET_GLOBALS is complete");
 return ($parmref->{'rc'} = $retcode);
-}
+}#### SETGLOB command
 elsif ($cmdcode eq 'gettone') {
 LogIt(0,"Called Uniden GETTONE");
 $parmref->{'write'} = FALSE;
@@ -2702,6 +2655,8 @@ if (!$frq) {
 LogIt(1,"SETONE l5693:Frequency is 0 in record. Ignored");
 next;
 }
+if ($model =~ /bcd396t/i) {$rec->{'dur'} = '1';}
+else {$rec->{'dur'} = '';}
 foreach my $key (keys %{$rec}) {
 $work_blk{$key} = $rec->{$key};
 }
@@ -2793,7 +2748,7 @@ add_message("VFO cannot have a 0 frequency");
 return ($parmref->{'rc'} = $ParmErr);
 }
 if (!check_range($freq,$defref)) {
-if (!$parmref->{'_ignore'}) {
+if (!$parmref->{'_nowarn'}) {
 add_message(rc_to_freq($freq) . " MHz is NOT valid for this radio");
 return ($parmref->{'rc'} = $NotForModel);
 }
@@ -2815,7 +2770,7 @@ $out->{'agc_analog'} = 0;
 $out->{'agc_digital'} = 0;
 $out->{'p25wait'} = 400;
 if (uniden_cmd('QSH',$parmref)) {
-if (!$parmref->{'_ignore'}) {add_message("SETVFP:QSH failure");}
+if (!$parmref->{'_nowarn'}) {add_message("SETVFP:QSH failure");}
 return ($parmref->{'rc'});
 }### failure
 if ($model =~ /sds/i) {
@@ -2962,12 +2917,14 @@ if (scalar @send_validate) {
 my $parmcnt = 1;
 foreach my $parm (@send_validate) {
 my $value = '';
-if ($parm ne 'rsvd') {$value = $out->{$parm};}
+if ($parm ne 'rsvd') {
+$value = $out->{$parm};
 if (!defined $value) {
-LogIt(1,"UNIDEN_CMD l6969:Undefined value for $blockname->$parm caller=>$callerline");
+LogIt(1,"UNIDEN_CMD 6885:Undefined value for $blockname->$parm caller=>$callerline");
 $value = '';
 }
-elsif ($parm =~ /freq/)  {
+}
+if ($parm =~ /freq/)  {
 if (looks_like_number($value) and ($value > 0)) {
 $value = substr(sprintf("%011.11ld",$value),1,8);
 }
@@ -2984,7 +2941,9 @@ $value = substr(sprintf("%011.11ld",$value),1,9);
 }
 elsif ($parm eq 'beep') {
 if (!$value) {$value = '99';}
-elsif (lc($value) eq 'auto') {$value = 16;}
+elsif ($value =~ /off/i) {$value = '99';} 
+elsif ($value =~ /on/i) {$value = 0;} 
+elsif ($value =~ /auto/i) {$value = 0;} 
 elsif (looks_like_number($value)) {
 if ($value >15) {$value = 15;}
 if ($value < 1) {$value = 1;}
@@ -3015,7 +2974,7 @@ if (($blockname eq 'TON') and (!$p2)) {
 $value = 1;
 }
 }
-elsif ($parm eq 'dur') {
+elsif ($parm =~ 'dur') {
 if (($blockname eq 'TON') and (!$p2)) {
 $value = 1;
 }
@@ -3102,6 +3061,7 @@ LogIt(1,"UNIDEN:No pre-process defined for $cmdcode");
 $noprocess = TRUE;
 $cmd_parms = '';
 }
+SENDIT:
 my $sent = '';
 my $outstr = '';
 my $rc = '';
@@ -3134,7 +3094,9 @@ if ($Debug2) {DebugIt("UNIDEN l7204:sent=$sent cmdcode=>$cmdcode");}
 WAIT:
 if ($rc = radio_send(\%sendparms,$outstr)) {
 if ($rc eq '-2') {
-LogIt(1,"UNIDEN.PM:No open port detected!");
+if ($parmref->{'_nowarn'}) {
+}
+else { LogIt(1,"UNIDEN.PM:No open port detected!");}
 return ($parmref->{'rc'} = $CommErr);
 }
 if ($Debug3) {DebugIt("UNIDEN l7216:Radio_Send returned $sendparms{'rcv'} retcode=$rc");}
@@ -3142,15 +3104,14 @@ if ($sent) {
 if ($sendparms{'wait'}--) {
 $outstr = '';
 usleep(100);
-if ($warn) {print "Waiting...\n";}
-else {
+if ($parmref->{'_nowarn'}) {
 return ($parmref->{'rc'} = $CommErr);
 }
 goto WAIT;
 }
 if (!$defref->{'rsp'}) {
 my $msg = "Radio is not responding. Last command=>$sent.";
-if ($warn) {add_message($msg);}
+if (!$parmref->{'rc'}) {add_message($msg);}
 $defref->{'rsp'} = 1;
 }
 else {$defref->{'rsp'}++;}
@@ -3168,7 +3129,9 @@ $outstr = '';
 usleep(100);
 goto WAIT;
 }
+if (!$parmref->{'_nowarn'}) {
 add_message("Uniden l5134:radio returned empty response to $cmdcode");
+}
 return ($parmref->{'rc'} = $EmptyChan);
 }
 $parmref->{'rc'} = $GoodCode;
@@ -3244,7 +3207,7 @@ LogIt(1,"Uniden Returned NG. May be in wrong state. Sent=>$Green" . $parmref->{'
 $parmref->{'rc'} = $ParmErr;
 }
 elsif (lc($firstparm) eq 'err') {
-if (!$parmref->{'_ignore'}) {
+if (!$parmref->{'_nowarn'}) {
 LogIt(1,"Uniden Returned ERR. Maybe bad parm. Sent=>$Green" . $parmref->{'sent'});
 }
 $parmref->{'rc'} = $ParmErr;
@@ -3538,7 +3501,7 @@ elsif ($key eq 'rssi') {
 my $signal = rssi_cvt($value,$out);
 }### rissi
 elsif ($key eq 'beep') {### Need to convert BEEP value to RadioCtl
-if ($value eq '99') { $value = 0;}
+if ($value eq '99') { $value = 'Off';}
 elsif ($value eq '0') {$value = 'AUTO';}
 }
 elsif ($key eq 'endcode') {
@@ -4558,10 +4521,12 @@ $rec = "$rec$tab$value";
 }
 $sd_system{'records'}[$dqrec] = "$rec$f_eol";
 }### System record loop
+if (defined $sd_system{'records'}) {
 my $count = scalar @{$sd_system{'records'}};
 if ($count > 2) {
 hpd_finish(\%sd_system);
 push @{$sdcard},{%sd_system};
+}
 }
 if ($flist) {
 @{$flist} = ($header_l1,$header_l2);

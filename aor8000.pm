@@ -40,7 +40,6 @@ $Radio_Limits{&AOR8000} = {
 'radioscan'=>        0,
 };
 my $model = AOR8000;
-my $warn = TRUE;
 my $chanper = 50;
 my %state_save = (
 'state' => '',
@@ -48,8 +47,8 @@ my %state_save = (
 );
 my $protoname = 'aor';
 use constant PROTO_NUMBER => 5;
-$radio_routine{$protoname} = \&aor_cmd;
-$valid_protocols{$protoname} = TRUE;
+$Radio_Routine{$protoname} = \&aor_cmd;
+$Radio_Validation{$protoname} = 'RX';
 return TRUE;
 sub aor_cmd {
 my $cmdcode = shift @_;
@@ -100,51 +99,6 @@ return ($parmref->{'rc'});
 }
 $parmref->{'in'} = $insave;
 return $parmref->{'rc'};
-}
-elsif ($cmdcode eq 'autobaud') {
-my $model_save = $defref->{'model'};
-my @allports = ();
-if ($in->{'noport'} and $defref->{'port'}) {push @allports,$defref->{'port'};}
-else {
-if (lc($defref->{'model'}) ne 'icr30') {push @allports,glob("/dev/ttyUSB*");}
-}
-my @allbauds = ();
-if ($in->{'nobaud'}) {push @allbauds,$defref->{'baudrate'};}
-else {
-@allbauds = (9600);
-}
-@allbauds = sort {$b <=> $a} @allbauds;
-@allports = sort {$b cmp $a} @allports;
-PORTLOOP:
-foreach my $port (@allports) {
-my $portobj =  Device::SerialPort->new($port) ;
-if (!$portobj) {next;}
-$parmref->{'portobj'} = $portobj;
-$portobj->user_msg("ON");
-$portobj->databits(8);
-$portobj->handshake('none');
-$portobj->read_const_time(100);
-$portobj->write_settings || undef $portobj;
-$portobj->read_char_time(0);
-foreach my $baud (@allbauds) {
-$portobj->baudrate($baud);
-$warn = FALSE;
-$parmref->{'write'} = FALSE;
-$out->{'frequency'} = 0;
-$rc = aor_cmd('RX',$parmref);
-$warn = TRUE;
-if (!$rc and $out->{'frequency'}) {### command succeeded
-$defref->{'baudrate'} = $baud;
-$defref->{'port'} = $port;
-$portobj->close;
-$parmref->{'portobj'} = undef;
-return ($parmref->{'rc'} = $GoodCode);
-}
-}
-$portobj->close;
-$parmref->{'portobj'} = undef;
-}
-return ($parmref->{'rc'} = 1);
 }
 elsif ($cmdcode eq 'vfoinit') {
 aor_cmd('DD',$parmref);
@@ -515,6 +469,7 @@ return ($parmref->{'rc'} = $ParmErr);
 $parmstr = "$parmstr " . set_keys($in);
 }
 }
+SENDIT:
 my %sendparms = (
 'portobj' => $parmref->{'portobj'},
 'term' => CR,
@@ -534,10 +489,12 @@ if ($Debug3) {DebugIt("AOR l2200:sent =>$outstr");}
 my $sent = $outstr;
 $outstr = $outstr . AOR_TERMINATOR;
 WAIT:
-if ($Debug3) {DebugIt("AOR l2171:Waiting for Radio_Send..");}
+if ($Debug3) {DebugIt("AOR l2163:Waiting for Radio_Send..");}
 if (radio_send(\%sendparms,$outstr)) {### send with retry
 if (!$outstr) {
+if (!$parmref->{'_nowarn'}) {
 add_message("Radio did not like $sent...");
+}
 $defref->{'rsp'} = 0;
 return ($parmref->{'rc'} = $CommErr);
 }
@@ -545,7 +502,7 @@ else {
 if ($defref->{'rsp'}) {$defref->{'rsp'}++;}
 else {
 $defref->{'rsp'} = 1;
-if ($warn) {
+if (!$parmref->{'_nowarn'}) {
 LogIt(1,"no response to $outstr");
 add_message("AOR8000_CMD l2208:Radio is not responding...");
 }
@@ -670,7 +627,7 @@ elsif ($key eq 'VF') {$hash->{'state'} = 'VFO';}
 elsif ($key eq 'DD') {$hash->{'state'} = 'HLD';}
 elsif ($key eq 'SS') {$hash->{'state'} = 'SRC';}
 else {
-if ($warn) {LogIt(1,"AOR_EXTRACT_KEYS:Unprocessed extract key $key");}
+LogIt(1,"AOR_EXTRACT_KEYS:Unprocessed extract key $key");
 }
 }
 }

@@ -462,11 +462,10 @@ my $instr;
 my $freqbytes = 5;
 my $getmemsize = 40;
 my @icom_packet ;
-my $warn = TRUE ;
 my $protoname = 'icom';
 use constant PROTO_NUMBER => 2;
-$radio_routine{$protoname} = \&icom_cmd;
-$valid_protocols{'icom'} = TRUE;
+$Radio_Routine{$protoname} = \&icom_cmd;
+$Radio_Validation{'icom'} = '_get_freq';
 my %sd_format = (
 &ICR30 => [
 {'Group No'         => 'icomgroup'},
@@ -553,6 +552,10 @@ TRUE;
 sub icom_cmd {
 my $cmd = shift @_;
 my $parmref = shift @_;
+if (!$parmref->{'portobj'}) {
+print Dumper($parmref),"\n";
+LogIt(23855,"ICOM_CMD:No portobj in parmref! CMD=$cmd");
+};
 my $defref    = $parmref->{'def'};
 my $out   = $parmref->{'out'};
 my $outsave = $out;
@@ -681,161 +684,7 @@ if (icom_cmd('_get_freq',$parmref)) {
 return ($parmref->{'rc'} = $CommErr);
 }
 icom_cmd('_get_mode',$parmref);
-if ($defref->{'cellgap'} and $defref->{'cstart_1'}) {
-my $freqsave = $out->{'frequency'};
-$in->{'frequency'} = $defref->{'cstart_1'};
-$in->{'mode'} = 'FMn';
-my $ignore = $parmref->{'_ignore'};
-$parmref->{'_ignore'} = TRUE;
-if (icom_cmd('setvfo',$parmref)) {
-print "ICOM l2829: Radio is US version (cellphone gap)\n";
-}
-else {
-print "ICOM l2832: Radio is Internation version (no cellphone gap)\n";
-$defref->{'cellgap'} = FALSE;
-}
-$parmref->{'_ignore'} = FALSE;
-if ($ignore) {$parmref->{'_ignore'} = $ignore;}
-$out->{'frequency'} = $freqsave;
-icom_cmd('setvfo',$parmref);
-}
-else {print "ICOM l2944: Cellgap was NOT defined!\n";
-print Dumper($defref),"\n";
-}
 if ($Debug2) {DebugIt("$Bold 'init' complete");}
-return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmd eq 'autobaud') {
-if ($Debug1) {DebugIt("ICOM_CMD:Starting 'init' command");}
-my $startstate = $progstate;
-if (!$defref->{'model'}) {
-LogIt(1,"Model number not specified in .CONF file. " .
-" Cannot automatically determine port/baud");
-return ($parmref->{'rc'} = 1);
-}
-LogIt(0,"Autobaud started for $defref->{'model'}");
-my @allports = ();
-if ($in->{'noport'} and $defref->{'port'}) {push @allports,$defref->{'port'};}
-else {
-if (lc($defref->{'model'}) ne  'r7000') {@allports = glob("/dev/ttyACM*");}
-if (lc($defref->{'model'}) ne 'icr30') {push @allports,glob("/dev/ttyUSB*");}
-}
-my @allbauds = ();
-if ($in->{'nobaud'}) {push @allbauds,$defref->{'baudrate'};}
-else {push @allbauds,keys %baudrates;}
-@allbauds = sort {$b <=> $a} @allbauds;
-@allports = sort {$b cmp $a} @allports;
-PORTLOOP:
-foreach my $port (@allports) {
-threads->yield;
-if ($progstate ne $startstate) {
-if ($Debug1) {
-DebugIt("ICOM l2685:Exited loop as progstate changed");
-}
-last PORTLOOP;
-}
-if ($Debug3) {DebugIt("ICOM l2689:trying port $port progstate=$progstate");}
-my $portobj =  Device::SerialPort->new($port) ;
-if (!$portobj) {next;}
-$parmref->{'portobj'} = $portobj;
-$portobj->user_msg("ON");
-$portobj->databits(8);
-$portobj->handshake('none');
-$portobj->read_const_time(100);
-$portobj->write_settings || undef $portobj;
-$portobj->read_char_time(0);
-foreach my $baud (@allbauds) {
-threads->yield;
-if ($progstate ne $startstate) {
-if ($Debug1) {
-DebugIt("ICOM l2707:Exited loop as progstate changed");
-}
-last PORTLOOP;
-}
-if ($Debug3) {DebugIt("ICOM l2712:trying baud $baud progstate=$progstate");}
-$portobj->baudrate($baud);
-$warn = FALSE;
-$rc = icom_cmd('_get_freq',$parmref);
-$warn = TRUE;
-if (!$rc) {### command succeeded
-$defref->{'baudrate'} = $baud;
-$defref->{'port'} = $port;
-$defref->{'handshake'} = 'none';
-$portobj->close;
-$parmref->{'portobj'} = undef;
-LogIt(0,"ICOM $defref->{'model'} detected on port $port with baudrate $baud");
-return ($parmref->{'rc'} = $GoodCode);
-}
-else {
-if ($Debug3) {DebugIt(" Baudrate/port did not work");}
-}
-}
-$portobj->close;
-$parmref->{'portobj'} = undef;
-}## All ports
-return ($parmref->{'rc'} = 1);
-}### Autobaud
-elsif ($cmd eq 'manual' ) {
-LogIt(0,"$Bold ICOM_CMD l2849:Starting 'manual' command");
-$state_save{'cmd'} = $cmd;
-if ($model eq ICR30) {
-icom_cmd('_cancel_scan',$parmref);
-$parmref->{'write'} = FALSE;
-icom_cmd('_op_state',$parmref);
-}
-elsif (($model eq IC703) ) {
-icom_cmd('_select_vfoa',$parmref);
-}
-else {
-icom_cmd('_stop_scan',$parmref);
-}
-icom_cmd('_get_freq',$parmref);
-icom_cmd('_get_mode',$parmref);
-usleep(300);
-$state_save{'igrp'} = $state_init{'igrp'};
-return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmd eq 'vfoinit') {
-if ($Debug1) {DebugIt("ICOM_CMD:Starting 'vfoinit' command");}
-$state_save{'cmd'} = $cmd;
-if ($model eq ICR30) {
-icom_cmd('_cancel_scan',$parmref);
-$parmref->{'write'} = TRUE;
-$in->{'state'} = 'vfo';
-icom_cmd('_op_state',$parmref);
-$in->{'dual'} = FALSE;
-icom_cmd('_dply_type',$parmref);
-icom_cmd('_select_aband',$parmref);
-}
-elsif ($model eq IC703) {
-icom_cmd('_select_vfoa',$parmref);
-}
-else {
-icom_cmd('_stop_scan',$parmref);
-}
-icom_cmd('_get_freq',$parmref);
-icom_cmd('_get_mode',$parmref);
-$state_save{'igrp'} = $state_init{'igrp'};
-if ($Debug1) {DebugIt("ICOM l2802:VFO setup complete");}
-return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmd eq 'meminit') {
-if ($Debug1) {DebugIt("ICOM_CMD:Starting 'meminit' command");}
-$state_save{'cmd'} = $cmd;
-$out->{'igrp'} = 0;
-if ($model eq ICR30) {
-$parmref->{'write'} = TRUE;
-$in->{'state'} = 'mem';
-icom_cmd('_op_state',$parmref);
-get_r30_display($parmref);
-}
-else {
-icom_cmd('_memory_state',$parmref);
-icom_cmd('_get_freq',$parmref);
-icom_cmd('_get_mode',$parmref);
-}
-$state_save{'igrp'} = $state_init{'igrp'};
-if ($Debug1) {DebugIt("ICOM l2841:VFO setup complete");}
 return ($parmref->{'rc'} = $GoodCode);
 }
 elsif ($cmd eq 'getinfo') {
@@ -976,17 +825,17 @@ elsif (defined $direct_format{$model}) {
 $rc =  $rc = icom_cmd('_memory_direct',$parmref);
 }
 else {
-my $ignore = $parmref->{'_ignore'};
-$parmref->{'_ignore'} = TRUE;
+my $ignore = $parmref->{'_nowarn'};
+$parmref->{'_nowarn'} = TRUE;
 icom_cmd('_select_group',$parmref);
-$parmref->{'_ignore'} = FALSE;
-if ($ignore) {$parmref->{'_ignore'} = $ignore;}
+$parmref->{'_nowarn'} = FALSE;
+if ($ignore) {$parmref->{'_nowarn'} = $ignore;}
 $rc = icom_cmd('_select_chan',$parmref);
 if (!$rc) {$rc = icom_cmd('_get_freq',$parmref);}
 if (!$rc) {$rc = icom_cmd('_get_mode',$parmref);}
 vfo_get_tones($in,$out,$parmref);
-$parmref->{'_ignore'} = FALSE;
-if ($ignore) {$parmref->{'_ignore'} = $ignore;}
+$parmref->{'_nowarn'} = FALSE;
+if ($ignore) {$parmref->{'_nowarn'} = $ignore;}
 }
 my $freq = $myout{'frequency'} + 0;
 if ($noskip or $freq) {
@@ -1075,11 +924,11 @@ $parmref->{'write'} = TRUE;
 $rc = icom_cmd('_memory_direct',$parmref);
 }
 else {
-my $ignore = $parmref->{'_ignore'};
-$parmref->{'_ignore'} = TRUE;
+my $ignore = $parmref->{'_nowarn'};
+$parmref->{'_nowarn'} = TRUE;
 icom_cmd('_select_group',$parmref);
-$parmref->{'_ignore'} = FALSE;
-if ($ignore) {$parmref->{'_ignore'} = $ignore;}
+$parmref->{'_nowarn'} = FALSE;
+if ($ignore) {$parmref->{'_nowarn'} = $ignore;}
 $rc = icom_cmd('_select_chan',$parmref);
 if ($rc) {
 LogIt(1,"\nCould not set radio to channel $channel");
@@ -1165,22 +1014,22 @@ if (icom_cmd('_get_mode',$parmref)) {
 return $parmref->{'rc'};
 }
 $parmref->{'write'} = FALSE;
-my $ignore = $parmref->{'_ignore'};
-$parmref->{'_ignore'} = TRUE;
+my $ignore = $parmref->{'_nowarn'};
+$parmref->{'_nowarn'} = TRUE;
 icom_cmd('_vfo_atten',$parmref);
 icom_cmd('_vfo_preamp',$parmref);
 if ($out->{'mode'} =~ /fm/i) {
 vfo_get_tones($in,$out,$parmref);
 }### FM modulation detected
-$parmref->{'_ignore'} = FALSE;
-if ($ignore) {$parmref->{'_ignore'} = $ignore;}
+$parmref->{'_nowarn'} = FALSE;
+if ($ignore) {$parmref->{'_nowarn'} = $ignore;}
 }### A frequency is set
 return ($parmref->{'rc'} = $GoodCode);
 }
 elsif ($cmd eq 'setvfo') {
 if ($Debug2) {DebugIt("ICOM_CMD:Starting 'setvfo' command");}
 $state_save{'cmd'} = $cmd;
-my $ignore = $parmref->{'_ignore'};
+my $ignore = $parmref->{'_nowarn'};
 my $freq = $in->{'frequency'};
 if (!looks_like_number($freq)) {
 print "Invalid frequency in IN=>",Dumper($in),"\n";
@@ -1190,9 +1039,9 @@ if (!$freq) {
 add_message("VFO cannot have a 0 frequency ");
 return ($parmref->{'rc'} = $ParmErr);
 }
-if (!$parmref->{'_ignore'}) {
-if (check_range($freq,$defref)) {
-add_message(rc_to_freq($freq) . " MHz is NOT valid for this radio");
+if (!$parmref->{'_nowarn'}) {
+if (!check_range($freq,$defref)) {
+add_message("ICOM l4006:" .rc_to_freq($freq) . " MHz is NOT valid for this radio");
 return ($parmref->{'rc'} = $NotForModel);
 }
 }
@@ -1217,7 +1066,7 @@ icom_cmd('_vfo_state',$parmref);
 $state_save{'igrp'} = $state_init{'igrp'};
 if (icom_cmd('_set_freq',$parmref)) {return $parmref->{'rc'}};
 if (icom_cmd('_set_mode',$parmref)) {return $parmref->{'rc'}};
-$parmref->{'_ignore'} = TRUE;
+$parmref->{'_nowarn'} = TRUE;
 my $att = $in->{'atten'};
 if (!$att) {$att = 0;}
 my $pamp = $in->{'preamp'};
@@ -1229,8 +1078,8 @@ $parmref->{'write'} = TRUE;
 icom_cmd("_vfo_atten",$parmref);
 icom_cmd('_vfo_preamp',$parmref);
 vfo_set_tones($parmref);
-$parmref->{'_ignore'} = FALSE;
-if ($ignore) {$parmref->{'_ignore'} = $ignore;}
+$parmref->{'_nowarn'} = FALSE;
+if ($ignore) {$parmref->{'_nowarn'} = $ignore;}
 $out->{'_delay'} = 1000;
 if ($model eq ICR30) {  $out->{'_delay'}  = 39000;}
 elsif ($model eq IC705) {$out->{'_delay'} = 3000;}
@@ -1245,6 +1094,27 @@ return ($parmref->{'rc'} = $GoodCode);
 elsif ($cmd eq 'setglob') {
 if ($Debug2) {DebugIt("ICOM_CMD:Starting 'setglob' command");}
 $state_save{'cmd'} = $cmd;
+foreach my $rec (@{$db->{'global'}}) {
+if (!$rec ->{'index'}) {next;}
+my $light = $rec->{'light'};
+if ((defined $light) and ($light ne '') and ($light ne '.') and ($light ne '-')) {
+if ($model =~ /705/i) {
+}
+elsif ($model =~ /8600/) {
+}
+else {
+}
+}
+my $beep = $rec->{'beep'};
+if ((defined $beep) and ($beep ne '') and ($beep ne '-') and ($beep ne '.')) {
+if ($model =~ /705/i) {
+}
+elsif ($model =~ /8600/) {
+}
+else {
+}
+}
+}
 return ($parmref->{'rc'} = $GoodCode);
 }
 elsif ($cmd eq 'getsrch') {
@@ -1368,6 +1238,7 @@ my $freq = $in ->{'frequency'} + 0;
 if (!$freq) {$freq = 0;}
 $sendhex = "$sendhex" . num2bcd($freq,$freqbytes,TRUE );
 $state_save{'freq'} = $freq;
+if ($Verbose) {print "_set_freq cmd=>$sendhex\n";}
 }
 elsif ($cmd eq '_set_mode' ) {
 KeyVerify($in ,'mode');
@@ -1883,21 +1754,26 @@ LogIt(1,"ICOM l6446: No preprocess defined for command $cmd");
 $parmref->{'rc'} = $NotForModel;
 return $NotForModel;
 }
+SENDIT:
 if (($cmd !~ /poll/i) and (length($sendhex) < 9)) {
 LogIt(1,"ICOM l6541:Missing command code for cmd=>$cmd");
 return ($parmref->{'rc'} = $ParmErr);
 }
+my $baud = $defref->{'baud'};
+my $port = $defref->{'port'};
 $sendhex = $sendhex . 'FD';
 my $outstr = pack("H*",$sendhex);
 my $outlen = length($outstr);
-my $ptobj = $parmref->{'portobj'};
+my $resend = 3;
 RESEND:
 if ($cmd ne 'poll') {
 my ($cnt,$leftover) = $portobj->read();
 if ($leftover and $Debug3) {DebugIt("ICOM l3439:Leftover before send->",unpack("H*",$leftover));}
 $parmref->{'sent'} = $sendhex;
-if ($Debug3) {DebugIt("ICOM_CMD l6497:sent=>$sendhex (command=$cmd) ack=$ack");}
-my $countout = $ptobj->write($outstr);
+if ($Debug3) {
+DebugIt("ICOM_CMD l6180:sent=>$sendhex (command=$cmd) ack=$ack");
+}
+my $countout = $portobj->write($outstr);
 if (!$countout or ($countout != $outlen)) {### send failed
 if (!$countout) {$countout = 0;}
 if ($Debug3) {DebugIt("ICOM:Write failure len=$outlen countout=$countout sent=>$sendhex");}
@@ -1907,7 +1783,7 @@ if (!$ack) {return $parmref->{'rc'} = $GoodCode;}
 }### CMD ne 'POLL'
 my $st = Time::HiRes::time;
 WAITFORREPLY:
-if ($Debug3) {DebugIt("ICOM l6514:waiting for reply to $cmd ack=$ack");}
+if ($Debug3) {DebugIt("ICOM l6197:waiting for reply to $cmd ack=$ack");}
 my $byte = '';
 my $bstr = '';
 my $gotpre = FALSE;
@@ -1915,8 +1791,7 @@ my @rcv_packet = ();
 my $rcvhex = '';
 my $waitcnt = 10;
 while (TRUE) {
-$ptobj->read_const_time(10);
-my ($count_in, $binary) = $ptobj->read(1);
+my ($count_in, $binary) = $portobj->read(1);
 if ($count_in) {
 my $byte = uc(unpack("H*",$binary));
 if ($Debug3) {DebugIt("Byte=>$byte");}
@@ -1941,20 +1816,35 @@ elsif ($gotpre) {
 push @rcv_packet,$byte;
 $rcvhex = "$rcvhex$byte";
 }
-else {if ($warn) {LogIt(1,"ICOM l4412:got byte $byte before preamble");}}
+else {
+if (!$parmref->{'_nowarn'}) {
+LogIt(1,"ICOM l4412:got byte $byte before preamble");
+}
 $waitcnt = 10;
 }
+}### Got something in
 else {
 if ($cmd eq 'poll') {return ($parmref->{'rc'} = $GoodCode);}
 --$waitcnt;
+usleep(100);
 if ($Debug3) {DebugIt("Wait count=$waitcnt");}
-if (!$waitcnt) {goto UNRESPONSIVE;}
-usleep(10);
+if (!$waitcnt) {
+if ($parmref->{'_autobaud'}) {
 }
+$resend--;
+if (!$resend) {goto UNRESPONSIVE;}
+else {
+goto RESEND;}
 }
-if ($Debug3) {DebugIt("ICOM l6573:recv packet =@rcv_packet")};
+}### No response
+}
+if ($Debug3) {
+DebugIt("ICOM l6256:recv packet =@rcv_packet");
+}
 if ((scalar @rcv_packet) < 3) {
+if (!$parmref->{'_nowarn'}) {
 LogIt(0,"ICOM l3489:Got short packet $rcvhex. waiting some more");
+}
 goto WAITFORREPLY;
 }
 my $pt =Time::HiRes::time;
@@ -1968,6 +1858,7 @@ $out->{'test'} = $rcvhex;
 return ($parmref->{'rc'} = $GoodCode);
 }
 }#### TEST command
+my @save_rcv = @rcv_packet;
 my $dest = shift @rcv_packet;
 my $source = shift @rcv_packet;
 if ($source ne $radioaddr) {
@@ -1993,7 +1884,7 @@ elsif ($model eq R8600) {goto UNRESPONSIVE;}
 elsif ($model eq IC7300) {goto UNRESPONSIVE;}
 }
 $defref->{'rsp'}= 0;
-if (!$parmref->{'_ignore'}) {
+if (!$parmref->{'_nowarn'}) {
 LogIt(1,"ICOM l6082 rejected packet=>$sendhex returned=$rcvhex command issued=>$cmd");
 }
 return ($parmref->{'rc'} = $NotForModel);
@@ -2776,9 +2667,8 @@ if (looks_like_number($tone)) {
 my $sqtone = 'CTC' . Strip(sprintf("%5.1f",$tone));
 if ($valid_ctc{$sqtone}) {$out->{'sqtone'} = $sqtone;}
 else {
-LogIt(1,"ICOM l8599:VFO_CTC_VALUE $tone (sqtone=>$sqtone)" .
-" is not a valid RadioCtl tone =>Packet=@packet_save");
-print Dumper(%valid_ctc),"\n";exit;
+LogIt(1,"ICOM l8099:VFO_CTC_VALUE radio sent invalid sqtone=>$sqtone" .
+" =>Packet=@save_rcv");
 $out->{'sqtone'} = 'Off';
 }
 }
@@ -2835,12 +2725,14 @@ $out->{'test'} = '';
 else {
 if (!$defref->{'rsp'}) {
 my $msg = "Radio is not responding";
-if ($warn) {
-if ($sendhex) {LogIt(1,"ICOM l8756:Radio did not repond to $sendhex");}
+if (!$parmref->{'_nowarn'}) {
+if ($sendhex) {LogIt(1,"ICOM l8238:Radio did not repond to $sendhex");}
 else {LogIt(1,$msg);}
 add_message($msg);
 }
 $defref->{'rsp'} = 1;
+my $port = $defref->{'port'};
+system "stty -F $port";
 }
 else {$defref->{'rsp'}++;}
 }
@@ -3115,7 +3007,7 @@ $out->{'sqtone'} = 'Off';
 $out->{'polarity'} = FALSE;
 $out->{'_tone_state'} = FALSE;
 my $parmsave = $parmref->{'ignore'};
-$parmref->{'_ignore'} = TRUE;
+$parmref->{'_nowarn'} = TRUE;
 $parmref->{'write'} = FALSE;
 foreach my $type ('ctc','dcs') {
 my $cmd = "_vfo_$type" . '_state';
@@ -3126,16 +3018,16 @@ icom_cmd($cmd,$parmref);
 last;
 }
 }
-$parmref->{'_ignore'} = FALSE;
-if ($parmsave) {$parmref->{'_ignore'} = $parmsave;}
+$parmref->{'_nowarn'} = FALSE;
+if ($parmsave) {$parmref->{'_nowarn'} = $parmsave;}
 return 0;
 }
 sub vfo_set_tones {
 my $parmref = shift @_;
 my $in = $parmref->{'in'};
 $parmref->{'write'} = TRUE;
-my $ignore = $parmref->{'_ignore'};
-$parmref->{'_ignore'} = TRUE;
+my $ignore = $parmref->{'_nowarn'};
+$parmref->{'_nowarn'} = TRUE;
 if ((!$in->{'sqtone'}) or ($in->{'sqtone'} =~ /off/i)) {
 $in->{'_tone_state'} = FALSE;
 icom_cmd('_vfo_ctc_state',$parmref);
@@ -3158,8 +3050,8 @@ icom_cmd('_vfo_ctc_state',$parmref);
 icom_cmd('_vfo_dcs_state',$parmref);
 }
 }## 'sqtone' is not off
-$parmref->{'_ignore'} = FALSE;
-if ($ignore) {$parmref->{'_ignore'} = $ignore;}
+$parmref->{'_nowarn'} = FALSE;
+if ($ignore) {$parmref->{'_nowarn'} = $ignore;}
 return 0;
 }### VFO_SET_TONES
 sub rcmode2icom {

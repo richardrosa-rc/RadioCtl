@@ -82,7 +82,6 @@ $vfo{'freq'} = $radio_def{'minfreq'};
 $vfo{'direction'} = 1;
 $vfo{'_drok'} = FALSE;
 radio_sync('init',227);
-radio_sync('manual',383);
 radio_sync('getvfo',249);
 add_message('manual mode started');
 while ($progstate ne 'quit') {
@@ -140,13 +139,6 @@ my $sev = 0;
 $allow_speed = TRUE;
 my $first_run = TRUE;
 $vfo{'_drok'} = TRUE;
-radio_sync('manual',479);
-if ($progstate =~ /freq/i) {
-radio_sync('vfoinit',1504);
-}
-else {
-radio_sync('meminit',828);
-}
 SCAN_LOOP:
 while (TRUE) {
 my $found_cnt = 0;
@@ -310,7 +302,6 @@ $vfo{'index'} = 0;
 $vfo{'delay'} = 0;
 $vfo{'resume'} = 0;
 $vfo{'service'} = '';
-radio_sync('manual',1043);
 add_message("RadioScan mode terminated. $reason",$sev);
 dply_vfo(788);
 %scan_request = ('_cmd' => 'control');
@@ -339,8 +330,6 @@ my $dlytime = time();
 tell_gui(1526);
 add_message("$progstate Started...");
 radio_sync('init',1221);
-radio_sync('manual',1222);
-radio_sync('vfoinit',1504);
 if (!$radio_def{'active'}) {
 $reason = "Radio not connected";
 $sev = 1;
@@ -452,7 +441,6 @@ my $dlytime = time();
 tell_gui(1526);
 add_message("$progstate Started...");
 radio_sync('init',1503);
-radio_sync('vfoinit',1504);
 if (!$radio_def{'active'}) {
 $reason = "Radio is not connected";
 $sev = 1;
@@ -1082,50 +1070,13 @@ tell_gui(2416);
 %scan_request = ();
 return $retcode;
 }
-sub open_serial {
-%scan_request = ('_cmd' => 'radio','connect' => 'connecting');
-tell_gui(1981);
-if ($portobj) {$portobj -> close;}
-$radio_def{'active'} = FALSE;
-$radio_def{'rsp'} = 0;
-$radio_def{'unresponsive'} = FALSE;
-if (!$radio_def{'port'}) {
-print Dumper(%radio_def);
-LogIt(2173,"OPEN_SERIAL:No value for radio port!");
-}
-my $port = $radio_def{'port'};
-if ($port ne '(none)') {
-$portobj = Device::SerialPort->new($port) ;
-if (!$portobj) {
-LogIt(1,"OPEN_SERIAL:Cannot connect to port $port");
-add_message("cannot connect to $port",1);
-return FALSE;
-}
-else {
-$portobj->user_msg("ON");
-$portobj->databits(8);
-$portobj->baudrate($radio_def{'baudrate'});
-$portobj->parity($radio_def{'parity'});
-$portobj->stopbits($radio_def{'stopbits'});
-$portobj->read_const_time(100);
-$portobj->read_char_time(0);
-$portobj->write_settings || undef $portobj;
-}
-}
-else {
-if ($radio_def{'protocol'} ne 'local') {
-LogIt(1,"OPEN_SERIAL:Port of $port is not valid for this protocol");
-add_message("Port $port is not valid for this protocol",1);
-return FALSE;
-}
-}
-$radio_def{'active'} = TRUE;
-return TRUE;
-}
 sub radio_sync {
 my $cmd = shift @_;
 my $caller = shift @_;
-if (!$radio_def{'active'} and ($cmd ne 'autobaud')) {
+if (!$radio_def{'active'}) {
+if ($Verbose) {
+print "Scanner l3523:RADIO_SYNC:Radio is not active\n";
+}
 return $GoodCode;
 }
 if (!defined $vfo{'channel'}) {
@@ -1264,17 +1215,6 @@ add_message('Radio Does Not support radio scan mode!',1);
 return $NotForModel;
 }
 }
-elsif ($cmd eq 'manual') {
-}
-elsif ($cmd eq 'vfoinit'){
-$radio_parms{'cmd'} = $cmd;
-}
-elsif ($cmd eq 'meminit'){
-$radio_parms{'cmd'} = $cmd;
-}
-elsif ($cmd eq 'autobaud') {
-$radio_parms{'cmd'} = $cmd;
-}
 else {
 add_message("Warning! No Pre-Process defined for radio_sync cmd=$cmd",1);
 LogIt(1,"RADIO_SYNC:No Pre-Process defined for cmd=$cmd");
@@ -1284,11 +1224,10 @@ if (!defined $protocol) {
 LogIt(2708,"RADIO_SYNC:Undefined protocol in Radio_Def");
 }
 $radio_parms{'portobj'} = $portobj;
-my $routine = $radio_routine{$protocol};
+my $routine = $Radio_Routine{$protocol};
 my $rc = $GoodCode;
 if ($routine) {$rc = &$routine($radio_parms{'cmd'},\%radio_parms);}
 else {LogIt(2752,"RADIO_SYNC:Radio routine not set for protocol $protocol");}
-if ($cmd eq 'autobaud') {return $rc;}
 if ($radio_def{'rsp'}) {
 if ($radio_def{'rsp'} > 10) {
 my $msg = "Could not connect to radio. May be powered off or disconnected";
@@ -1323,7 +1262,7 @@ $dly = $dly - ((Time::HiRes::time - $start_time) * 1000);
 }
 }
 if ($cmd eq 'init') {
-if ($radio_parms{'rc'}) {
+if ($rc) {
 my $msg = "Could not connect to radio. May be powered off";
 if ($radio_parms{'rc'} == 2) {
 $msg = "Could not connect to radio. May be bad model spec ($radio_def{'model'})";
@@ -1376,6 +1315,14 @@ $vfo{'mode'} = 'FMn';
 else {LogIt(1,"SCANNER l2879:GETSIG returned $radio_parms{'rc'} signal=$out{'signal'}");}
 }### getsig post process
 elsif ($cmd eq 'selmem') {
+if ($rc and ($rc == $EmptyChan)) {
+if ($Verbose or ($progstate eq 'manual')) {
+my $msg = "Memory channel selected appears to be empty";
+add_message($msg,1);
+LogIt(0,"$Bold$msg");
+$vfo{'frequency'} = 0;
+}
+}
 if (FALSE) {
 my $start_time = Time::HiRes::time;
 my $cnt = 0;
@@ -1409,27 +1356,10 @@ elsif ($cmd eq 'setvfo') {
 }
 elsif ($cmd eq 'getglob') {
 }
-elsif ($cmd eq 'vfoinit') {
-}
-elsif ($cmd eq 'meminit') {
-$vfo{'frequency'} = $out{'frequency'};
-if ($vfo{'frequency'}) {
-$vfo{'mode'} = $out{'mode'};
-if ($out{'sqtone'}) {$vfo{'sqtone'} = $out{'sqtone'};}
-}
-foreach my $key ('service') {
-if ($out{$key}) {$vfo{$key} = $out{$key};}
-}
-}
-elsif ($cmd eq 'manual') {
-}
 elsif ($cmd eq 'scan') {
 }
 else {
 LogIt(1,"RADIO_SYNC l4136:No Post-Process defined for radio_sync cmd=$cmd");
-}
-if ($radio_parms{'rc'}) {
-LogIt(1,"RADIO_SYNC:Radio routine $cmd returned a bad code rc=$rc");
 }
 return ($radio_parms{'rc'});
 }
@@ -1534,11 +1464,11 @@ $response_pending = 'Connecting to Radio...';
 if ($portobj) {$portobj -> close;}
 %radio_def = ();
 foreach my $key (keys %req) {
-if ($key =~ /_/i) {next;}  
+if ($key =~ /^_/i) {next;}  
 $radio_def{$key} = $req{$key};
 }
 my $radiosel = lc($radio_def{'name'});
-if (!$radiosel) {LogIt(4608,"No name on 'CONNECT' request!");}
+if (!$radiosel) {LogIt(4895,"No name on 'NEWRADIO' request!");}
 my $protocol = $radio_def{'protocol'};
 if (!$protocol) {
 print "RadioDef=>",Dumper(%radio_def),"\n";
@@ -1546,9 +1476,6 @@ print "request=>",Dumper(%req),"\n";
 LogIt(4616,"Missing 'protocol' definition for Radio_Def!");
 }
 $radio_def{'active'} = FALSE;
-$radio_def{'origin'} = 1;
-$radio_def{'parity'} = 'none';
-$radio_def{'stopbits'} = 1;
 my $status = 'disconnected';
 %scan_request = ('_cmd' => 'radio', 'connect' => $status);
 tell_gui(4637);
@@ -1569,111 +1496,88 @@ $scan_request{'rchan'} = 'enable';
 $vfo{'channel'} = $radio_def{'origin'};
 }
 tell_gui(4661);
-if ($radio_def{'protocol'} eq 'local') {
+if ($protocol eq 'local') {
 $radio_def{'active'} = TRUE;
 $status = 'connected';
 %scan_request = ('_cmd' => 'control',
 'baud' => 'disable', 'port' => 'disable', 'autobaud' => 'disable');
-tell_gui(3305);
+tell_gui(4956);
+%scan_request = ('_cmd' => 'radio', 'connect' => $status);
+tell_gui(4958);
 }### Local radio
-else {
-%scan_request = ('_cmd' => 'control',
-'autobaud' => 'enable');
-tell_gui(4638);
-if ($control{'autobaud'}) {
-my $state_save = $progstate;
-$progstate = 'autobaud';
-my $rc = radio_sync('autobaud',4614);
-$progstate = $state_save;
-if ($rc) {
-my $msg = "SCANNER l4652:Could not determine port and/or baud rate. Radio may be powered off";
-add_message($msg,1);
-$radio_def{'active'} = FALSE;
-%scan_request = ('_cmd' => 'radio','connect' => 'disconnected');
-print "SCANNER l4658: AUTOBAUD fail=>",Dumper(%scan_request),"\n";
-tell_gui(4653);
-clear_gui_request();
-$progstate = 'manual';
-$response_pending = ''   ;
-return  $StateChange;
-}### Failed AUTOBAUD
-}### Autobaud
 else {
 %scan_request = ('_cmd' => 'control',
 'baud' => 'enable', 'port' => 'enable',
 'autobaud' => 'enable');
-tell_gui(4665);
-}
-my $rc = open_serial();
+tell_gui(4638);
 }### Not a local radio
-if ($radio_def{'active'}) {
-$status = 'connected';
-radio_sync('init',3126);
-$vfo{'_last_radio_name'} = $radiosel;
-}
-%scan_request = ('_cmd' => 'radio', 'connect' => $status);
-tell_gui(3875);
 $response_pending = '';
 clear_gui_request();
 }
 elsif ($command eq 'connect')  {
-$response_pending = 'Connecting to Radio...';
+if ($radio_def{'active'}) {
 if ($portobj) {$portobj -> close;}
+$portobj = undef;
 $radio_def{'active'} = FALSE;
-if ($req{'baudrate'}) {$radio_def{'baudrate'} = $req{'baud'};}
-if ($req{'port'}) {$radio_def{'port'} = $req{'port'};}
-my $status = 'disconnected';
-%scan_request = ('_cmd' => 'radio', 'connect' => $status);
-tell_gui(4758);
 set_manual_state();
-$statechange = TRUE;
-if ($radio_def{'protocol'} eq 'local') {
+%scan_request = ('_cmd' => 'radio','connect' => 'disconnected');
+tell_gui(5021);
+clear_gui_request();
+$response_pending = ''   ;
+return  $StateChange;
+}
+my $radiosel = lc($radio_def{'name'});
+my $protocol = $radio_def{'protocol'};
+$radio_def{'rsp'} = 0;
+$radio_def{'unresponsive'} = FALSE;
+if ($Verbose) {
+print "Scanner l5037:Connecting to $radiosel. baud=$radio_def{'baud'} port=$radio_def{'port'}\n";
+print Dumper(%radio_def),"\n";
+}
+if ($protocol eq 'local') {
 $radio_def{'active'} = TRUE;
-$status = 'connected';
+set_manual_state();
 %scan_request = ('_cmd' => 'control',
 'baud' => 'disable', 'port' => 'disable', 'autobaud' => 'disable');
-tell_gui(3305);
-}
-else {
-%scan_request = ('_cmd' => 'control',
-'autobaud' => 'enable');
-tell_gui(4638);
-if ($control{'autobaud'}) {
+tell_gui(5073);
+%scan_request = ('_cmd' => 'radio','connect' => 'connected');
+tell_gui(5021);
+clear_gui_request();
+$response_pending = ''   ;
+return  $StateChange;
+}### Local process
+%scan_request = ('_cmd' => 'radio','connect' => 'connecting');
+tell_gui(5061);
 my $state_save = $progstate;
 $progstate = 'autobaud';
-my $rc = radio_sync('autobaud',4614);
-$progstate = $state_save;
-if ($rc) {
-my $msg = "SCANNER l4652:Could not determine port and/or baud rate. Radio may be powered off";
-add_message($msg,1);
+foreach my $key ('baud','port') {
+if (defined $req{$key}) {$radio_def{$key} = $req{$key};}
+else {LogIt(5063,"Missing CONNECT request key $key");}
+}
+my %parmref = ('def' => \%radio_def);
+if (AutoBaud(\%parmref)) {## was there an error?
 $radio_def{'active'} = FALSE;
 %scan_request = ('_cmd' => 'radio','connect' => 'disconnected');
-print "SCANNER l4658: AUTOBAUD fail=>",Dumper(%scan_request),"\n";
 tell_gui(4653);
+set_manual_state();
 clear_gui_request();
-$progstate = 'manual';
 $response_pending = ''   ;
 return  $StateChange;
 }### Failed AUTOBAUD
-}
-else {
-%scan_request = ('_cmd' => 'control',
-'baud' => 'enable', 'port' => 'enable',
-'autobaud' => 'enable');
-tell_gui(4665);
-}
-my $rc = open_serial();
-}
-if ($radio_def{'active'}) {
-$status = 'connected';
+$portobj = $parmref{'portobj'};
+$radio_def{'active'} = TRUE;
+%scan_request = ('_cmd' => 'baud',
+'baud' => $radio_def{'baud'}, 'port' => $radio_def{'port'});
+tell_gui(4672);
+%scan_request = ('_cmd' => 'radio','connect' => 'connected');
+tell_gui(5103);
+set_manual_state();
 radio_sync('init',3126);
-}
-%scan_request = ('_cmd' => 'radio', 'connect' => $status);
-tell_gui(3875);
+$vfo{'_last_radio_name'} = $radiosel;
 $response_pending = '';
 clear_gui_request();
 return $StateChange;
-}
+}### command is connect
 elsif ($command eq 'disconnect')  {
 if ($portobj) {$portobj -> close;}
 $radio_def{'active'} = FALSE;
@@ -1757,7 +1661,7 @@ if ($rc == $CommErr) {
 $code = "Disconnected";
 $return = $CommErr;
 }
-add_message("Setting of $vfo{$ctl} to radio failed. Code=>$code",1);
+add_message("Setting of $ctl to radio failed. Code=>$code",1);
 foreach my $key (keys %vfo_save) {$vfo{$key} = $vfo_save{$key};}
 }
 }### Changing a VFO control
@@ -2554,6 +2458,7 @@ $local_vfo{'signal'} = 0;
 dply_vfo(6405);
 clear_gui_request();
 radio_sync('selmem',6452);
+dply_vfo(6405);
 return $retcode;
 }### Valid  states for RCHAN update
 }### RCHAN update
@@ -2843,7 +2748,6 @@ return 0;
 }
 sub set_manual_state {
 if ($progstate eq 'manual') {return;}
-radio_sync('manual',4559);
 $vfo{'signal'} = 0;
 $local_vfo{'signal'} = 0;
 dply_sig(2925);
@@ -2897,10 +2801,6 @@ $chan_active{$dbndx} = 0;
 }
 sub record_thread {
 my $snd_type = 'wav';
-my $tempdir = $settings{'tempdir'};
-my $temp_file = "$tempdir/temp.$snd_type";
-my $mergefile = "$tempdir/mergefile.$snd_type";
-my $recdir = $settings{'recdir'};
 while (TRUE) {
 while (!$start_recording and ($progstate ne 'quit') ) {
 threads->yield;
@@ -2909,6 +2809,13 @@ usleep 100;
 if ($progstate eq 'quit') {
 print $Bold,"Recording thread terminating$Eol";
 threads->exit(0);
+}
+my $tempdir = $RCSettings{'radiotmp_dir'};
+my $temp_file = "$tempdir/temp.$snd_type";
+my $mergefile = "$tempdir/mergefile.$snd_type";
+my $recdir = $RCSettings{'radiorec_dir'};
+if ($Verbose) {
+print "Recording directory:$recdir\n";
 }
 my $filename =  Strip(rc_to_freq($vfo{'frequency'}));
 if ($vfo{'tgid'}) {
@@ -2933,7 +2840,7 @@ print "L8132:record_multi was not set\n";
 }
 $filename = "$recdir/$filename.$snd_type";
 $record_file = $filename;
-if (-d $tempdir) {
+if (!DirExist($tempdir,TRUE)) {
 my $cmd = "parecord --file-format=$snd_type --format=s32be $temp_file &";
 my $rtn = `$cmd`;
 while ($start_recording) {usleep 100;}
@@ -2952,9 +2859,9 @@ print "L8179: created recording $filename\n"
 }
 }
 else { LogIt(1,"Scanner l8180:No recording file was found");}
-}### Temporary directory exists
+}###  Directory
 else {
-LogIt(1,"Scanner l8184:Cannot record audio. $tempdir does not exist!");
+LogIt(1,"Scanner l8191:Cannot record audio. $tempdir does not exist and cannot be created!");
 lock($start_recording);
 $start_recording = FALSE;
 threads->yield;

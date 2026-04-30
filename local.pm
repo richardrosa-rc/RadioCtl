@@ -74,8 +74,8 @@ share (our %local_vfo);
 my $model = LOCAL;
 my $protoname = 'local';
 use constant PROTO_NUMBER => 0;
-$radio_routine{$protoname} = \&local_cmd;
-$valid_protocols{$protoname} = TRUE;
+$Radio_Routine{$protoname} = \&local_cmd;
+$Radio_Validation{$protoname} = 'get_info';
 TRUE;
 sub local_cmd {
 my $cmd = shift@_;
@@ -310,8 +310,6 @@ $out->{'sql'} = TRUE;
 else {$out->{'sql'} = FALSE;}
 return ($parmref->{'rc'} = $GoodCode);
 }### GetSig
-elsif ($cmd =~ /auto/i) {
-}
 else {LogIt(4522,"LOCAL_CMD:Unhandled command $cmd");}
 return ($parmref->{'rc'} = $rc);
 }
