@@ -35,7 +35,7 @@ TrueFalse LogIt Strip Time_format Lat_Lon_Parse Parms_Parse Time_Format ConfigFi
 write_log str_cmpr $fdigits $fdecimal check_range
 @gui_modestring @gui_bandwidth @gui_adtype @gui_tonestring @gui_attstring %audio_types
 @rc_modes %rc_modes %tn_type @attstring @ctctone @dcstone @alltones Tone_Xtract
-DebugIt $Logfile_Name DirExist %Radio_Limits AutoBaud $Verbose
+DebugIt $Logfile_Name DirExist %Radio_Limits AutoBaud $Verbose hexdply
 );
 use threads;
 use threads::shared;
@@ -50,7 +50,7 @@ use autovivification;
 no  autovivification;
 use Scalar::Util qw(looks_like_number);
 use strict;
-our  $Rev = '0.4.121';
+our  $Rev = '0.4.122';
 use constant MAXCHAN         => 9999;
 use constant MAXINDEX        => 99999;
 use constant MAXFREQ         => 9999999999;
@@ -106,7 +106,7 @@ our %usleep = (
 'SIGNAL' => 200,
 );
 our %rc_hash = ();
-our @rc_modes = ('FM','WF','AM','LS','US','RT','RR','CW','CR');
+our @rc_modes = ('FM','WF','AM','LS','US','RT','RR','CW','CR','AU');
 our %rc_modes = ('FM' => 'FM',
 'WF' => 'WFM',
 'AM' => 'AM',
@@ -116,6 +116,7 @@ our %rc_modes = ('FM' => 'FM',
 'RR' => 'RTTY-R',
 'CW' => 'CW',
 'CR' => 'CW-R',
+'AU' => 'AUTO',
 );
 our @modestring  = ('WF');
 foreach my $mode (@rc_modes) {
@@ -222,7 +223,7 @@ our %known_locations = (
 );
 our %flagchar = (
 'atten'        => 'a',
-'i_call'       => 'c',
+'c_ch'         => 'c',
 'idas'         => 'd',
 'afs'          => 'f',
 'tgid_valid'   => 'g',
@@ -232,13 +233,14 @@ our %flagchar = (
 'skip'         => 'k',
 'locctl'       => 'l',
 'preamp'       => 'm',
-'c_ch'         => 'o',
+'i_call'       => 'o',
 'priority'     => 'p',
 's_bit'        => 't',
 'vsc'          => 'v',
 'moto_id'      => 'x',
 );
 our %extra_char = (
+'aorchan' => {'freq'   => TRUE,'search'=> TRUE},
 'emgalt'  => {'system' => TRUE,'freq'  => TRUE,'min' => 1},
 'emglvl'  => {'system' => TRUE,'freq'  => TRUE,'min' => 1},
 'emgpat'  => {'system' => TRUE,'freq'  => TRUE,'min' => 1},
@@ -256,6 +258,7 @@ our %extra_char = (
 'enc'     => {'freq'   => TRUE},
 'lat'     => {'freq'   => TRUE},
 'lon'     => {'freq'   => TRUE},
+'loc'     => {'system' => TRUE, 'site' => TRUE},
 'rfgain'  => {'freq'   => TRUE},
 'scangrp' => {'freq'   => TRUE,'group' => TRUE},
 'scan705' => {'freq'   => TRUE,'group' => TRUE},
@@ -432,8 +435,7 @@ ifxchng => [
 ],
 lockfreq => [
 'index',
-'infile',
-'ingrpno',### Input group number to select
+'frequency',
 ],
 favorites => [
 'index',
@@ -480,6 +482,7 @@ system => [
 'moto_id',
 'id_search',
 'idas',
+'locctl',
 'dsql',
 'endcode',
 'fleetmap',
@@ -489,7 +492,7 @@ system => [
 'emgpat',
 'utag',
 'hpd',
-'locctl',
+'loc',
 '_raw',
 'block_addr',
 'turnqk',
@@ -512,6 +515,7 @@ site => [
 'dqkey',
 'turnqk',
 'turndqk',
+'loc',
 'block_addr',
 '_raw',
 ],
@@ -589,7 +593,6 @@ freq   => [
 'mode',
 'sqtone',
 'dlyrsm',
-'att_amp',
 'service',
 'tgid',
 'groupno',
@@ -623,6 +626,7 @@ freq   => [
 'tslot',
 'spltone',
 'splfreq',
+'aorchan',
 ],
 search  => [
 'index',
@@ -637,12 +641,14 @@ search  => [
 'agc_analog',
 'agc_digital',
 'atten',
+'dlyrsm',
 'hld',
 'c_ch',
 'p25wait',
 'qkey',
 'utag',
 'channel',
+'aorchan',
 ],
 lookup => [
 'index',
@@ -805,7 +811,6 @@ our %struct_fields = (
 'rec_type'     => ['l', 1,0,   '',0,0         ,0,'0'],
 'sqtone'       => ['o', 8,  0, 'Off',0,0     ,0,@ctctone,@dcstone],
 'spltone'      => ['o', 8,  0, '',0,0        ,0,sort keys %valid_rpt],
-'att_amp'      => ['c', 5,  0, 'Off','.', '.',0,'off','att','amp'],
 'mode'         => ['c', 6,  0, 'FMn',0,0     ,0,@modestring,"auto"],
 'enc'          => ['n', 5,  0, ''   ,0,32767 ,0],
 'dlyrsm'       => ['i', 6,  0, 0    ,-10,30  ,0],
@@ -817,9 +822,10 @@ our %struct_fields = (
 '_comment'     => ['c',-20,'a'],
 'site_number ' => ['c', 6,'a',''],
 'channel'     => ['i', 4,'0','-'   ,-1,MAXCHAN  ,0,'-'],
-'beep'    => ['i',  5,  0,'',-1,15       ,0,'on','off','auto',''],
-'light'   => ['c',  6,  0,'',-1,30       ,0,'on','off','key','sq','10','30',''],
-'bright'  => ['i',  7,  0,'', 1,3        ,0,''  ],
+'aorchan'     => ['i', 4,'0',''   ,-1,4949     ,0,'','-'],
+'beep'    => ['i',  5, '0','.',0,15       ,0,'on','off','auto','','.'],
+'light'   => ['c',  6, '0','.',0,30       ,0,'on','off','key','sq','10','30','','.'],
+'bright'  => ['i',  7, '0','.',1,3       ,0,'','.'  ],
 'msg1'    => ['c',-20,'a',''                    ],
 'msg2'    => ['c',-20,'a',''                    ],
 'msg3'    => ['c',-20,'a',''                    ],
@@ -856,6 +862,7 @@ our %struct_fields = (
 'c0','c1','c2','c3','c4','c5','c6','c7','c8','c9',
 's1','s2','s3','s4','s5','s6','s7','s8','s9','s11','s12','s15'],
 'fnumber'     => ['i',8,'n',    '1',0,999999     ,0,],
+'loc'         => ['c',1,'a',''],
 'hld'         => ['i', 3,'n',   '0',0,255       ,0,],
 'hpd'         => ['i', 6,'n',   -1,-1,999999    ,0],
 'p25wait'     => ['i', 7,'n',   '',0,1000      ,0],
@@ -863,8 +870,8 @@ our %struct_fields = (
 'emgpat'      => ['i', 6,'n',    '',0,2         ,0,'on','off'],
 'emglvl'      => ['i', 6,'n',    '',0,15        ,0,'auto'],
 'emgcol'      => ['i', 6,'n',    '',0,7         ,0,],
-'toneout_a'   => ['n', 6,'n', 00000,00000,99999 ,0,],
-'toneout_b'   => ['n', 6,'n', 00000,00000,99999 ,0,],
+'toneout_a'   => ['i',10,'n', 2500,2500,35000 ,0,'0'],
+'toneout_b'   => ['i',10,'n', 2500,2500,35000 ,0,'0'],
 'endcode'     => ['c', 9,'nf',   '',0,0    ,0,'a','analog','b','both','i','ignore'],
 'p25lvl'      => ['i', 6,'n',   '' ,0,63        ,0,],
 'dsql'        => ['o', 8,  0, 'Off',0,0     ,0,'Off'],
@@ -943,7 +950,9 @@ our $header2 = "*********** RadioCtl Data Records *****************\n" .
 "*    Flags for SYSTEM records: \n" .
 "*      'f'-EDACS AFS format \n" .
 "*      'h'-AGC_digital, 'i'-id_search (trunked systems), 'j'-AGC_analog, 'k'-data skip \n" .
-"*      'o'-Control Channel only, 'p'-Turn on priority \n" .
+"*      'c'-Control Channel only, 'p'-Turn on priority \n" .
+"*    Flags for SITE records: \n" .
+"*      'c'-Control Channel   \n" .
 "*  Dlyrsm:A number between -10 and +30. Negative number is Resume. 0 is Off\n" .
 "*  Sysno:SYSTEM record index. Required for SITE & GROUP records\n" .
 "*  Siteno:SITE record Index. Required for TFREQ records\n" .
@@ -1011,6 +1020,7 @@ share(our %RCSettings);
 'recdir'  => "$homedir/radioctl",
 'logdir'  => "$homedir/radioctl",
 'inidir'  => "$homedir/radioctl",
+'sddir'   => "$homedir/radioctl",
 );
 share (our @messages);
 @messages = ();
@@ -1082,7 +1092,7 @@ if (!$parms) {LogIt(993,"RADIO_SEND:No $parms for call!");}
 my $portobj = $parms->{'portobj'};
 if (!$portobj) {
 print "$Bold ## Radio_Send called without a portobj!\n";
-return -2;
+return 2;
 }
 my $debug = FALSE;
 my $term = '';
@@ -1112,11 +1122,11 @@ $countout = $portobj->write($outstr);
 if ($debug) {
 my $dply = $outstr;
 if ($parms->{'binary'}) {$dply = hexdply($outstr)}
-if ($debug) {LogIt(0,"RADIO_WRITE:Sent=>$dply<=\n count=$countout");}
+if ($debug) {LogIt(0,"RADIO_SEND:Sent=>$dply<=\n count=$countout");}
 }
 }
 else {
-if ($debug) {LogIt(0,"RADIO_WRITE:No data was sent");}
+if ($debug) {LogIt(0,"RADIO_SEND:No data was sent");}
 }
 if ($term eq '') {return 0 ;}
 my $instr = '';
@@ -1128,9 +1138,10 @@ my $delay = 10;
 if ($parms->{'delay'}) {$delay = $parms->{'delay'};}
 while (TRUE) {
 my ($count_in, $data_in) = $portobj->read(1);
-if ($debug) {print "Read returned $count_in bytes\n";}
+if ($debug) {print "RADIO_WRITE:Read returned $count_in bytes\n";}
 if ($count_in) {
 if ($data_in eq $term) {
+if ($debug) {print "RADIO_WRITE:Found terminator=>",ord($term),"\n";}
 $parms->{'rcv'} = $instr;
 return 0;
 }
@@ -1154,7 +1165,7 @@ $bytecnt++;
 if ($debug) {
 my $dplybyte = "$data_in";
 if ($parms->{'binary'}) {$dplybyte = hexdply($data_in);}
-LogIt(0,"RADIO_SEND:Got byte=$dplybyte");
+LogIt(0,"RADIO_SEND:Got byte=$dplybyte:" . ord($dplybyte) );
 }
 $wait_count = 3;
 }
@@ -1351,7 +1362,9 @@ $qkey_string = $qkey_string .  sprintf("%2.2i",$qkey);
 else {$qkey_string = $qkey_string . '(n/a)';}
 my $service = $sys->{'service'};
 if (!$service) {$service = "System number $sysno";}
-print OUT "*:QUICKKEY: $qkey_string Trunked System:sysno=$sysno name=$service)\n";
+my $loc = '';
+if ($sys->{'loc'}) {$loc = "LOCATION:$loc";}
+print OUT "*:QUICKKEY: $qkey_string NAME=$service) $loc\n";
 }
 foreach my $site (@{$data->{'site'}}) {
 if (!$site->{'index'}) {next;}
@@ -1360,16 +1373,18 @@ my $sqkey = $site->{'qkey'};
 if ((!defined $sqkey) or (!looks_like_number($sqkey)) or ($sqkey < 0)) {next;}
 $sqkey = sprintf("%2.2i",$sqkey);
 my $site_no = $site->{'site_number'};
-if (!$site_no) {$site_no = $site->{'index'};}
+if (!$site_no) {$site_no = "($site->{'index'})";}
+my $loc = '?';
+if ($site->{'loc'}) {$loc = $site->{'loc'};}
 my $service = $site->{'service'};
 if (!$service) {$service = "site: $site_no";}
-print OUT "*:QUICKKEY:    SITE_QK:$sqkey";
+print OUT "*:QUICKKEY:    SITE_QK=$sqkey";
 my $dqkey = $site->{'dqkey'};
 if ($dqkey and looks_like_number($dqkey) and ($dqkey >= 0)) {
 $dqkey = sprintf("%2.2i",$dqkey);
-print OUT " DEPT_QK:$dqkey";
+print OUT " DEPT_QK=$dqkey";
 }
-print OUT "  (siteno=>$site_no name=$service)\n";
+print OUT "  SITENO=$site_no LOCATION=$loc\n";
 }
 }## SYSTEM/SITE quickkey process
 my @tag_list = ();
@@ -1795,9 +1810,9 @@ print OUT $head4{'toneout'},"\n";
 foreach my $rec (@{$data->{'toneout'}}) {
 my $ndxno = $rec->{'index'};
 if (!$ndxno) {next;}
-$rec->{'frequency'} =
 my $freq = freq_to_rc($rec->{'frequency'});
 if ($freq <= 0) {
+$rec->{'_frequency'} = 0;
 foreach my $key (keys %{$structure{'toneout'}}) {
 if ($key =~ /index/i) {next;}
 elsif ($key =~ /service/i) {$rec->{$key} = '';}
@@ -1807,13 +1822,7 @@ else {$rec->{$key} = 0;}
 }
 else {
 if ($mhz) {$freq = rc_to_freq($freq);}
-$rec->{'frequency'} = $freq;
-foreach my $key ('toneout_a','toneout_b') {
-if (looks_like_number($rec->{$key})) {
-$rec->{$key} = Strip(sprintf("%6.1f",$rec->{$key}/10));
-}
-else {$rec->{$key} = '0.0';}
-}
+$rec->{'_frequency'} = $freq;
 }
 my $blk_comm = $rec->{'_block_comments'};
 if ($blk_comm and (scalar @{$blk_comm})) {
@@ -1845,11 +1854,6 @@ my $value = $rec->{$key};
 if ($key =~ /frequency/i) {
 $outrec{'_frequency'} = $value;
 if ($mhz)  {$outrec{'_frequency'} = rc_to_freq($value);}
-}
-elsif ($key =~ /toneout/i) {
-if (looks_like_number($value)) {
-$value = Strip(sprintf("%6.1f",$value/10));
-}
 }
 $outrec{$key} = $value;
 }### format certain keys
@@ -2457,14 +2461,6 @@ my $toneout = 0;
 if ($rec{$key} and looks_like_number($rec{$key})) {
 $toneout = $rec{$key};
 }
-my $newout = int($toneout * 10);
-if ($newout > 99999) {
-LogIt(1,"READ_RADIOCTL l4389: $key " .
-"$Red$toneout$White out of range in record " .
-"$Green$recno$White of $Yellow$filespec$White.\n" .
-"     Changed to 0!");
-}
-else {$toneout = $newout;}
 $rec{$key} = $toneout;
 }
 }
@@ -2721,12 +2717,10 @@ my $retcode = 0;
 my ($pkg,$fn,$caller) = caller;
 my $lineno = " (caller:$fn ln:$caller)";
 if ($blk->{'_recno'}) {$lineno = "In file record number $Green$blk->{'_recno'}$White (caller=$fn-$caller)";}
-if (defined $blk->{'atten'}) {$blk->{'att_amp'} = 'Off';}
 foreach my $key (@keylist) {
 if (!$key) {next;}
 if ($key eq 'rsvd') {next;}
 if ($key =~ /^\_.*$/) {next;}  
-if ($key =~ /att_amp/i) {next;} 
 if (!defined $struct_fields{$key}) {
 LogIt(5,"Key $Red$key$White not in struct_fields $lineno! Not processed!");
 if (!defined $blk->{$key}) {$blk->{$key} = '';}
@@ -2791,12 +2785,6 @@ $retcode = 1;
 }#### character process
 elsif ($type eq 'b') {
 $blk->{$key} = TrueFalse($blk->{$key});
-if ($key eq 'atten') {
-if ($blk->{$key}) {$blk->{'att_amp'} = 'atten';}
-}
-elsif ($key eq 'preamp') {
-if ($blk->{$key}) {$blk->{'att_amp'} = 'pamp';}
-}
 }
 elsif ($type eq 'f') {### Frequency
 if (looks_like_number($to_check)) {
@@ -2990,8 +2978,9 @@ my %valid_dirs = (
 'sddir'  => 'sdd',
 );
 foreach my $dir (keys %valid_dirs) {
-$RCSettings{$dir} = "$homedir/radioctl/$valid_dirs{$dir}";
-$needed_dir{$valid_dirs{$dir}} = TRUE;
+my $value = "$homedir/radioctl/$valid_dirs{$dir}";
+$RCSettings{$dir} = "$value";
+$needed_dir{$value} = TRUE;
 }
 my $profile = "radioctl.conf";
 my @locations = (
@@ -3259,8 +3248,8 @@ my $rc = DirExist($dir,TRUE);
 if ($rc) {
 my $msg = " in line $Green$recno$White of $Yellow$filespec$White";
 if ($recno == 1) {$msg = " (default directory)";}
-LogIt(1,"Specified directory $Blue$dir$White $msg" .
-" does not exist, cannot be created, or is not writable!\n");
+LogIt(1,"RadioCtl l7304:Specified directory $Blue$dir$White $msg" .
+"does not exist, cannot be created, or is not writable!\n");
 return 4;
 }
 }
@@ -3448,6 +3437,18 @@ else {
 }
 return ($tt,$tone);
 }
+sub hexdply {
+use strict;
+my ($instring) = @_;
+my $result = "";
+for (my $i=0;$i<length($instring);$i++) {
+my $char = ord(substr($instring,$i,1));
+my $fmt = ' ';
+if ($char > 127) {$fmt=' >';}
+$result  = $result . $fmt . sprintf("%2.2lx" ,  $char);
+}
+return $result;
+}
 sub TrueFalse {
 my $str = shift @_;
 my $ret = 1;
@@ -3528,12 +3529,12 @@ if ($pref) {$pref = Strip($pref);}
 if ($pref and (-e $pref)) {
 @ports = ($pref);
 if ($Verbose) {
-print "RadioCtl l7960:Autobaud added $pref to port list\n";
+print "RadioCtl l8007:Autobaud added $pref to port list\n";
 }
 }
 else {
 if ($Verbose) {
-print "RadioCtl L7967:No Pref found ", Dumper($defref),"\n";
+print "RadioCtl L8012:No Pref found ", Dumper($defref),"\n";
 }
 }
 foreach my $dev (
@@ -3595,11 +3596,15 @@ if ($Verbose) {
 }
 else {$parmref->{'_nowarn'} = TRUE;}
 system "stty -F $port $baud -ixon -crtscts -icrnl -brkint ignbrk igncr ignpar -iuclc -ocrnl -ofdel -ofill -olcuc -onlcr -onlret -onocr -opost -cooked raw -istrip -imaxbel -inlcr -inpck -iutf8 -ixoff -parmrk";
+my %out = ();
+my $outsave = $parmref->{'out'};
+$parmref->{'out'} = \%out;
 if ($Verbose) {
-print "Autobaud l8029: Testing baud=>$baud port=$port cmd=>$cmd\n";
+print "Autobaud l8126: Testing baud=>$baud port=$port cmd=>$cmd\n";
 }
 my $rc = &$routine($cmd,$parmref);
 $parmref->{'_nowarn'} = FALSE;
+$parmref->{'out'} = $outsave;
 if ($rc) {
 if ($Verbose) {print "Autobaud L8070: RC=$rc from routine$Eol";}
 next;
@@ -4115,10 +4120,18 @@ my $path = shift @_;
 if (!$path) {return 99;}
 if ($path eq '/') {return 3;}
 my $create = shift @_;
-if (!-d $path) {
+my $single = '/';
+$path =~ s/$single$//;
+if (-l $path) {
+if (! -e $path) {
+LogIt(1,"Unresolved symlink $Yellow$path!");
+return 2;
+}
+}
+if (!-e $path) {
 if ($path =~ /perl/) {
 my ($pkg,$fn,$caller) = caller;
-LogIt(9295,"Got path $path to create! Caller=$caller fn=$fn");
+LogIt(9329,"DirExist:Got PERL in path $path! Caller=$caller fn=$fn");
 }
 if ($create) { `mkdir -p $path`;}
 else {return 2;}

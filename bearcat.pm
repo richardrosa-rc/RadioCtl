@@ -111,11 +111,10 @@ my @ranges = ( {'low' =>  29000000,'high' =>  54000000,},
 my $protoname = 'bearcat';
 use constant PROTO_NUMBER => 4;
 $Radio_Routine{$protoname} = \&bearcat_cmd;
-$Radio_Validation{$protoname} = 'manual';
+$Radio_Validation{$protoname} = 'getvfo';
 TRUE;
 sub bearcat_cmd {
 my ($cmdcode,$parmref) = @_;
-my $cmd = lc($cmdcode);
 my $defref    = $parmref->{'def'};
 my $out  = $parmref->{'out'};
 my $outsave = $out;
@@ -136,10 +135,10 @@ $parmref->{'rc'} = $GoodCode;
 $parmref->{'term'} = BEARCAT_TERMINATOR;
 my $parmstr = '';
 if ($Debug3) {DebugIt("Bearcat 908:cmdcode=$cmdcode parmref=$parmref");}
-if ($cmd eq 'init') {
+if ($cmdcode =~ /init/i) {
 %state_save = ('state' => '','mode' => '');
 my $rc = 0;
-@gui_modestring = ('FM','AM');
+@gui_modestring = ('FM','AM','AUTO');
 @gui_bandwidth = ();
 @gui_adtype = ();
 @gui_attstring = ();
@@ -151,22 +150,7 @@ bearcat_cmd('MD',$parmref);
 if ($out->{'state'} =~ /vfo/i) {bearcat_cmd('getvfo',$parmref);}   
 return ($parmref->{'rc'} = $rc);
 }
-elsif (($cmd eq 'manual') or ($cmd eq 'meminit')) {
-my $rc = $GoodCode;
-my %myin = ('key' => '1');
-$parmref->{'in'} = \%myin;
-if (bearcat_cmd('key',$parmref)) {return $parmref->{'rc'}}
-$parmref->{'write'} = FALSE;
-bearcat_cmd('MD',$parmref);
-bearcat_cmd('MA',$parmref);
-$parmref->{'in'} = $insave;
-return ($parmref->{'rc'} = $rc)
-}
-elsif ($cmd eq 'vfoinit') {
-if ($Debug2) {DebugIt("BEARCAT l1087:Got VFOINIT command");}
-return bearcat_cmd('getvfo',$parmref);
-}
-elsif ($cmd     eq 'scan') {
+elsif ($cmdcode =~ /scan/i) {
 if (bearcat_cmd("MD",$parmref)) {return $parmref->{'rc'};} ;
 if ($state_save{'state'} ne 'scan') {
 my %myin = ('key' => 0, 'hold' => 0, 'keyparm' => 0);
@@ -176,14 +160,12 @@ $parmref->{'in'} = $insave;
 }
 return ($parmref->{'rc'} = $GoodCode);
 }
-elsif ($cmd eq 'poll') {
+elsif ($cmdcode =~ /poll/i) {
 return ($parmref->{'rc'} = $GoodCode);
 }
-elsif ($cmd eq 'getvfo') {
+elsif ($cmdcode =~ /getvfo/i) {
 bearcat_cmd('MD',$parmref);
-if ($state_save{'state'} !~ /vfo/i) {
-return 0;
-}
+$parmref->{'write'} = FALSE;
 bearcat_cmd('SG',$parmref);
 bearcat_cmd('SQ',$parmref);
 if (!$out->{'sql'}) {$out->{'signal'} = 0;}
@@ -192,16 +174,41 @@ $parmref->{'write'} = FALSE;
 $out->{'sqtone'} = 'Off';
 return ($parmref->{'rc'});
 }
-elsif ($cmd eq 'getsig') {
+elsif ($cmdcode =~ /setvfo/i) {
+my $freq = $in->{'frequency'};
+if (!$freq) {
+add_message("BEARCAT_CMD:Invalid frequency 0 for SETVFO");
+return ($parmref->{'rc'} = $ParmErr);
+}
+if ($state_save{'state'} !~ /vfo/i) {
+my %myin = ('key' => 1, 'hold' => 0, 'keyparm' => 0);
+$parmref->{'in'} = \%myin;
+bearcat_cmd("KEY",$parmref);
+bearcat_cmd('MD',$parmref);
+$parmref->{'in'} = $insave;
+$state_save{'state'} = 'vfo';
+}
+if (!check_range($freq,$defref)) {
+add_message(rc_to_freq($freq) . " MHz is NOT valid for this radio");
+return ($parmref->{'rc'} = $NotForModel);
+}
+$parmref->{'write'} = TRUE;
+$parmref->{'_nomsg'} = TRUE;
+if (bearcat_cmd('RF',$parmref)) {
+return ($parmref->{'rc'} = $ParmErr);
+}
+usleep(100);
+$parmref->{'write'} = FALSE;
+return  ($parmref->{'rc'} = $GoodCode);
+}
+elsif ($cmdcode =~ /getsig/i) {
 $out->{'signal'} = 0;
 $out->{'sql'} = FALSE;
-if (bearcat_cmd('sq',$parmref)) {return ($parmref->{'rc'});}
-if ($out->{'sql'}) {
-bearcat_cmd('sg',$parmref);
-}
+if (bearcat_cmd('SQ',$parmref)) {return ($parmref->{'rc'});}
+bearcat_cmd('SG',$parmref);
 return ($parmref->{'rc'});
 }
-elsif ($cmd eq 'getmem') {
+elsif ($cmdcode =~ /getmem/i) {
 if ($Debug2) {DebugIt("BEARCAT l1234: 'getmem' started");}
 my $startstate = $progstate;
 my $maxcount = 300;
@@ -318,7 +325,7 @@ $out->{'count'} = $count;
 $out->{'sysno'} = $sysno;
 return ($parmref->{'rc'} );
 }### GETMEM
-elsif ($cmdcode eq 'setmem') {
+elsif ($cmdcode =~ /setmem/i) {
 my $max_count = 99999;
 my $options = $parmref->{'options'};
 if ($options->{'count'}) {$max_count = $options->{'count'};}
@@ -375,7 +382,9 @@ if (!$rc) {$rc = bearcat_cmd('PM',$parmref);}
 if (!$rc and $freq) {
 $rc = bearcat_cmd('LO',$parmref);
 if (!$rc) {$rc = bearcat_cmd('DL',$parmref);}
-set_tone($in->{'sqtone'},$parmref);
+if ($in{'mode'} =~ /fm/i) {
+set_tone($in{'sqtone'},$parmref);
+}
 }#$### Freq is NOT 0
 if (!$rc) {$count++;}
 if ($count >= $max_count) {
@@ -384,9 +393,10 @@ last;
 }
 }### For each FREQ record
 LogIt(0,"$Eol$Bold$Green$count$White Records stored.");
+$parmref->{'in'} = $insave;
 return 0;
 }### SETMEM
-elsif ($cmd eq 'selmem') {
+elsif ($cmdcode =~ /selmem/i) {
 if (!$in->{'channel'}) {
 add_message("BEARCAT_CMD:Invalid channel 0 for SELMEM");
 return ($parmref->{'rc'} = $ParmErr);
@@ -407,108 +417,36 @@ if (!$out->{'frequency'}) {$parmref->{'rc'} = $EmptyChan;}
 }
 return $parmref->{'rc'};
 }
-elsif ($cmd eq 'setvfo') {
-my $freq = $in->{'frequency'};
-if (!$freq) {
-add_message("BEARCAT_CMD:Invalid frequency 0 for SETVFO");
-return ($parmref->{'rc'} = $ParmErr);
-}
-if (!check_range($freq,$defref)) {
-add_message(rc_to_freq($freq) . " MHz is NOT valid for this radio");
-return ($parmref->{'rc'} = $NotForModel);
-}
-$parmref->{'write'} = TRUE;
-$parmref->{'_nomsg'} = TRUE;
-if (bearcat_cmd('RF',$parmref)) {
-bearcat_cmd('manual',$parmref);
-$parmref->{'write'} = TRUE;
-$parmref->{'_nomsg'} = FALSE;
-if (bearcat_cmd('RF',$parmref)) {return $parmref->{'rc'};}
-}
-$parmref->{'_nomsg'} = FALSE;
-usleep(100);
-$parmref->{'write'} = FALSE;
-bearcat_cmd('SG',$parmref);
-if (($freq != $out->{'frequency'}) and (!$parmref->{'_nowarn'})){
-LogIt(1,"BEARCAT l1715:Requested $freq but got $out->{'frequency'} set instead");
-}
-if ($state_save{'state'} ne 'vfo') { bearcat_cmd('MD',$parmref);}
-return  ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmdcode eq 'getglob') {
-my %myin = ();
-my %myout = ();
-my $writesave = $parmref->{'write'};
-$parmref->{'in'} = \%myin;
-$parmref->{'out'} = \%myout;
-$parmref->{'write'} = FALSE;
-$parmref->{'write'} = $writesave;
-$parmref->{'in'} = $insave;
-$parmref->{'out'} = $outsave;
-return ($parmref->{'rc'});
-}
-elsif ($cmdcode eq 'setglob') {
-my %myin = ();
-my %myout = ();
-my $writesave = $parmref->{'write'};
-$parmref->{'in'} = \%myin;
-$parmref->{'out'} = \%myout;
-$parmref->{'write'} = TRUE;
-$parmref->{'write'} = $writesave;
-$parmref->{'in'} = $insave;
-$parmref->{'out'} = $outsave;
-return ($parmref->{'rc'});
-}
-elsif ($cmdcode eq 'getsrch') {
+elsif ($cmdcode =~ /getglob/i) {
 return $NotForModel;
 }
-elsif ($cmdcode eq 'setsrch') {
+elsif ($cmdcode =~ /setglob/i) {
 return $NotForModel;
 }
-elsif ($cmdcode eq 'getinfo') {
-bearcat_cmd('init',$parmref);
-$out->{'chan_count'} = $defref->{'maxchan'};
-$out->{'model'} = $model;
-return ($parmref->{'rc'});
+elsif ($cmdcode =~ /getsrch/i) {
 }
-elsif ($cmd     eq 'test') {
+elsif ($cmdcode =~ /setsrch/i) {
+return $NotForModel;
 }
-elsif ($cmd eq 'ac') {
-add_message("Bearcat_CMD:AC command is NOT allowed from RadioCtl");
-return ($parmref->{'rc'} = 2);
+elsif ($cmdcode =~ /test/i) {
 }
-elsif ($cmd eq 'af') {
-}
-elsif ($cmd eq 'al') {
-}
-elsif ($cmd eq 'at') {
-}
-elsif ($cmd eq 'ar') {
-if ($parmref->{'write'}) {
-if (!defined $in->{'record'}) {
-}
-my $record = lc(Strip($in->{'record'}));
-if ($record) {$parmstr = 'N';}
-else {$parmstr = 'F';}
-}
-}
-elsif ($cmd eq 'BT') { }
-elsif ($cmd eq 'cc') {
-}
-elsif ($cmd eq 'cd') {
-if ($parmref->{'write'}) {
-$parmstr = $in->{'_cdtone'};
-}
-}
-elsif ($cmd eq 'cs') {
+elsif ($cmdcode eq 'CS') {
 if ($parmref->{'write'}) {
 $parmstr = $in->{'_cstone'};
 }
 }
-elsif ($cmd eq 'ct') {
-if ($parmref->{'write'}) {$parmstr = $in->{'_ctstate'};}
+elsif ($cmdcode eq 'CT') {
+if ($parmref->{'write'}) {
+if ($in->{'_cstate'}) {
+$parmstr = $in->{'_cstate'};
+}
+else {
+LogIt(1,"Bearcat 1805:Missing in->'_cstate'");
+$parmstr = '';
+}
+}
 }### CT preprocess
-elsif ($cmd eq 'dl') {
+elsif ($cmdcode eq 'DL') {
 if ($parmref->{'write'}) {
 if (!defined $in->{'dlyrsm'}) {
 }
@@ -517,19 +455,7 @@ if ($dlyrsm and (looks_like_number($dlyrsm)) and ($dlyrsm > 0 )) {$parmstr = 'N'
 else {$parmstr = 'F';}
 }
 }### DL preprocess
-elsif ($cmd eq 'ds') {
-}
-elsif ($cmd eq 'fi') { }
-elsif ($cmd eq 'ic') {
-}
-elsif ($cmd eq 'id') {
-}
-elsif ($cmd eq 'il') {
-}
-elsif ($cmd eq 'is') {
-}
-elsif ($cmd eq 'LL') { }
-elsif ($cmd eq 'key') {
+elsif ($cmdcode eq 'KEY') {
 if (!defined $in->{'key'}) {
 }
 my $key = $in->{'key'};
@@ -541,7 +467,7 @@ $parmstr = sprintf("%02.2u",$key);
 if ($in->{'hold'}) {$parmstr = $parmstr . "H";}
 if ($in->{'keyparm'}) {$parmstr = "$parmstr $in->{'keyparm'}";}
 }
-elsif ($cmd eq 'lo') {
+elsif ($cmdcode eq 'LO') {
 if ($parmref->{'write'}) {
 if (!defined $in->{'valid'}) {
 }
@@ -549,9 +475,7 @@ if ($in->{'valid'}) {$parmstr = 'F';}
 else {$parmstr = 'N';}
 }
 }### LO command
-elsif ($cmd eq 'lt') { }
-elsif ($cmd eq 'lu') { }
-elsif ($cmd eq 'ma') {
+elsif ($cmdcode eq 'MA')   {
 $out->{'channel'} = 0;
 $out->{'frequency'} = 0;
 $out->{'valid'} = FALSE;
@@ -568,12 +492,9 @@ return ($parmref->{'rc'} = $ParmErr);
 $parmstr = sprintf("%03.3u",$channel);
 }
 }
-elsif ($cmd eq 'md') {
+elsif ($cmdcode eq 'MD') {
 }
-elsif ($cmd eq 'MU') { }
-elsif ($cmd eq 'PC') { }
-elsif ($cmd eq 'PI') { }
-elsif ($cmd eq 'pm') {
+elsif ($cmdcode eq 'PM')   {
 my $channel = $in->{'channel'};
 if (!$channel) {
 LogIt(1,"BEARCAT_CMD channel = 0 for PM");
@@ -599,9 +520,9 @@ if ($parmref->{'write'}) {
 $parmstr = "$parmstr " . freq_rc2bear($in->{'frequency'});
 }
 }
-elsif ($cmd eq 'PR') { }
-elsif ($cmd eq 'QU') { }
-elsif ($cmd eq 'rf') {
+elsif ($cmdcode =~ /^pr/i) { }  
+elsif ($cmdcode =~ /^qu/i) { }  
+elsif ($cmdcode eq 'RF')   {
 if ($parmref->{'write'}) {
 my $freq = $in->{'frequency'};
 if (!$freq) {
@@ -612,25 +533,14 @@ return ($parmref->{'rc'});
 $parmstr = freq_rc2bear($freq);
 }
 }
-elsif ($cmd eq 'RG') { }
-elsif ($cmd eq 'RI') { }
-elsif ($cmd eq 'rm') {
+elsif ($cmdcode eq 'RM') {
 }
-elsif ($cmd eq 'SB') { }
-elsif ($cmd eq 'sg') {
+elsif ($cmdcode eq 'SG')   {
 }
-elsif ($cmd eq 'SI') { }
-elsif ($cmd eq 'sq') {
+elsif ($cmdcode =~ /^sq/i) {
 }
-elsif ($cmd eq 'SS') { }
-elsif ($cmd eq 'ST') { }
-elsif ($cmd eq 'TB') { }
-elsif ($cmd eq 'TD') { }
-elsif ($cmd eq 'TR') { }
-elsif ($cmd eq 'VR') { }
-elsif ($cmd eq 'WI') { }
 else {
-add_message("Warning! Bearcat command code $cmd no preprocess!");
+add_message("Warning! Bearcat command code $cmdcode no preprocess!");
 }
 SENDIT:
 my %sendparms = (
@@ -645,16 +555,24 @@ my %sendparms = (
 );
 my $retry = 1;
 RESEND:
-my $outstr = uc($cmd);
+my $outstr = uc($cmdcode);
 if ($cmdcode eq 'test') {$outstr = $parmstr}
 else {
+if (!defined $parmstr){
+LogIt(1,"Bearcat line 2192: Undefined 'parmstr'. Cmdcode=>$cmdcode");
+$parmstr = '';
+}
 $outstr = Strip("$outstr$parmstr");
 }
 if ($Debug3) {DebugIt("BEARCAT l2508:sent =>$outstr");}
 my $sent = $outstr;
 $outstr = $outstr . BEARCAT_TERMINATOR;
 WAIT:
-if (radio_send(\%sendparms,$outstr)) {
+my $rc2 = radio_send(\%sendparms,$outstr);
+if ($rc2) {
+if ($rc2 == 2) {
+LogIt(2358,"BEARCAT.PM: RADIO_SEND No open port detected!");
+}
 if ($cmdcode eq 'poll') {return ($parmref->{'rc'} = $GoodCode);}
 if (!$outstr) {
 if (!$parmref->{'_warn'}) {
@@ -709,41 +627,14 @@ return ($parmref->{'rc'} = $CommErr);
 }
 }
 elsif ($instring eq 'OK') {
-if ($Debug3) {DebugIt("Bearcat 2605:Got OK response to $cmd");}
+if ($Debug3) {DebugIt("Bearcat 2605:Got OK response to $cmdcode");}
 return ($parmref->{'rc'} = $GoodCode);
 }
-elsif ($cmd eq 'ac') {
-}
-elsif ($cmd eq 'af') {
-}
-elsif ($cmd eq 'al') {
-}
-elsif ($cmd eq 'ar') {
-if ($instring eq 'OK') { }
-else {
-if (substr($instring,0,2) ne 'AR') {
-add_message("BEARCAT_CMD-AR:Got return of $instring");
-return ($parmref->{'rc'} = 5);
-}
-if (substr($instring,2,1) eq 'F') {$out->{'record'} = FALSE;}
-elsif (substr($instring,2,1) eq 'N') {$out->{'record'} = TRUE;}
-else {
-add_message("BEARCAT_CMD-AR:Got return of $instring");
-return ($parmref->{'rc'} = 5);
-}
-}
-}### AR postprocess
-elsif ($cmd eq 'at') {
-}
-elsif ($cmd eq 'bt') {
-}
-elsif ($cmd eq 'cc') {
-}### CTCSS decode
-elsif ($cmd eq 'cd') {
+elsif ($cmdcode eq 'CD') {
 if ($instring =~ /ok/i) { }   
 else {$out->{'_cdtone'} = substr($instring,2);}
 }
-elsif ($cmd eq 'cs') {
+elsif ($cmdcode eq 'CS') {
 if ($instring eq 'OK') { }
 else {
 if (substr($instring,0,2) ne 'CS') {
@@ -753,7 +644,7 @@ return ($parmref->{'rc'} = 5);
 $out->{'_cstone'} = Strip(substr($instring,2));
 }
 }### CS command process
-elsif ($cmd eq 'ct') {
+elsif ($cmdcode eq 'CT') {
 if ($instring eq 'OK') { }
 else {
 if (substr($instring,0,2) ne 'CT') {
@@ -763,7 +654,7 @@ return ($parmref->{'rc'} = 5);
 $out->{'_ctstate'} = substr($instring,2,1);
 }
 }### CT process
-elsif ($cmd eq 'dl') {
+elsif ($cmdcode eq 'DL') {
 if ($instring eq 'OK') { }
 else {
 if (substr($instring,0,2) ne 'DL') {
@@ -778,22 +669,10 @@ return ($parmref->{'rc'} = 5);
 }
 }
 }## DL post process
-elsif ($cmd eq 'ds') {
-}
-elsif ($cmd eq 'fi') { }
-elsif ($cmd eq 'ic') {
-}
-elsif ($cmd eq 'id') {
-}
-elsif ($cmd eq 'il') {
-}
-elsif ($cmd eq 'is') {
-}
-elsif ($cmd eq 'LL') { }
-elsif ($cmd eq 'key') {
+elsif ($cmdcode eq 'KEY') {
 if ($instring ne 'OK') {$parmref->{'rc'} = $OtherErr;}
 }
-elsif ($cmd eq 'lo') {
+elsif ($cmdcode eq 'LO') {
 if ($instring eq 'OK') { }
 else {
 if (substr($instring,0,2) ne 'LO') {
@@ -808,13 +687,11 @@ return ($parmref->{'rc'} = $OtherErr);
 }
 }
 }### LO command
-elsif ($cmd eq 'LT') { }
-elsif ($cmd eq 'LU') { }
-elsif (($cmd eq 'ma') or ($cmd eq 'pm')) {
-if ($Debug3) {DebugIt("Bearcat 2911: $cmd returned $instring");}
-return parm_proc($parmref,$cmd);
+elsif (($cmdcode eq 'MA') or ($cmdcode eq 'PM')) {
+if ($Debug3) {DebugIt("Bearcat 2911: $cmdcode returned $instring");}
+return parm_proc($parmref,$cmdcode);
 }
-elsif ($cmd eq 'md') {
+elsif ($cmdcode eq 'MD') {
 if (substr($instring,0,2) ne 'MD') {
 LogIt(1,"BEARCAT_CMD l2715: MD:Got return of $instring");
 return ($parmref->{'rc'} = $OtherErr);
@@ -835,12 +712,7 @@ LogIt(1,"BEARCAT_CMD l2868:MD did not return any state number");
 return ($parmref->{'rc'} = $OtherErr);
 }
 }
-elsif ($cmd eq 'MU') { }
-elsif ($cmd eq 'PC') { }
-elsif ($cmd eq 'PI') { }
-elsif ($cmd eq 'PR') { }
-elsif ($cmd eq 'QU') { }
-elsif ($cmd eq 'rf') {
+elsif ($cmdcode eq 'RF') {
 if ($instring eq 'OK') { }
 else {
 if (substr($instring,0,2) ne 'RF') {
@@ -850,10 +722,8 @@ return ($parmref->{'rc'} = 5);
 $out->{'frequency'} = Strip(substr($instring,2)) . '00';
 }
 }
-elsif ($cmd eq 'RG') { }
-elsif ($cmd eq 'RI') { }
-elsif ($cmd eq 'rm') {
-if ($Debug3) {DebugIt("Bearcat 3002: $cmd returned $instring");}
+elsif ($cmdcode eq 'RM') {
+if ($Debug3) {DebugIt("Bearcat 3002: $cmdcode returned $instring");}
 my @flds = split " ",Strip($instring);
 if ($flds[0] ne 'RM') {
 LogIt(1,"BEARCAT_CMD-RM:Got $flds[0] instead of RM");
@@ -863,12 +733,10 @@ $out->{'mode'} = 'FMn';
 if ($flds[1] =~ /wfm/i) {$out->{'mode'} = 'FMw';}
 elsif ($flds[1] =~ /am/i) {$out->{'mode'} = 'AM';}
 }
-elsif ($cmd eq 'SB') { }
-elsif ($cmd eq 'sg') {
-return (parm_proc($parmref,$cmd));
+elsif ($cmdcode eq 'SG') {
+return (parm_proc($parmref,$cmdcode));
 }
-elsif ($cmd eq 'SI') { }
-elsif ($cmd eq 'sq') {
+elsif ($cmdcode eq 'SQ') {
 if ($instring eq '+') {
 $out->{'sql'} = TRUE;
 }
@@ -876,20 +744,13 @@ elsif ($instring eq '-') {
 $out->{'sql'} = FALSE;
 }
 else {
-LogIt(1,"unexpected value $instring for SQ. Waiting a bit...");
+LogIt(1,"Bearcat l2817:unexpected value $instring for SQ. Waiting a bit...");
 $outstr = '';
 goto WAIT;
 }
 }
-elsif ($cmd eq 'SS') { }
-elsif ($cmd eq 'ST') { }
-elsif ($cmd eq 'TB') { }
-elsif ($cmd eq 'TD') { }
-elsif ($cmd eq 'TR') { }
-elsif ($cmd eq 'VR') { }
-elsif ($cmd eq 'WI') { }
 else {
-add_message("Bearcat got response to $cmd. Need handler!");
+add_message("Bearcat got response to $cmdcode. Need handler!");
 }
 $parmref->{'rsp'} = FALSE;
 return $parmref->{'rc'};
@@ -955,14 +816,17 @@ elsif ($key eq 'signal') {
 if (looks_like_number($value)) {
 $value = $value + 0;
 $out->{'rssi'} = $value;
-my @rssi2sig = (0,15,17,19,21,22,23,24,25,26);
 my @meter =    (0, 1, 2, 3, 4, 5, 5, 5, 5, 5);
 my $signal = 0;
-foreach my $cmp (@rssi2sig) {
-if (!$cmp) {next;}
-if ($value < $cmp) {last};
-$signal++;
-}
+if ($value < 16) {$value = 0;}
+elsif ($value < 17) {$value = 1;}
+elsif ($value < 19) {$value = 2;}
+elsif ($value < 20) {$value = 3;}
+elsif ($value < 21) {$value = 4;}
+elsif ($value < 22) {$value = 6;}
+elsif ($value < 23) {$value = 7;}
+elsif ($value < 24) {$value = 8;}
+else {$value = 9;}
 $out->{'signal'} = $signal;
 $out->{'meter'} = $meter[$signal];
 }

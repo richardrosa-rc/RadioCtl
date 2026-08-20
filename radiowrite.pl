@@ -30,8 +30,8 @@ use scanner;
 use uniden;
 use icom;
 use kenwood;
-use aor8000;
 use bearcat;
+use aor;
 print "$Bold$Green RadioCtl$White Command Line Process$Red Rev=$White$Rev$Eol";
 my %opt_dply = (
 'dir' => "         $Bold$Cyan--dir$Yellow dir$Reset     Directory for output.        $Eol",
@@ -787,12 +787,15 @@ my $syscount = scalar @{$database{'system'}};
 if ($syscount > 1) {
 print "Found ",$syscount -1," possible systems for data generation\n";
 }
-else {LogIt(1947,"No systems were found to process!");}
+else {LogIt(1,"No systems were found to process!");}
 my $defref = '';
 if (scalar @radio) {
 my $name = lc($radio[0]);
 select_radio($name);
 $defref = \%radio_def;
+}
+else {
+LogIt(1,"No radio name given. Using default locations");
 }
 my $outfile = set_filespec('/BCDx36HP/f_000000.hpd','sddir',$defref);
 my ($filename,$path,$ext) = fileparse($outfile,qr/\.[^.]*/);
@@ -828,7 +831,7 @@ LogIt(1,"Could not open $profile_file for reading!");
 }
 }
 else {
-LogIt(1,"RADIOWRITE l1997:Existing profile:$Yellow$flist_file$White was not found!\n" .
+LogIt(1,"RADIOWRITE l1997:Existing profile:$Yellow$profile_file$White was not found!\n" .
 "   No updates will be made.");
 $config = 0;
 }
@@ -837,6 +840,7 @@ my %parms = ('sdcard' => \@sdcard,
 'dbase'  => \%database,
 'flist'  => \@flistrecs,
 'config' => $config,
+'profile_changed' => FALSE,
 );
 my $rc = uniden_sdcard(\%parms);
 my $count = scalar @sdcard;
@@ -870,6 +874,22 @@ print "RadioWrite l2112:Created $Bold$Yellow$flist_file$Eol";
 else {
 LogIt(2116,"RadioWrite l2115:Could not create $flist_file! Error=$!");
 }
+}
+if ($parms{'profile_changed'}) {
+my $backup = $profile_file . '_backup';
+`mv $profile_file $backup`;
+if (open OUTFILE,">$profile_file") {
+print OUTFILE @{$config};
+close OUTFILE;
+print $Bold,"$Yellow$profile_file$White was updated.$Eol";
+print $Bold,"  Backup copy=>$Yellow$backup$Eol";
+}
+else {
+LogIt(1,"Could not update $profile_file");
+}
+}
+else {
+print "No change to $profile_file\n";
 }
 print $Bold,"All SDCard files created on $path$Eol";
 exit $GoodCode;
@@ -935,7 +955,12 @@ else {
 print "Fetching SEARCH data...\n";
 my $rc = &$routine('getsrch',\%parmref);
 if ($rc) {
-LogIt(0,"FETCH l2383:$Bold GETSRCH routine from radio returned code $rc");
+if ($rc == $NotForModel) {
+LogIt(0,"Search record fetch bypassed. Not supported by this radio");
+}
+else {
+LogIt(1,"FETCH l2450:$Bold GETSRCH routine from radio returned code $rc");
+}
 }
 }
 if ($noglobals) {
@@ -944,7 +969,12 @@ print "Bypassing fetch of globals due to option$Eol";
 else {
 my $rc = &$routine('getglob',\%parmref);
 if ($rc) {
+if ($rc == $NotForModel) {
+LogIt(0,"Global fetch bypassed. Not supported for this radio");
+}
+else {
 LogIt(1,"FETCH l2396:$Bold GETGLOB routine from radio returned code $rc");
+}
 }
 }
 if ($protocol =~ /uniden/i) {
@@ -1112,7 +1142,7 @@ exit $GoodCode;
 else {LogIt(1,"No input records were processed! No file created.");}
 exit 1;
 }### HPD2CSV
-elsif ($cmd =~ /st/i) { 
+elsif ($cmd =~ /^st/i) {  
 my $radioname = shift @ARGV;
 if (!$radioname) {LogIt(2941,"No radio for STORE given!");}
 $bench{'start_write'} = time();
@@ -1189,7 +1219,12 @@ print "Skipping store of SEARCH records due to NOSEARCH option$Eol";
 else {
 $rc =  &$routine('setsrch',\%parmref);
 if ($rc) {
+if ($rc == $NotForModel) {
+LogIt(0,"Search records not stored. Not supported by this radio");
+}
+else {
 LogIt(1,"STORE 2706:$Bold SETSRCH routine from radio returned code $rc");
+}
 }
 }
 }## Search records available
@@ -1203,8 +1238,13 @@ print "Skipping store of GLOBAL records due to NOGLOBAL option$Eol";
 else {
 my $grc =  &$routine('setglob',\%parmref);
 if ($grc) {
+if ($grc == $NotForModel) {
+LogIt(0,"Globals not stored. Not supported by this radio");
+}
+else {
 LogIt(1,"STORE l2730:$Bold SETGLOB routine from radio returned code $grc");
-if (!$rc) {$rc = $grc}
+$rc = $grc
+}
 }
 }
 }### Global records available
@@ -1447,9 +1487,7 @@ my @freqlist = (25,30,40,75,80,
 800,850,900,950,999,
 );
 if ($testfrq) {
-print "Testfrq=>$testfrq\n";
-unshift @freqlist,$testfrq;
-print Dumper(@freqlist),"\n";
+@freqlist = ($testfrq);
 }
 my $ndx = -1;
 my $freq = -1;
@@ -1497,8 +1535,8 @@ next;
 }
 $lastdply = '.';
 }### setting frequency
-%out = ('sql'=> 0, 'signal'=> 0, 'meter' => 0, 'rssi'=> 0);
-if (&$routine('getsig',\%parmref)) {LogIt(1,"Radio is not responing");}
+%out = ('sql'=> 0, 'signal'=> 0, 'meter' => 0, 'rssi'=> 0, '_Mine' => 1);
+if (&$routine('getsig',\%parmref)) {LogIt(1,"Radio is not responding");}
 else {
 my $sql = $out{'sql'};
 if ($sql) {$sql = $Bold . 'Open ';}
@@ -1517,7 +1555,8 @@ my $dply = "freq=>$Bold$Yellow$freq MHz$Reset" .
 " squelch=>$sql$Reset " .
 " signal=>$Green$signal$Reset" .
 " meter=>$meter$Reset" .
-" rssi=>$Magenta$rssi$Reset";
+" rssi=>$Magenta$rssi$Reset" .
+"  (Q to quit)";
 print STDERR "\r$dply   ";
 my $rin;
 vec($rin, fileno(TTY), 1) = 1;
@@ -2010,6 +2049,84 @@ LogIt(0,"$Bold$Yellow$outfile created");
 else {LogIt(1,"Could not create $outfile");}
 }
 elsif ($cmd eq 'test') {
+my $radioname = 'ARDV1';
+select_radio($radioname);
+my $protocol = $radio_def{'protocol'};
+if (AutoBaud(\%parmref)) {
+LogIt(4521,"Failed to connect to radio:$radioname");
+}
+aor_cmd('init',\%parmref);
+%in = ('channel' => -1);
+%out = ();
+aor_cmd('selmem',\%parmref);
+print Dumper(%out),"\n";
+exit;
+$parmref{'write'} = TRUE;
+%in = ('sqtone' => 'CTC107.2',
+'vfo' => 'A',
+);
+aor_cmd('CN',\%parmref);
+aor_cmd('VF',\%parmref);
+print "Out=>",Dumper(%out),"\n";
+exit;
+%in = (
+'channel' => 0,
+'valid'=> TRUE,
+'frequency' => '123.456',
+'mode' => 'FMw',
+'service' => 'Wide FM',
+'bw' => '0',
+);
+aor_cmd('MX',\%parmref);
+aor_cmd('IF',\%parmref);
+aor_cmd('VF',\%parmref);
+aor_cmd('MR',\%parmref);
+%in = (
+'channel' => 1,
+'valid'=> FALSE,
+'frequency' => '345.789',
+'mode' => 'AMw',
+'service' => 'Wide AM',
+'bw' => '0',
+);
+aor_cmd('MX',\%parmref);
+aor_cmd('IF',\%parmref);
+aor_cmd('VF',\%parmref);
+aor_cmd('MR',\%parmref);
+exit;
+foreach my $mode (@modestring) {
+foreach my $audio (keys %audio_types) {
+my ($code,$bw) = rcmode2aor($mode,$audio,'DV1');
+if (!defined $code) {print "Undefined code\n";exit;}
+print "Sent $mode ($audio) received=>$code $bw\n";
+}
+}
+exit;
+%out = ();
+%in = ('bank' => 'A');
+$parmref{'write'} = FALSE;
+aor_cmd('BN',\%parmref);
+print "out->",Dumper(%out),"\n";
+exit;
+%in = ('channel' => 210,
+'valid' => TRUE,
+'frequency' => 123.45,
+'mode' => 'FMn',
+'service' => 'Test1',
+);
+aor_cmd('MX',\%parmref);
+aor_cmd('RX',\%parmref);
+print Dumper(%out),"\n";
+exit;
+foreach my $ch (0..49) {
+my $aorchan = 'C' . sprintf("%2.2u",$ch);
+$in{'aorchan'} = $aorchan;
+aor_cmd('MR',\%parmref);
+print "$aorchan => $out{'channel'} freq=>$out{'frequency'} ",
+"mode=>$out{'mode'} valid=>$out{'valid'} ",
+"atten=>$out{'atten'} service->$out{'service'}\n";
+}
+exit 0;
 exit 0;
 exit;
 }#### Test code section

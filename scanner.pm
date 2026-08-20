@@ -19,7 +19,7 @@ use kenwood;
 use bearcat;
 use uniden;
 use icom;
-use aor8000;
+use aor;
 use local;
 my $debug = FALSE;
 use strict;
@@ -1550,11 +1550,8 @@ return  $StateChange;
 tell_gui(5061);
 my $state_save = $progstate;
 $progstate = 'autobaud';
-foreach my $key ('baud','port') {
-if (defined $req{$key}) {$radio_def{$key} = $req{$key};}
-else {LogIt(5063,"Missing CONNECT request key $key");}
-}
 my %parmref = ('def' => \%radio_def);
+$Verbose = TRUE;
 if (AutoBaud(\%parmref)) {## was there an error?
 $radio_def{'active'} = FALSE;
 %scan_request = ('_cmd' => 'radio','connect' => 'disconnected');
@@ -2450,8 +2447,18 @@ my $chan = $vfo{'channel'};
 if ((!defined $chan) or (!looks_like_number($chan))) {$chan = -1;}
 if ($dir =~ /up/i) {$chan = $chan + 1;}
 else {$chan = $chan - 1;}
-if ($chan > $radio_def{'maxchan'}) {$chan = $radio_def{'origin'};}
-elsif ($chan < $radio_def{'origin'}) {$chan = $radio_def{'maxchan'};}
+my $maxchan = $radio_def{'maxchan'};
+if (!defined $maxchan) {
+print "SCANNER l7038: 'maxchan' not defined!\n";
+$maxchan = 100;
+}
+my $origin = $radio_def{'origin'};
+if (!defined $origin) {
+print "Scanner l7044: 'origin' not defined!\n";
+$origin = 0;
+}
+if ($chan > $maxchan) {$chan = $radio_def{'origin'};}
+elsif ($chan < $origin) {$chan = $origin;}
 $vfo{'channel'} = $chan;
 $vfo{'signal'} = 0;
 $local_vfo{'signal'} = 0;
@@ -2529,11 +2536,10 @@ $vfo{'index'} = $index;
 foreach my $key ('frequency','mode','sqtone') {
 $vfo{$key} = $database{'freq'}[$index]{$key};
 }
-my $att   = $database{'freq'}[$index]{'att_amp'};
 $vfo{'atten'} = FALSE;
 $vfo{'preamp'} = FALSE;
-if ($att =~ /att/i) {$vfo{'atten'} = TRUE;}
-elsif ($att =~ /pre/i) {$vfo{'preamp'} = TRUE;}
+if ($database{'freq'}[$index]{'atten'}) {$vfo{'atten'} = TRUE;}
+elsif ($database{'freq'}[$index]{'preamp'}) {$vfo{'preamp'} = TRUE;}
 my $retcode = radio_sync('setvfo',6064);
 if (!$retcode) {$retcode = radio_sync('getvfo',6065);}
 return $retcode;
@@ -2630,7 +2636,10 @@ $scan_request{$key} = $ref->{$key};
 if (($dbn eq 'freq') or ($dbn eq 'group')) {
 foreach my $recno (@records) {
 if (!$database{$dbn}[$recno]{'index'}) {
-LogIt(4798,"ADD_SHADOW:Called update for a non-existant record!");
+my ($pkg,$fn,$caller) = caller;
+print " Caller=>$fn:$caller  dbn=$dbn recno=$recno\n";
+print Dumper($database{$dbn}),"\n";
+LogIt(7619,"ADD_SHADOW:Called update for a non-existant record!");
 }
 shadow_sub($dbn,$recno,\%scan_request);
 }### for all records

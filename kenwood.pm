@@ -153,7 +153,7 @@ my $gotit = FALSE;
 if ($cmdcode eq 'init') {
 %state_save = ('state' => '', 'mode'  => '', 'atten' => -1, 'vfonum' => 1);
 $delay = 100;
-$defref->{'radioscan'} = FALSE;
+$defref->{'radioscan'} = 0;
 $defref->{'group'} = FALSE;
 @gui_modestring = ('WFM','FM','AM','LSB','USB','CW');
 @gui_bandwidth  = ();
@@ -195,31 +195,6 @@ kenwood_cmd('BC',$parmref);
 kenwood_cmd('VMC',$parmref);
 $parmref->{'in'} = $insave;
 return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmdcode eq 'vfoinit') {
-my %in = ();
-$parmref->{'in'} = \%in;
-if ($model ne THG71) {
-$parmref->{'write'} = TRUE;
-%in = ('vfosel' => 'b');
-if (kenwood_cmd('BC',$parmref)) {return ($parmref->{'rc'} = $ParmErr);}
-}
-else {$state_save{'vfonum'} = 0;}
-%in = ('state' => 'VFO');
-$parmref->{'write'} = TRUE;
-kenwood_cmd('VMC',$parmref);
-$parmref->{'write'} = FALSE;
-$parmref->{'in'} = $insave;
-return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmdcode eq 'meminit') {
-if ($Verbose) {print "Kenwood l1438: Calling MEMINIT\n";}
-my %in = ('state' => 'mem');
-$parmref->{'in'} = \%in;
-$parmref->{'write'} = TRUE;
-kenwood_cmd('VMC',$parmref);
-$parmref->{'in'} = $insave;
-return ($parmref->{'rc'});
 }
 elsif ($cmdcode eq 'scan') {
 return ($parmref->{'rc'} = $NotForModel);
@@ -600,22 +575,22 @@ if (defined $msg1) {
 $msg1 =~ s/\"//g; 
 if (($msg1 ne '') and ($msg1 ne '-') and ($msg1 ne '.')) {
 $set_msg = TRUE;
-$work_blk{'msg1'} = $msg1;
+$myin{'msg1'} = $msg1;
 }
 }### Msg1 defined
 my $light = $rec->{'light'};
 if ((defined $light) and ($light ne '') and ($light ne '.') and ($light ne '-')) {
 $set_backlight = TRUE;
-$work_blk{'light'} = 1;
+$myin{'light'} = 1;
 $light = Strip($light);
-if (($light =~ /off/i) or ($light eq '0')) {$work_blk{'light'} = 0;}
+if (($light =~ /off/i) or ($light eq '0')) {$myin{'light'} = 0;}
 }### Setting light
 my $beep = $rec->{'beep'};
 if ((defined $beep) and ($beep ne '') and ($beep ne '-') and ($beep ne '.')) {
 $set_beep = TRUE;
-$work_blk{'beep'} = 0;
-if ($beep =~ /on/i) {$work_blk{'beep'} = 1;}
-elsif (looks_like_number($beep) and ($beep > 0)) {$work_blk{'beep'} = 1;}
+$myin{'beep'} = 0;
+if ($beep =~ /on/i) {$myin{'beep'} = 1;}
+elsif (looks_like_number($beep) and ($beep > 0)) {$myin{'beep'} = 1;}
 }
 }### For every global record
 if ($set_msg) {
@@ -741,12 +716,6 @@ $dbndx++;
 $parmref->{'write'} = $writesave;
 $parmref->{'in'} = $insave;
 $parmref->{'out'} = $outsave;
-return ($parmref->{'rc'});
-}
-elsif ($cmdcode eq 'getinfo') {
-kenwood_cmd('init',$parmref);
-$out->{'chan_count'} = $defref->{'maxchan'};
-$out->{'model'} = $model;
 return ($parmref->{'rc'});
 }
 elsif ($cmdcode eq 'test') {
@@ -1158,7 +1127,11 @@ my $sent = $outstr;
 if ($outstr) {$outstr = $outstr . KENWOOD_TERMINATOR;}
 WAIT:
 if ($Debug3) {DebugIt("KENWOOD l3467:Waiting for Radio_Send..");}
-if (radio_send(\%sendparms,$outstr)) {### send with retry
+my $rc2 =  radio_send(\%sendparms,$outstr);
+if ($rc2) {
+if ($rc2 == 2) {
+LogIt(3529,"KENWOOD.PM: RADIO_SEND No open port detected!");
+}
 if ($cmdcode eq 'poll') {return ($parmref->{'rc'} = $GoodCode);}
 if (!$outstr) {
 if (!$parmref->{'_nowarn'}) {
@@ -1174,7 +1147,7 @@ else {
 $defref->{'rsp'} = 1;
 if (!$parmref->{'_nowarn'}) {
 LogIt(1,"no response to $outstr");
-add_message("KENWOOD_CMD l3491:Radio is not responding...");
+add_message("KENWOOD_CMD l34570Radio is not responding...");
 }
 }
 return ($parmref->{'rc'} = $CommErr);

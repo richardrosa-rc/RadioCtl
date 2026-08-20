@@ -750,11 +750,11 @@ my %hpdrecs = (
 'qkey','utag','hld','agc_analog','agc_digital',
 'endcode','priority','emgcol','emgpat','tgid_fmt'],
 'c-freq' => [ 'myid','parent','service','avoid','frequency','mode',
-'squelch', 'svcode','dlyrsm','voloff','emgalt','emglvl','emgcol','emgpat',
+'squelch','svcode','atten','dlyrsm','voloff','emgalt','emglvl','emgcol','emgpat',
 'utag','priority'],
 'site'   => [ 'myid','parent','service','avoid','lat','lon','radius',
 'mode','mottype','edacstype','loc_type','atten',
-'p25wait','p25mode','p25lvl','qkey','dsql','filter'],
+'p25wait','p25mode','p25lvl','dqkey','dsql','filter'],
 't-freq' => [ 'myid','parent','rsvrd','avoid','frequency','lcn','ccran'],
 'bandplan_mot' => [ 'myid','frequency_l1','frequency_u1','spacing_1','offset_1',
 'frequency_l2','frequency_u2','spacing_2','offset_2',
@@ -765,9 +765,6 @@ my %hpdrecs = (
 'loc_type','qkey'],
 'c-group' => [ 'myid','parent','service','avoid','lat','lon','radius',
 'loc_type','qkey','filter'],
-'c-freq'  => [ 'myid','parent','service','avoid','frequency','mode','squelch',
-'svcode','atten','dlyrsm','voloff','emgalt','emglvl','emgcol','emgpat',
-'utag','priority'],
 'tgid'  => [ 'myid','parent','service','avoid','tgid','adtype',
 'svcode','dlyrsm','voloff','emgalt','emglvl','emgcol','emgpat',
 'utag','priority','tslot'],
@@ -802,6 +799,30 @@ my %hpdrecs = (
 'qk_90','qk_91','qk_92','qk_93','qk_94','qk_95','qk_96','qk_97','qk_98','qk_99',],
 'areastate' => ['myid'],
 'areacounty' => ['myid'],
+'limitsearch' => ['myid','service','start_freq','end_freq','mode','step',
+'dlyrsm','atten','bank','avoid','reserved','reserved',
+'reserved','reserved','hld','agc_analog','agc_digital',
+'p25wait','digital_threshold','digital_threshold_level',
+],
+'globalsetting'=> ['scanhpdb','atten','reserved','priority','closecall','wx',
+'p-interval','p-max','srch-1','srch-2','srch-3',
+'lock','beep','vol',
+'sql','scanlist','searchwithscan',
+'sitenac','globalfilter',
+'AudioOffTime',
+'Headphone',
+],
+'toneout' =>  ['myid','service','reserved','frequency',
+'mode','toneout_a','toneout_b','atten',
+'dlyrsm','agc_analog',
+'emgalt','emglvl','emgcol','emgpat',
+],
+'ownerinfo' => ['msg1','msg2','msg3','msg4',],
+'ifxfreqs'  => ['reserved','freq1','freq2','freq3','freq4',
+'freq5','freq6','freq7','freq8',
+'freq9','freq10','freq11','freq12',
+'freq13','freq14','freq15','freq16'
+],
 );
 my %filter2sds = (
 'n' => 'Normal',
@@ -1201,6 +1222,11 @@ next;
 }
 $rec->{'channel'} = $channel;
 }
+my $dlyrsm = $rec->{'dlyrsm'};
+if ((!$dlyrsm) or (!looks_like_number($dlyrsm))) {$dlyrsm = 0;}
+elsif ($dlyrsm > 30) {$dlyrsm = 30;}
+elsif ($dlyrsm < -10) {$dlyrsm = -10;}
+$rec->{'dlyrsp'} = $dlyrsm;
 %work_blk = %{$rec};
 $work_blk{'lout'} = 0;
 if (!$work_blk{'valid'}) {$work_blk{'lout'} = 1;}
@@ -1697,6 +1723,11 @@ LogIt(1,"Consistency issue with System Quick-Key $Green$sqkey$White for system $
 }
 $sysrec->{'qkey'} = $sqkey;
 $sysrec->{'lout'} = 0;
+if (!$sysrec->{'dlyrsm'} or (!looks_like_number($sysrec->{'dlyrsm'}))) {
+$sysrec->{'dlyrsm'} = 0;
+}
+elsif ($sysrec->{'dlyrsm'} > 30) {$sysrec->{'dlyrsm'} = 30;}
+elsif ($sysrec->{'dlyrsm'} < -10) {$sysrec->{'dlyrsm'} = -10;}
 if ($p2 and ($sysrec->{'systemtype'} ne 'cnv')) {
 my $sitecount = 0;
 SITEPROC:   foreach my $siterec (@{$db->{'site'}}) {
@@ -1809,17 +1840,14 @@ next;
 $chanfound = TRUE;
 }
 }
-if ($chanfound) {
+if (!$chanfound) {
+LogIt(1,"SETMEM l4051:No channels assigned to group " .
+"$Yellow$grprec->{'service'}$White) ($Green$grpno$White). "
+);
+}
 if (!$firstgrprec) {$firstgrprec = $grprec;}
 $groupcnt++;
 if ($grprec->{'valid'}) {$validcnt++;}
-}
-else {
-LogIt(1,"SETMEM l4051:No channels assigned to group " .
-"$Yellow$grprec->{'service'}$White) ($Green$grpno$White). Group setting bypassed.");
-$grprec->{'_bypass'} = TRUE;
-next;
-}
 }### check for all groups
 if ((!$groupcnt) and (!$retcode)) {
 LogIt(1,"SETMEM l4061:No groups found for system  $Yellow$sysrec->{'service'}$White" .
@@ -2616,6 +2644,15 @@ next;
 my %newrec = ('channel' => $ch);
 foreach my $key (keys %work_blk) {
 if ($key eq 'index') {next;}
+elsif ($key eq 'dlyrsm') {
+if (looks_like_number($work_blk{$key})) {
+$newrec{$key} = $work_blk{$key};
+}
+elsif ($work_blk{$key} =~ /inf/i) {
+$newrec{$key} = -10;
+}
+else {$newrec{$key} = 0;}
+}
 else {$newrec{$key} = $work_blk{$key};}
 }
 my $ndx = add_a_record($db,'toneout',\%newrec,FALSE);
@@ -3001,20 +3038,22 @@ if ($value < 1) {$value = 0;}
 if ($value > 5) {$value = 5;}
 }
 else {
-if (FALSE) {
-if ($value < -8) {$value = -10;}
-elsif ($value < -4) {$value = -5;}
-elsif ($value <  0) {$value = -2;}
-elsif ($value <  3) { }
-elsif ($value <  7) {$value = 5;}
-elsif ($value <  20) {$value = 10;}
-else {$value = 30;}
-}
-}
 if ($blockname eq 'TON') {
-if ($value < 1) {$value = 0;}
+if ($value < 0 ) {
+$value = 'INF';
 }
+elsif ($value > 10) {$value = 30;}
+elsif ($value > 5) {$value = 10;}
+elsif ($value > 2) {$value = 5;}
+elsif ($value < 0 ) {$value = 0;}
+}
+else {
+if ($value > 30) {$value = 30;}
+elsif ($value < -10) {$value = -10;}
+}
+}### BCD325P2
 }### DLYRSM not 0
+else {$value = 0;}
 }
 elsif (($parm eq 'lat') or ($parm eq 'lon')) {
 my ($dec,$dms) = Lat_Lon_Parse($value,$parm);
@@ -3092,12 +3131,10 @@ else { $outstr = $sent . CR; }
 $parmref->{'sent'} = $sent;
 if ($Debug2) {DebugIt("UNIDEN l7204:sent=$sent cmdcode=>$cmdcode");}
 WAIT:
-if ($rc = radio_send(\%sendparms,$outstr)) {
-if ($rc eq '-2') {
-if ($parmref->{'_nowarn'}) {
-}
-else { LogIt(1,"UNIDEN.PM:No open port detected!");}
-return ($parmref->{'rc'} = $CommErr);
+my $rc2 = radio_send(\%sendparms,$outstr);
+if ($rc2) {
+if ($rc2 == 2) {
+LogIt(7457,"UNIDEN.PM: RADIO_SEND No open port detected!");
 }
 if ($Debug3) {DebugIt("UNIDEN l7216:Radio_Send returned $sendparms{'rcv'} retcode=$rc");}
 if ($sent) {
@@ -3152,6 +3189,7 @@ push @{$queue},{%qe};
 return $parmref->{'rc'};
 }
 my @retvalues = split ',',$instr;
+my @save_ret = @retvalues;
 my $retcmd = shift @retvalues;
 if (!$retcmd) {$retcmd = '';}
 if ($retcmd eq 'ERR') {
@@ -3531,6 +3569,18 @@ $value = $dec;
 elsif ($key =~ /ccode/i) {
 if ((!looks_like_number($value)) or ($value > 15)) {
 $value = 's';
+}
+}
+elsif ($key =~ /dlyrsm/i) {
+if ($value < -10) {
+LogIt(1,"L8633: Radio returned invalid DELAY value of $Red$value$White ".
+"for cmd: $Yellow$sent$White. Changed to$Green-10");
+$value = -10;
+}
+elsif ($value > 30) {
+LogIt(1,"L8638: Radio returned invalid DELAY value of $Red$value$White ".
+"for cmd: $Yellow$sent$White. Changed to$Green 30");
+$value =  30;
 }
 }
 else {
@@ -4235,6 +4285,7 @@ my $flist = $parms->{'flist'};
 if (!$flist) {
 LogIt(1,"Uniden l 10320:FLIST parm not specified, F_LIST.CFG will not be updated!");
 }
+my $config = $parms->{'config'};
 my $file = '';
 my %f_list = ();
 foreach my $rec (@{$flist}) {
@@ -4355,12 +4406,13 @@ if (!$service) {$service = "System $sysrec->{'index'}";}
 $service =~ s/\=//g;  
 my $sysqkey = $sysrec->{'qkey'};
 if ((!looks_like_number($sysqkey)) or ($sysqkey < 0)) {
-LogIt(1,"UNIDEN l10587:System $service  recno=>$recno " .
+LogIt(1,"UNIDEN l10756:System $service  recno=>$recno " .
 "Quickkey is not defined. System bypassed!");
 next SYSRCLOOP;
 }
 my $state = 'Off';
 if ($sysrec->{'valid'}) {$state = 'On';}
+$sysrec->{'valid'} = TRUE;
 if (defined $sysrec->{'turnqk'}) {
 if ($sysrec->{'turnqk'} =~ /on/i) {$state = 'On';}
 elsif ($sysrec->{'turnqk'} =~ /off/i) {$state = 'Off';}
@@ -4404,7 +4456,7 @@ $siterec->{'service'} = $site_name;
 $site_name = "$Cyan$site_name$White ($Green$siteno$White)";
 my ($qkey,$state) = set_dqkey($siterec,\%dqkey);
 if ($qkey < 0) {
-LogIt(1,"UNIDEN l10727:Cannot use site $site_name! " .
+LogIt(1,"UNIDEN l10861:Cannot use site $site_name! " .
 "No quickkey defined!");
 next SITERCLOOP;
 }
@@ -4473,10 +4525,10 @@ $grouprec->{'service'} = $service;
 my $group_name = "$Cyan$service$White ($Green$groupno$White)";
 my ($qkey,$state) = set_dqkey($grouprec,\%dqkey);
 if ($qkey < 0) {
-LogIt(1,"Uniden l10832: No quickkey assigned for group " .
+LogIt(1,"Uniden l10973: No quickkey assigned for group " .
 "$group_name\n" .
-"    Group will not be able to be selected!");
-print Dumper($grouprec),"\n";exit;
+"    Group cannot be used!");
+next;
 }
 $grouprec->{'valid'} = TRUE;
 $grouprec->{'loc_type'} = 'Circle';
@@ -4544,20 +4596,207 @@ $outrec = "$outrec$tab$value";
 push @{$flist},"$outrec$f_eol";
 }
 }### FLIST parm available
+if ($config) {
+print "Line 11109: Processing configuration file...\n";
+foreach my $rec (@{$db->{'search'}}) {
+if ($rec->{'index'}) {
+$rec->{'_added'} = FALSE;
+}
+}
+my %searches = ();
+foreach my $rec (@{$db->{'toneout'}}) {
+if ($rec->{'index'}) {
+$rec->{'_added'} = FALSE;
+}
+}
+CFGRECS:
+foreach my $rec (@{$config}) {
+my $newrec = $rec;
+chomp $newrec;
+$newrec =~ s/$f_eol//;   
+$newrec =~ s/\x0d//g;    
+$newrec =~ s/\x0a//g;    
+my @fields = split "\t",$newrec;
+my $rectype = shift @fields;
+if ($rectype =~ /globalsetting/i) { 
+my $beep = '.';
+foreach my $globrec (@{$db->{'global'}}) {
+if (!$globrec->{'index'}) {next;}
+if (!defined $globrec->{'beep'}) {next;}
+if ($globrec->{'beep'} ne '.') {$beep = $globrec->{'beep'};}
+}
+if ($beep ne '.') {
+my %record = ();
+my $ndx = 0;
+foreach my $key (@{$hpdrecs{'globalsetting'}}) {
+$record{$key} = $fields[$ndx];
+$ndx++;
+}
+$record{'beep'} = 'Off';
+if ($beep =~ /auto/i) {$beep = 'Auto';}
+elsif ($beep =~ /on/i) {$beep = 5;}
+elsif (looks_like_number($beep) and ($beep > 0)) {
+if ($beep > 15) {$beep = 15;}
+}
+if ($beep ne $record{'beep'}) {
+$record{'beep'} = $beep;
+$rec =~ s/\x0d//g;
+$rec =~ s/\x0a//g;
+$rec = rckey2hpd('GlobalSetting',\%record);
+$parms->{'profile_changed'} = TRUE;
+next CFGRECS;
+}### Changing the record
+}### RadioCtl BEEP value is set
+}### GlobalSetting process
+elsif ($rectype =~ /limitsearch/i) { 
+foreach my $dbrec (@{$db->{'search'}}) {
+if (!$dbrec->{'index'}) {next;}
+if ($dbrec->{'_added'}) {next;}
+my $start = $dbrec->{'start_freq'};
+my $stop = $dbrec->{'end_freq'};
+if (($start < $Radio_Limits{&SDS200}{'minfreq'}) or
+($start > $Radio_Limits{&SDS200}{'maxfreq'}) or
+($stop < $Radio_Limits{&SDS200}{'minfreq'}) or
+($stop  > $Radio_Limits{&SDS200}{'maxfreq'}) ) {
+LogIt(1,"Cannot use Search Record $Green$dbrec->{'_recno'}$White." .
+"  Frequency(s) out of range of radio");
+$dbrec->{'_added'} = TRUE;
+next;
+}
+$dbrec->{'myid'} = $fields[0];
+$dbrec->{'digital_threshold'} = $fields[18];
+$dbrec->{'digital_threshold_level'} = $fields[19];
+if (!$dbrec->{'service'}) {$dbrec->{'service'} = "(unnamed)";}
+if ($dbrec->{'valid'}) {$dbrec->{'bank'} = 'On';}
+else {
+$dbrec->{'bank'} = 'Off';
+$dbrec->{'valid'} = TRUE;
+}
+$rec =~ s/\x0d//g;
+$rec =~ s/\x0a//g;
+$rec = rckey2hpd('LimitSearch',$dbrec);
+$parms->{'profile_changed'} = TRUE;
+$dbrec->{'_added'} = TRUE;
+next CFGRECS;
+}### Looking for all the search records
+}### LimitSearch record
+elsif ($rectype =~ /toneout/i) { 
+foreach my $dbrec (@{$db->{'toneout'}}) {
+if (!$dbrec->{'index'}) {next;}
+if ($dbrec->{'_added'}) {next;}
+my $freq = $dbrec->{'frequency'};
+if (($freq < $Radio_Limits{&SDS200}{'minfreq'}) or
+($freq > $Radio_Limits{&SDS200}{'maxfreq'}) ) {
+LogIt(1,"Cannot use Toneout Record $Green$dbrec->{'_recno'}$White." .
+"  Frequency out of range of radio");
+$dbrec->{'_added'} = TRUE;
+next;
+}
+$dbrec->{'myid'} = $fields[0];
+if ($dbrec->{'service'}) {
+$fields[1] = $dbrec->{'service'};
+}
+else {$fields[1] = '(unnamed)';}
+$dbrec->{'mode'} = 'NFM';
+$rec =~ s/\x0d//g;
+$rec =~ s/\x0a//g;
+$rec = rckey2hpd('ToneOut',$dbrec);
+$parms->{'profile_changed'} = TRUE;
+$dbrec->{'_added'} = TRUE;
+next CFGRECS;
+}### Searching for Toneout records
+}
+elsif ($rectype =~ /ownerinfo/i) {
+my @msg = ();
+foreach my $globrec (@{$db->{'global'}}) {
+if (!$globrec->{'index'}) {next;}
+if ((!defined $globrec->{'msg1'}) or
+($globrec->{'msg1'} eq '')  or
+($globrec->{'msg1'} eq '-') or
+($globrec->{'msg1'} eq '.') ) {next;}
+@msg = ();
+$msg[0] = $globrec->{'msg1'};
+$msg[1] = $globrec->{'msg2'};
+$msg[2] = $globrec->{'msg3'};
+$msg[3] = $globrec->{'msg4'};
+foreach my $msg (@msg) {
+if (!defined $msg) {$msg = '';}
+elsif (length($msg) > 24) {$msg = substr($msg,0,24);}
+}
+}#### Looking at Globals
+if ($msg[0]) {
+my %record = ('msg1' => $msg[0],
+'msg2' => $msg[1],
+'msg3' => $msg[2],
+'msg4' => $msg[3]
+);
+$rec =~ s/\x0d//g;
+$rec =~ s/\x0a//g;
+$rec = rckey2hpd('OwnerInfo',\%record);
+$parms->{'profile_changed'} = TRUE;
+next CFGRECS;
+}### Found a power on message
+}### OwnerInfo record
+elsif ($rectype =~ /backlight/i) {
+}
+elsif ($rectype =~ /ifxfreqs/i) {
+if (FALSE) {
+my %freqs = ();
+my @empty = ();
+foreach my $ndx(1..16) {
+if ($fields[$ndx]) {
+my $freq = Strip($fields[$ndx]);
+if ($freqs{$freq}) {### Already assigned
+LogIt(1,"Duplicate IfxFreqs $freq found");
+next;
+}
+$freqs{$freq} = $ndx;
+}
+else {push @empty,$ndx;}
+}
+foreach my $dbrec (@{$db->{'ifxchng'}}) {
+if (!$dbrec->{'index'}) {next;}
+my $freq = $dbrec->{'frequency'};
+if ($freqs{$freq}) {next;}
+if (($freq < $Radio_Limits{&SDS200}{'minfreq'}) or
+($freq > $Radio_Limits{&SDS200}{'maxfreq'}) ) {
+LogIt(1,"Cannot use IFXCHNG Record $Green$dbrec->{'_recno'}$White." .
+"  Frequency out of range of radio");
+next;
+}
+my $ndx = -1;
+if (scalar @empty) {
+$ndx = pop @empty;
+}
+else {
+LogIt(1,"Out of free slots for IFXCHANG. Freqs specified will overwrite");
+$ndx = 1;
+@empty = (2,3,4,5,6,7,8,9,10,11,12,13,14,15,16);
+}
+$fields[$ndx] = $freq;
+$freqs{$freq} = $ndx;
+}### For all database records
+my $newrec = "IfxFreqs";
+foreach my $ndx (0..17) {
+my $value = $fields[$ndx];
+if (!$value) {$value = '';}
+$newrec = "$newrec\t$value";
+}
+$rec =~ s/\x0d//g;
+$rec =~ s/\x0a//g;
+$rec = "$newrec$f_eol";
+}### Not processing this record
+}
+elsif ($rectype =~ /quickkeys/i) {
+}
+else {
+}
+}
+}
+else {
+print "Line 11112: No configuration file to process\n";
+}
 return 0;
-while (FALSE) {
-}### For every SYSTEM record
-@{$flist} = ();
-push @{$flist},"TargetModel\tBCDx36HP$f_eol";
-push @{$flist},"FormatVersion\t1.00$f_eol";
-foreach my $fn (sort keys %f_list) {
-my $rec = 'F-List';
-foreach my $key (@{$hpdrecs{'f-list'}}) {
-my $value = $f_list{$fn}{$key};
-$rec = "$rec\t$value";
-}
-push @{$flist},"$rec$f_eol";
-}
 return $retcode;
 }### UNIDEN_SDCARD
 sub rckey2hpd {
@@ -4587,7 +4826,10 @@ elsif (($key =~ /agc/i) or
 ($key eq 'priority') or
 ($key eq 'id_search') or
 ($key eq 'atten') ) {
-if ($value) {$value = 'On';}
+if (!$value) {$value = 'Off';}
+elsif ($value =~ /on/i) {$value = 'On';}
+elsif ($value =~ /off/i) {$value = 'Off';}
+elsif ($value) {$value = 'On';}
 else {$value = 'Off';}
 }
 elsif ($key eq 'p25lvl') {
@@ -4602,8 +4844,11 @@ $value = 'Srch';
 }
 }
 elsif ($key eq 'p25wait') {
-if (!$value) {$value = 400;}
-if (!looks_like_number($value)) {$value = 400;}
+if ((!$value) or (!looks_like_number($value))) {
+$value = 400;
+}
+elsif ($value > 1000) {$value = 1000;}
+elsif ($value < 0) {$value = 400;}
 }
 elsif ($key eq 'emgalt') {
 if (!$value) {$value = 'Off';}
@@ -4640,7 +4885,7 @@ else {$value = 'Ignore';}
 }
 elsif ($key eq 'mode') {
 if ($value =~ /auto/i) {
-$value = 'AUTO';
+$value = 'Auto';
 my ($package,$caller,$callerline) = caller();
 }
 else {
@@ -4649,11 +4894,15 @@ $value = rc2mode($value);
 }
 elsif ($key eq 'dlyrsm') {
 if (!$value) {$value = 0;}
-if ($value < -8) {$value = -10;}
-elsif ($value < 0) {$value = -5;}
-elsif ($value < 6) { }
-elsif ($value < 20) {$value = 10;}
+elsif ($value < 0) {
+if ($hpdrc =~ /tone/i) {$value = 'Infinite';}
+elsif ($value < -10) {$value = -10;}
+elsif ($value < 0 ) {$value = -5;}
+elsif ($value < 6 ) {
+}
+elsif ($value < 11) {$value = 10;}
 else {$value = 30;}
+}
 }
 elsif ($key eq 'adtype') {
 if (!$value) {$value = 'ALL';}
@@ -4716,7 +4965,30 @@ if (!$value) {$value = 'Off';}
 if ($filter2sds{$value}) {$value = $filter2sds{$value}}
 }
 elsif ($key eq 'hld') {
-if (!looks_like_number($value)) {$value = 0;}
+if ((!$value) or (!looks_like_number($value))) {$value = 0;}
+elsif ($value < 0 ) {$value = 0;}
+elsif ($value > 255) {$value = 255;}
+}
+elsif ($key eq 'service') {
+if (length($value) > 64) {$value = substr($value,0,64);}
+}
+elsif ($key eq 'step') {
+if (looks_like_number($value)) {
+if ($value < 5000) {$value = 5000;}
+elsif ($value <= 6250 ) {$value = 6250;}
+elsif ($value <= 7500 ) {$value = 7500;}
+elsif ($value <= 8333 ) {$value = 8333;}
+elsif ($value <= 10000) {$value = 10000;}
+elsif ($value <= 12500) {$value = 12500;}
+elsif ($value <= 15000) {$value = 15000;}
+elsif ($value <= 20000) {$value = 20000;}
+elsif ($value <= 25000) {$value = 25000;}
+elsif ($value <= 50000) {$value = 50000;}
+else  {$value = 100000;}
+}
+else {$value = 'Auto';}
+}### Step value
+else {
 }
 $outrec = "$outrec\t$value";
 }

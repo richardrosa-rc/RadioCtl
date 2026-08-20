@@ -835,6 +835,7 @@ my %status_ctl = ();
 my @status_keys = ('sysno','groupno','index','bank','lookup');
 my @status2_keys = ('delay','resume');
 foreach my $key (@status_keys,@status2_keys) {$status_ctl{$key} = Gtk3::Label->new('0');}
+my %port_xref = ();
 my $connect_status = Gtk3::Button->new_with_label("");
 $connect_status->signal_connect(pressed =>
 sub {
@@ -846,7 +847,8 @@ $port = '';
 }
 else {
 $baud  = $combo{'baud'}->get_active_text();
-$port  = $combo{'port'}->get_active_text();
+my $port_name  = $combo{'port'}->get_active_text();
+$port = $port_xref{$port_name};
 }
 my %req = ('_cmd' => 'connect',
 'baud' => $baud, 'port' =>$port,
@@ -1862,7 +1864,7 @@ if ($mode =~ /wf/i) {$bw = '(';}
 if (($mode !~ /fm/i) and ($bw =~ /u/i)) {$bw = 'n';}
 my $vmode_key = $rc_modes{uc($mode)};
 if (!$vmode_key) {
-print "RadioCtl 5106:Empty VMODE_KEY for mode=$mode vfo_mode=>$vfo_mode<=\n";
+print "RadioCtl 5129:Empty VMODE_KEY for mode=$mode vfo_mode=>$vfo_mode<=\n";
 $vmode_key = 'FM';
 }
 $ctl_value{'vmode'} = $vmode_key;
@@ -1901,7 +1903,6 @@ if (defined $value) {
 my $index = $combo_text{$ctl}{lc($value)};
 if (!defined $index) {
 print "RADIOCTL l5078:Got bad index for $ctl => $value\n";
-print Dumper($combo_text{$ctl}),"\n";
 next;
 }
 $combo{$ctl}->set_active($index);
@@ -2157,7 +2158,10 @@ $default_baud = $All_Radios{$radiosel}{'default_baud'};
 $default_port = Strip($default_port);
 if ($default_port) {
 if (-e $default_port) {
-push @ports,$default_port;
+my $portname = uc($radiosel);
+if (length($portname) > 10) {$portname = substr($portname,0,10);}
+push @ports,$portname;
+$port_xref{$portname} = $default_port;
 }
 else {
 if ($Verbose) {
@@ -2168,7 +2172,7 @@ $default_port = '';
 }
 else {
 if ($Verbose) {
-print "RadioCtl.pl line 5901:No default port specified for $radiosel$Eol";
+print "RadioCtl.pl line 5973:No default port specified for $radiosel$Eol";
 }
 }
 if ($default_baud) {push @bauds,$default_baud;}
@@ -2176,8 +2180,9 @@ if ($default_baud) {push @bauds,$default_baud;}
 foreach my $dev ('/dev/ttyACM*','/dev/ttyUSB*') {
 my @list = sort glob($dev);
 foreach my $port (@list) {
-if ($default_port and ($port eq $default_port)) {next;}
-push @ports,$port;
+my ($portname) = $port =~ /\/dev\/(.*)/; 
+push @ports,uc($portname);
+$port_xref{$portname} = $port;
 }### For each port in the device type list
 }### For each device type
 foreach my $baud (reverse sort numerically keys %baudrates) {
