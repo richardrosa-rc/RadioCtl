@@ -21,25 +21,27 @@ use constant LOCAL => 'LOCAL';
 $Radio_Limits{&LOCAL} = {
 'minfreq'  =>        30,
 'maxfreq'  =>MAXFREQ ,
-'maxchan'  =>       999,
+'maxchan'  =>       9999,
 'origin'   =>         1,
 'radioscan'=>     FALSE,
 'sigdet'   =>         2,
 'memory'   =>      'ro',
 };
 my %local = ();
-my @localgroups = ('','AM Radio','Ham Radio','Fire','FM Radio', 'Air','Police','Railroad');
+my @localgroups = ('','AM Radio','Ham Radio','Fire','FM Radio', 'Air','Police','Railroad','Schools','Parks');
 my @freqsamp = (
 {'groupno' => 1, 'frequency' => '   770000', 'mode' => 'AM', 'service' => 'WABC-AM',   'dlyrsm' => -3,'preamp' => 1,'valid' => 0},
 {'groupno' => 1, 'frequency' => '  1390000', 'mode' => 'AM', 'service' => 'WEOK-AM',   'dlyrsm' => 10,'valid' => 0},
 {'groupno' => 2, 'frequency' => '  7019000', 'mode' => 'LS','service' => '40 meters', 'dlyrsm' => -5,'valid' => 0},
 {'groupno' => 2, 'frequency' => ' 28300000', 'mode' => 'AM ','service' => '10 meters', 'dlyrsm' =>  5,'valid' => 0},
-{'groupno' => 3, 'frequency' => ' 46460000', 'mode' => 'FMn','service' => 'UC Fire  ', 'dlyrsm' => -1,'valid' => 0,'tone_type' =>'ctcss','tone' => '94.8'},
+{'groupno' => 3, 'frequency' => ' 46460000', 'mode' => 'FMn','service' => 'UC Fire  ', 'dlyrsm' => -1,'valid' => 0,'sqtone' =>'ctc94.8'},
 {'groupno' => 4, 'frequency' => '101500000', 'mode' => 'FMw','service' => 'WPDH-FM  ', 'dlyrsm' =>  1,'valid' => 0,'atten' => 1},
-{'groupno' => 3, 'frequency' => '154205000', 'mode' => 'FMn','service' => 'OC Fire  ', 'dlyrsm' => -4,'valid' => 1,'tone_type' =>'dcs', 'tone' => '047' },
+{'groupno' => 3, 'frequency' => '154205000', 'mode' => 'FMn','service' => 'OC Fire  ', 'dlyrsm' => -4,'valid' => 1,'sqtone' =>'dcs047' },
 {'groupno' => 8, 'frequency' => '160950000', 'mode' => 'FMn','service' => 'MetroNorth','dlyrsm' =>  4,'valid' => 1},
 {'groupno' => 5, 'frequency' => '162475000', 'mode' => 'FMn','service' => 'NOAA     ', 'dlyrsm' => -2,'valid' => 1},
 {'groupno' => 7, 'frequency' => '460187500', 'mode' => 'FMn','service' => 'DC-911   ', 'dlyrsm' =>  2,'valid' => 1},
+{'groupno' => 8, 'frequency' => '151995000', 'mode' => 'FMn','service' => 'SUNY     ', 'dlyrsm' =>  2,'valid' => 1,'adtype'=>'DM'},
+{'groupno' => 9, 'frequency' => '166950000', 'mode' => 'FMn','service' => 'FDR      ', 'dlyrsm' =>  2,'valid' => 1,'adtype'=>'P2'},
 );
 my @searchsamp = (
 {'start_freq' =>  30000000, 'end_freq' =>  50000000, step => 10000, mode => 'FMn', 'valid' => TRUE, 'service' => 'Low Band' },
@@ -96,43 +98,23 @@ my $outsave = $out;
 my $db = $parmref->{'database'};
 my $rc = 0;
 if ($cmd eq 'init') {
+print "Called LOCAL_CMD=>$cmd\n";
 $model = LOCAL;
 foreach my $key (keys %{$Radio_Limits{$model}}) {
 $defref->{$key} = $Radio_Limits{$model}{$key};
 }
 $defref->{'model'} = $model;
 @gui_modestring = ('FM','WFM','AM','LSB','USB','CW','CW-R','RTTY','RTTY-R');
-@gui_bandwidth = @bandwidthstring;
-@gui_adtype = ();
+@gui_bandwidth = ('(none)','Wide','Medium','Narrow','U_Narrow');
+@gui_adtype = ('ANALOG','P25','DMR','NXDN','VN-NXDN','DSTAR');
 @gui_attstring = @attstring;
-@gui_tonestring = @alltones;
+@gui_tonestring =  (@ctctone,@dcstone[1..$#dcstone]);  
 $defref->{'delay'} = 3000;
 $local_vfo{'signal'} = 0;
 return ($parmref->{'rc'} = $GoodCode);
 }### Init
-elsif ($cmd eq 'manual') {
-return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmd eq 'vfoinit') {
-$local_vfo{'signal'} = 0;
-return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmd eq 'meminit') {
-$local_vfo{'signal'} = 0;
-my $channel = 1;
-$local_vfo{'channel'} = $channel;
-foreach my $key (keys %{$local{'freq'}[$channel]}) {
-my $value = $local{'freq'}[$channel]{$key};
-$local_vfo{$key} = $value;
-$out->{$key} = $value;
-}
-return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmd eq 'poll') {
-return ($parmref->{'rc'} = $GoodCode);
-}
 elsif ($cmd eq 'getvfo') {
-foreach my $key ('frequency','mode','preamp','sqtone','atten',
+foreach my $key ('frequency','mode','preamp','sqtone','atten','adtype',
 'service',) {
 my $value = $local_vfo{$key};
 if (!$value) {
@@ -154,12 +136,13 @@ if (!check_range($freq,$defref)) {
 add_message(rc_to_freq($freq) . " MHz is NOT valid for this radio");
 return ($parmref->{'rc'} = $NotForModel);
 }
-foreach my $key ('frequency','mode','sqtone','atten','preamp') {
+foreach my $key ('frequency','mode','sqtone','atten','preamp','adtype') {
 if (defined $in->{$key}) {
 my $value = $in->{$key};
 if (!$value) {
 if ($key =~ /mode/i) {$value = 'FMn';}
 elsif ($key =~ /tone/i) {$value = 'off';}
+elsif ($key =~ /adtype/i) {$value = 'AD';}
 else {$value = 0;}
 }
 $local_vfo{$key} = $value;
@@ -293,12 +276,6 @@ if (!$rec->{'index'}) {next;}
 add_a_record(\%local,'search',$rec,$parmref->{'gui'});
 }
 return ($parmref->{'rc'} = $GoodCode);
-}
-elsif ($cmd eq 'getinfo') {
-bearcat_cmd('init',$parmref);
-$out->{'chan_count'} = (scalar @{$local{'freq'}}) - 1;
-$out->{'model'} = 'Local';
-return ($parmref->{'rc'});
 }
 elsif ($cmd eq 'getsig') {
 foreach my $key (keys %local_vfo) {

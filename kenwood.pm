@@ -155,6 +155,7 @@ if ($cmdcode eq 'init') {
 $delay = 100;
 $defref->{'radioscan'} = 0;
 $defref->{'group'} = FALSE;
+$defref->{'pass'} = FALSE;
 @gui_modestring = ('WFM','FM','AM','LSB','USB','CW');
 @gui_bandwidth  = ();
 @gui_adtype = ();
@@ -286,6 +287,7 @@ if (!looks_like_number($ch)) {
 LogIt(1,"KENWOOD l1675:SELMEM - Channel $ch is non-numeric.");
 return ($parmref->{'rc'} = $ParmErr);
 }
+$ch = $ch + 0;
 if (($ch < $defref->{'origin'}) or ($ch > $defref->{'maxchan'})) {
 LogIt(1,"KENWOOD l1680:SELMEM - Channel $ch out of range of radio.");
 return ($parmref->{'rc'} = $NotForModel);
@@ -447,6 +449,7 @@ return ($parmref->{'rc'} = $GoodCode);
 }
 elsif ($cmdcode eq 'setmem') {
 if ($model eq THD74) {return $NotForModel;}
+if (!$db->{'freq'}[1]{'index'}) {return $EmptyChan;}
 my $max_count = 99999;
 my $options = $parmref->{'options'};
 if ($options->{'count'}) {$max_count = $options->{'count'};}
@@ -465,6 +468,7 @@ if ((!looks_like_number($channel)) or ($channel < 0) ) {
 print "Channel number $emsg is not defined. Skipped\n";
 next;
 }
+$channel = $channel + 0;
 if (($channel < $defref->{'origin'}) or ($channel > $defref->{'maxchan'})) {
 print "\nChannel number $channel $emsg is not within range of radio. Skipped\n";
 next;
@@ -558,6 +562,7 @@ $parmref->{'out'} = $outsave;
 return ($parmref->{'rc'});
 }
 elsif ($cmdcode eq 'setglob') {
+if (!$db->{'global'}[1]{'index'}) {return $EmptyChan;}
 my %myin = ();
 my %work_blk = ();
 my $writesave = $parmref->{'write'};
@@ -674,6 +679,7 @@ return ($parmref->{'rc'});
 }
 elsif ($cmdcode eq 'setsrch') {
 return $NotForModel;
+if (!$db->{'search'}[1]{'index'}) {return $EmptyChan;}
 my %myin = ();
 my %myout = ();
 my $startstate = $progstate;
@@ -1124,6 +1130,7 @@ $outstr = Strip("$outstr $parmstr");
 }
 if ($Debug3) {DebugIt("KENWOOD l3611:sent =>$outstr");}
 my $sent = $outstr;
+$parmref->{'_sent'} = $sent;
 if ($outstr) {$outstr = $outstr . KENWOOD_TERMINATOR;}
 WAIT:
 if ($Debug3) {DebugIt("KENWOOD l3467:Waiting for Radio_Send..");}
@@ -1154,6 +1161,7 @@ return ($parmref->{'rc'} = $CommErr);
 }
 }
 $instr = $sendparms{'rcv'};
+$parmref->{'_returned'} = $instr;
 if ($Debug3) {DebugIt("KENWOOD l3612:Radio returned=>$instr command=>$cmdcode");}
 if ($defref->{'rsp'}) {add_message("Radio is responding again...");}
 $defref->{'rsp'} = 0;
@@ -1356,7 +1364,7 @@ else {$out->{'spltone'} = '';}
 }
 }### Split read pass
 else {
-foreach my $key ('frequency','mode','valid','shift','rev') {
+foreach my $key ('frequency','mode','valid','shift','rev','fstep') {
 if (!$pkt{$key}) {$pkt{$key} = 0;}
 $out->{$key} = $pkt{$key};
 }
@@ -1562,14 +1570,17 @@ return $packet
 sub memory_packet {
 my $dbref = shift @_;
 my @packet = @_;
-foreach my $key ('frequency','step','tone','shift','step','reverse','valid') {$dbref->{$key} = 0;}
+foreach my $key ('frequency','step','tone','shift','reverse','valid') {$dbref->{$key} = 0;}
 $dbref->{'mode'} = 'FM';
+$dbref->{'fstep'} = '.';
 $dbref->{'frequency'} =  $packet[0];
 if (!$dbref->{'frequency'}) {
 $dbref->{'frequency'} = 0;
 return 0;
 }
-if ($packet[1]) {$dbref->{'step'} = $packet[1];}
+my $step_code = $packet[1];
+if ($step_code) {$dbref->{'fstep'} = $steps{$step_code}{'step'};}
+else {$dbref->{'fstep'} = 5000;}
 if ($packet[2]) {$dbref->{'shift'} = $packet[2];}
 if ($packet[3]) {$dbref->{'rev'} = $packet[3];}
 if ($packet[11]) {$dbref->{'mode'} = $modes[$packet[11]]; }

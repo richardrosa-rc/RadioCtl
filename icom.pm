@@ -256,6 +256,7 @@ $Radio_Limits{&R8600} = {
 'scangrp'      => 9,
 'digital'      => TRUE,
 'dcs'          => TRUE,
+'pass'         => TRUE,
 };
 $Radio_Limits{&IC7300}  = {
 'minfreq'      =>  030000,
@@ -821,6 +822,7 @@ $myout{'channel'} = $channel;
 $myout{'dlyrsm'} = 0 ;
 $myout{'groupno'} = $grpndx;
 $myout{'splfreq'} = '';
+$myout{'fstep'} = '.';
 $myin{'channel'} = $channel;
 my $rc = 0;
 if ($nodup and $duplist{$channel}) {
@@ -840,6 +842,13 @@ if (!$rc) {get_r30_display($parmref);}
 }### IC-R30
 elsif (defined $direct_format{$model}) {
 $rc =  $rc = icom_cmd('_memory_direct',$parmref);
+if ($rc) {
+if ($rc ne $EmptyChan) {
+print "\n Line 3380:Memory direct failed:",
+"sent=>$parmref->{'_sent'}",
+"returned=>$parmref->{'_returned'} rc=$rc\n";
+}
+}
 }
 else {
 my $ignore = $parmref->{'_nowarn'};
@@ -879,6 +888,7 @@ return ($parmref->{'rc'} = $GoodCode);
 elsif ($cmd eq 'setmem') {
 if ($Debug2) {DebugIt("ICOM_CMD:Starting 'setmem' command");}
 if ($model eq ICR30) {return $NotForModel;}
+if (!$db->{'freq'}[1]{'index'}) {return $EmptyChan;}
 my $max_count = 99999;
 my $options = $parmref->{'options'};
 if ($options->{'count'}) {$max_count = $options->{'count'};}
@@ -1108,6 +1118,7 @@ $state_save{'cmd'} = $cmd;
 }
 elsif ($cmd eq 'setglob') {
 return ($parmref->{'rc'} = $NotForModel);
+if (!$db->{'global'}[1]{'index'}) {return $EmptyChan;}
 if ($Debug2) {DebugIt("ICOM_CMD:Starting 'setglob' command");}
 $state_save{'cmd'} = $cmd;
 foreach my $rec (@{$db->{'global'}}) {
@@ -1135,6 +1146,9 @@ return ($parmref->{'rc'} = $GoodCode);
 }
 elsif ($cmd eq 'getsrch') {
 if ($Debug2) {DebugIt("ICOM_CMD:Starting 'getsrch' command");}
+my $options = $parmref->{'options'};
+my $noskip = FALSE;
+if ($options->{'noskip'}) {$noskip = TRUE;}
 my %myin = ();
 my %myout = ();
 my $writesave = $parmref->{'write'};
@@ -1142,14 +1156,12 @@ $parmref->{'in'} = \%myin;
 $parmref->{'out'} = \%myout;
 $parmref->{'write'} = FALSE;
 my $retcode =  $NotForModel;
-if ($model eq R8600) {
+if (($model eq R8600)){
 my $count = 0;
 my $address = 1020000;
 my $chno = 0;
 while ($address < 1020099) {
-if (!$parmref->{'gui'}) {
 print STDERR "\rReading channel:$Bold$Green" . sprintf("%08.8u",$chno) . $Reset ;
-}
 $myin{'channel'} = $address;
 $address++;
 my $rc = icom_cmd('_memory_direct',$parmref);
@@ -1164,24 +1176,32 @@ if ($rc) {
 LogIt(1,"Cannot read Stop frequency for $chno");
 }
 else {
+if ($start_freq or $noskip) {
 my %search = (
 'valid' => TRUE,
 'start_freq' => $start_freq,
 'end_freq' => $myout{'frequency'},
 'step' => $myout{'step'},
 'mode' => $myout{'mode'},
+'adtype' => $myout{'adtype'},
 'channel' => $chno,
 'service' => $myout{'service'},
 );
 add_a_record($db,'search',\%search,$parmref->{'gui'});
 $count++;
+}
+else {
+if ($Verbose) {
+print "Skipping empty SEARCH channel $chno\n";
+}
+}### Start freq is 0
 }### Both calls worked
 }### First call worked
 $address++;
 $chno++;
 }
 $retcode = $GoodCode;
-print STDERR "$Eol$Bold$Green$count$White scan records were Fetched$Eol";
+print STDERR "$Eol$Bold$Green$count$White SEARCH records were Fetched$Eol";
 }### R8600
 elsif ($model eq ICR30) {
 $retcode = $NotForModel;
@@ -1198,88 +1218,249 @@ $parmref->{'in'} = $insave;
 $parmref->{'write'} = $writesave;
 return ($parmref->{'rc'} = $retcode);
 }### GETSRCH
+elsif ($cmd eq 'getpass') {
+my $retcode =  $NotForModel;
+my $options = $parmref->{'options'};
+my $noskip = FALSE;
+if ($options->{'noskip'}) {$noskip = TRUE;}
+my %myin = ();
+my %myout = ();
+my $writesave = $parmref->{'write'};
+$parmref->{'in'} = \%myin;
+$parmref->{'out'} = \%myout;
+$parmref->{'write'} = FALSE;
+if ($model eq R8600) {
+my $count = 0;
+my $address = 1010000;
+my $chno = 0;
+while ($address < 1010100) {
+print STDERR "\rReading pass channel:$Bold$Green" . sprintf("%08.8u",$chno) . $Reset ;
+$myin{'channel'} = $address;
+my $rc = icom_cmd('_memory_direct',$parmref);
+if ($rc) {
+LogIt(1,"Cannot read pass frequency for $chno");
+next;
+}
+if ($myout{'frequency'} or $noskip) {
+my %pass = (
+'frequency' => $myout{'frequency'},
+'channel' => $chno,
+'bankno' => 0,
+);
+add_a_record($db,'passfreq',\%pass);
+$count++;
+}
+else {
+if ($Verbose) {
+print "Skipping empty PASS channel $chno\n";
+}
+}
+$address++;
+$chno++;
+}### For all pass addresses
+$retcode = $GoodCode;
+print STDERR "$Eol$Bold$Green$count$White PASS records were Fetched$Eol";
+}### R8600 model
+print STDERR $Eol;
+$parmref->{'out'} = $outsave;
+$parmref->{'in'} = $insave;
+$parmref->{'write'} = $writesave;
+return ($parmref->{'rc'} = $retcode);
+}
 elsif ($cmd eq 'setsrch') {
 if ($Debug2) {DebugIt("ICOM_CMD:Starting 'setsrch' command");}
+if (!$db->{'search'}[1]{'index'}) {return $EmptyChan;}
+if ($model ne R8600) {return $NotForModel;}
 my %myin = ();
 my %myout = ();
 my $writesave = $parmref->{'write'};
 $parmref->{'in'} = \%myin;
 $parmref->{'out'} = \%myout;
 $parmref->{'write'} = TRUE;
-my $retcode =  $NotForModel;
-if ($model eq R8600) {
-my %chlist = ();
-foreach my $srchrec (@{$db->{'search'}}) {
-if (!$srchrec->{'index'}) {next;}
-my $ch = $srchrec->{'channel'};
-if ((defined $ch) and ($ch ne '') and (looks_like_number($ch))) {
-$chlist{$ch} = $srchrec->{'index'};
-}
-}
-my $srch_base = 1020000;
-my $ch = 0;
 my $count = 0;
-foreach my $srchrec (@{$db->{'search'}}) {
-if (!$srchrec->{'index'}) {next;}
-my $recno = $srchrec->{'_recno'};
+my %stored = ();
+foreach my $rec (@{$db->{'search'}}) {
+if (!$rec->{'index'}) {next;}
+my $recno = $rec->{'_recno'};
 if (!$recno) {$recno = '??';}
 my $emsg = "in record $recno";
-%myin = ();
-foreach my $key (keys %{$srchrec}) {
-$myin{$key} = $srchrec->{$key};
+my $start_freq = $rec->{'start_freq'};
+if (!$start_freq) {
+LogIt(1,"'0' start frequency is NOT allowed in record $recno. Ignoring");
+next;
 }
-my $start = $srchrec->{'start_freq'};
-my $stop = $srchrec->{'end_freq'};
-if (!$start or !$stop) {next;}
-while ($chlist{$ch}) {$ch++;}
-my $address = $srch_base + ($ch * 2);
-my $dplych = $ch;
-my $srch_ch = $srchrec->{'channel'};
-if ((defined $srch_ch) and ($srch_ch ne '') and (looks_like_number($srch_ch))) {
-if ($srch_ch < 50) {
-$address = $srch_base + ($srch_ch * 2);
-$dplych = $srch_ch;
+my $end_freq = $rec->{'end_freq'};
+if (!$end_freq) {
+LogIt(1,"'0' end frequency is NOT allowed in record $recno. Ignoring");
+next;
 }
+my $step = $rec->{'step'};
+if (!$step) {
+LogIt(1,"'0' step frequency is NOT allowed in record $recno. Ignoring");
+next;
 }
-if ($address > ($srch_base + 99)) {last;}
-$myin{'channel'} = $address;
-$myin{'frequency'} = $start;
+my $channel = $rec->{'channel'};
+if (!defined $channel) {$channel = '-';}
+if ((!looks_like_number($channel)) or ($channel < 0) or ($channel > 49)) {
+LogIt(1,"Channel $channel is not valid for this radio");
+next;
+}
+if ($start_freq == $end_freq) {$end_freq = $end_freq + $step;}
+$channel = $channel + 0;
+if ($stored{$channel}) {
+print "\n ";
+LogIt(1,"Duplicate channel $Green$channel$White found in record $Yellow$recno");
+}
+$stored{$channel} = TRUE;
+my $srch_base = 1020000;
+%myin = (
+'frequency' => $start_freq,
+'mode' => $rec->{'mode'},
+'step' => $step,
+'service' => $rec->{'service'},
+'adtype' => $rec->{'adtype'},
+'atten'  => $rec->{'atten'},
+'valid' => TRUE,
+'channel' => $srch_base + ($channel * 2),
+);
 print STDERR "\rSETMEM: Writing search channel $Bold$Green",
-sprintf("%08.8u",$dplych), "  $Reset";
+sprintf("%08.8u",$channel),
+" adtype=>$myin{'adtype'} $Reset";
 $rc = icom_cmd('_memory_direct',$parmref);
 if ($rc) {
-print STDERR "\n Cannot set START for SEARCH record $recno\n";
+print STDERR "\n Cannot set Start frequency SEARCH record $channel $emsg\n";
 }
 else {
 $myin{'channel'}++;
-$myin{'frequency'} = $stop;
+$myin{'frequency'} = $end_freq;
 $rc = icom_cmd('_memory_direct',$parmref);
 if ($rc) {
-print STDERR "\n Cannot set STOP for SEARCH record $recno\n";
+print STDERR "\n Cannot set End frequency for SEARCH record $channel $emsg\n";
 }
 else {$count++;}
 }
-$ch++;
-if ($ch > 99) {last;}
-}### For every search record
-print STDERR "$Eol$Bold$Green$count$White scan records were successfully Stored$Eol";
-$retcode = $GoodCode;
-}### R8600
-elsif ($model eq ICR30) {
-$retcode =  $NotForModel;
-}
-elsif ($model eq IC705) {
-$retcode =  $NotForModel;
+}### For each search record
+if ($count) {
+print "$Bold$Green$count$White search records were stored in the radio$Eol";
 }
 else {
-$retcode =  $NotForModel;
+print "$Bold NO Search records were stored in the radio!";
 }
 print STDERR $Eol;
 $parmref->{'out'} = $outsave;
 $parmref->{'in'} = $insave;
 $parmref->{'write'} = $writesave;
-return ($parmref->{'rc'} = $retcode);
+return ($parmref->{'rc'} = $GoodCode);
 }### SETSRCH
+elsif ($cmd eq 'setpass') {
+my $retcode =  $NotForModel;
+if ($Debug2) {DebugIt("ICOM_CMD:Starting 'SETPASS' command");}
+if (!$db->{'passfreq'}[1]{'index'}) {return $EmptyChan;}
+my %myin = ();
+my %myout = ();
+my $writesave = $parmref->{'write'};
+$parmref->{'in'} = \%myin;
+$parmref->{'out'} = \%myout;
+$parmref->{'write'} = TRUE;
+if ($model eq R8600) {
+my %newdb = ();
+my $dbsave = $parmref->{'database'};
+$parmref->{'database'} = \%newdb;
+$parmref->{'options'}->{'noskip'} = TRUE;
+icom_cmd('getpass',$parmref);
+$parmref->{'database'} = $dbsave;
+my %freq = ();
+my @free = ();
+foreach my $rec (@{$newdb{'passfreq'}}) {
+if (!$rec->{'index'}) {next;}
+my $ch = $rec->{'channel'};
+my $fq = $rec->{'frequency'};
+if (looks_like_number($fq)) {$fq = $fq + 0;}
+else {$fq = 0;}
+if (!$fq) {
+push @free,$ch;
+}
+else {
+push @{$freq{$fq}},$ch;
+}
+}
+my $count = 0;
+my $delcount = 0;
+my $igrp = '01010000';
+foreach my $rec (@{$db->{'passfreq'}}) {
+if (!$rec->{'index'}) {next;}
+my $fq = $rec->{'frequency'};
+if (looks_like_number($fq)) {$fq = $fq + 0;}
+else {$fq = 0;}
+if (!$fq) {next;}
+my $rcfq = rc_to_freq($fq);
+if ($rec->{'remove'}) {
+if ($freq{$fq}) {
+foreach my $ch (@{$freq{$fq}}) {
+%myin = ('channel' =>  $igrp +$ch,
+'frequency' => 0,
+);
+if (icom_cmd('_memory_direct',$parmref)) {
+LogIt(1,'ICOM line 4739:Removal failed');
+}
+else {
+$delcount++;
+push @free,$ch;
+}
+}
+delete $freq{$fq};
+}### If this key is defined
+else {
+LogIt(1,"frequency $rcfq" .
+"is not set in this radio's pass memory");
+print "freq=>$fq freqs=>",Dumper(%freq),"\n";
+}
+}### Removal
+else {
+my $ch = $rec->{'channel'};
+if ((!defined $ch) or (!looks_like_number($ch)) or ($ch < 0) or ($ch > 99)) {
+if (scalar @free) {
+$ch = shift @free;
+print "Assigning channel $ch for $rcfq\n";
+}
+else {
+LogIt(1,"No free channels for automatic assignment!" .
+"ignoring frequency $rcfq");
+next;
+}### No free channels
+}### Automatic channel needed
+%myin = (
+'channel' => $igrp +$ch ,
+'frequency' => $fq,
+'service' => "Pass channel $ch",
+'mode' => 'FMn',
+'sqtone' => '',
+'valid' => 1,
+'step' => 100,
+);
+$rc = icom_cmd('_memory_direct',$parmref);
+if ($rc) {
+print STDERR "\n Cannot set PASS for channel $ch record=>",Dumper($rec),"\n";
+print Dumper(%myin),"\n";
+}
+else {
+$count++;
+}
+}### Not a removal
+}### For every pass frequency
+if ($count) {
+print STDERR "$Eol$Bold$Green$count$White pass records were successfully Stored$Eol";
+}
+if ($delcount) {
+print STDERR "$Eol$Bold$Green$delcount$White pass records were successfully removed$Eol";
+}
+$retcode = $GoodCode;
+}#### R8600
+$parmref->{'out'} = $outsave;
+$parmref->{'in'} = $insave;
+$parmref->{'write'} = $writesave;
+return ($parmref->{'rc'} = $retcode);
+}
 elsif ($cmd eq 'getsig') {
 if ($Debug3) {DebugIt("ICOM_CMD:Starting 'getsig' command");}
 $out->{'signal'} = 0;
@@ -1586,11 +1767,18 @@ my $fmt = $direct_format{$mdl};
 my $skip_flag = 0;
 my $split_flag = 0;
 my $select_flag = 0;
-my $chfmt = sprintf("%08.8u",$channel);
+my $chfmt = sprintf("%06.6u",$channel);
+if ($channel > 9999) {
+$chfmt =  sprintf("%08.8u",$channel);
+}
+my $igrp = substr($chfmt,0,4);
+my $chan = sprintf("%04.4u",substr($chfmt,-2,2));
+$in->{'_reqchan'} = "$igrp$chan";
+my $onebyte = substr($chfmt,4);
 my %data = (
-'igrp'      => substr($chfmt,0,4),
-'chan'      => substr($chfmt,4,4),
-'1bchan'    => substr($chfmt,6,2),
+'igrp'      => $igrp,
+'chan'      => $chan,
+'1bchan'    => $onebyte,
 'split'     => '00',
 'flag1'     => '00',
 'select'    => '00',
@@ -1763,7 +1951,13 @@ if ($in->{'valid'}) {$bit6 = '1';}
 if ($split_flag) {$bit7 = '1';}
 my $hex = hex($bit7 + ($bit6 * 2));
 $data{'flag1'} = sprintf("%02.2X",$hex);
-my $step = $in->{'step'};
+my $step = '';
+if (looks_like_number($in->{'fstep'})) {
+$step = $in->{'fstep'};
+}
+elsif (looks_like_number($in->{'step'})) {
+$step = $in->{'step'};
+}
 if ($step) {
 if ($step > 999900) {$step = 999900;}
 if ($step < 100) {$step = 100;}
@@ -1945,6 +2139,7 @@ return ($parmref->{'rc'} = $ParmErr);
 my $baud = $defref->{'baud'};
 my $port = $defref->{'port'};
 $sendhex = $sendhex . 'FD';
+$parmref->{'_sent'} = $sendhex;
 my $outstr = pack("H*",$sendhex);
 my $outlen = length($outstr);
 my $resend = 3;
@@ -2021,7 +2216,7 @@ goto RESEND;}
 }
 }### No response
 }
-$parmref->{'rcv_packet'} = $rcvhex;
+$parmref->{'_returned'} = $rcvhex;
 if ($Debug3) {
 DebugIt("ICOM l6256:recv packet =@rcv_packet");
 }
@@ -2357,6 +2552,7 @@ $out->{'channel'} = -1;
 $out->{'_ts'} = '';
 $out->{'_pts'} = '';
 $out->{'step'} = '';
+$out->{'fstep'} = '.';
 $out->{'spltone'} = '';
 my $mdl = $model;
 my $igrp = 0;
@@ -2383,18 +2579,23 @@ my @grp = (shift @rcv_packet, shift @rcv_packet);
 $shift++;
 $shift++;
 $igrp = bcd2num(\@grp,FALSE,'1886');
+$igrp =  sprintf("%04.4u",$igrp);
 }### Group number process
 elsif ($fld eq 'chan') {
 my @memchan = (shift @rcv_packet, shift @rcv_packet);
 $shift++;
 $shift++;
 my $ch = bcd2num(\@memchan,FALSE,'7233');
-$ch = sprintf("%04.4i",$ch);
-$igrp =  sprintf("%04.4i",$igrp);
+if ($ch > 99) {
+LogIt(1,"Got channel > 99. Ignoring input record");
+return ($OtherErr);
+}
+my $req_chan = $igrp . sprintf("%4.4u",$ch);
+$ch = sprintf("%02.2u",$ch);
 my $channel = "$igrp$ch";
 $channel = $channel + 0;
-if ($channel != ($in->{'channel'})) {
-my $emsg = "ICOM got info for ch $channel but requested $in->{'channel'}!";
+if ($req_chan != ($in->{'_reqchan'})) {
+my $emsg = "ICOM got info for ch $req_chan but requested $in->{'_reqchan'}!";
 LogIt(1,$emsg);
 return ($parmref->{'rc'} = $OtherErr);
 }
@@ -2548,6 +2749,7 @@ $out->{'_tson'} = $ts_on;
 if (($ts < 14) and ($ts > 0)) {
 my $step = $step_code{&R8600}[$ts + 0];
 $out->{'step'} = $step_code{&R8600}[$ts + 0];
+$out->{'fstep'} = $out->{'step'};
 }
 else {
 }
@@ -2559,6 +2761,7 @@ $out->{'_pts'} = "$lb$hb";
 my $value = "$hb$lb";
 if ($out->{'_ts'} eq '14') {
 $out->{'step'} = $value + 0;
+$out->{'fstep'} = $out->{'step'};
 }
 if (!$out->{'step'}) {
 print "ICOM Line 7862:STEP was not set!. ts=$out->{'_ts'} pts=$out->{'_pts'} tson=$out->{'_tson'}\n";
@@ -3304,6 +3507,7 @@ if ($adtype =~ /p2/i) {return '1601';}
 elsif ($adtype =~ /ds/i) {return '1701';} 
 elsif ($adtype =~ /vn/i) {return '1901';} 
 elsif ($adtype =~ /nx/i) {return '2001';} 
+elsif ($adtype =~ /au/i) {return '0502';} 
 else {print "ICOM l9312:$imodel does not support digital mode $adtype\n";}
 }
 if ($rcmode =~ /fmw/i) {return '0501';}
@@ -3331,6 +3535,7 @@ if ($rcmode =~ /wf/i) {return '0601';}
 elsif ($rcmode =~ /fm/i) {### For FM modulation allow digital
 if ($adtype and ($adtype !~ /an/i)) {
 if ($adtype =~ /ds/i) {return '1701';} 
+elsif ($adtype =~ /au/i) {return '0502';} 
 else {print "ICOM l9350:$imodel does not support digital mode $adtype\n";}
 }
 if ($rcmode =~ /fmw/i) {return '0501';}
@@ -3367,6 +3572,7 @@ if ($adtype =~ /p2/i)    {return "16$bc";}
 elsif ($adtype =~ /ds/i) {return "17$bc";} 
 elsif ($adtype =~ /vn/i) {return "19$bc";} 
 elsif ($adtype =~ /nx/i) {return "20$bc";} 
+elsif ($adtype =~ /au/i) {return "05$bc";} 
 else {print "ICOM l9415:$imodel does not support digital mode $adtype\n";}
 }
 return "05$bc";

@@ -30,7 +30,7 @@ LogRad %OneOnly %All_Radios $defaultradio
 %system_type_valid %baudrates %color_xlate @xlate_color
 $Red $Bold $Green $Blue $Magenta $Cyan $Yellow $White $Reset $Eol $Rev $Blink
 %OptDescript %Options $Debug @Warning_Log @Error_Log @Info_Log
-%known_locations
+%known_locations Step_Check Channel_Sort @audiostring
 TrueFalse LogIt Strip Time_format Lat_Lon_Parse Parms_Parse Time_Format ConfigFileProc BenchMark
 write_log str_cmpr $fdigits $fdecimal check_range
 @gui_modestring @gui_bandwidth @gui_adtype @gui_tonestring @gui_attstring %audio_types
@@ -50,7 +50,7 @@ use autovivification;
 no  autovivification;
 use Scalar::Util qw(looks_like_number);
 use strict;
-our  $Rev = '0.4.122';
+our  $Rev = '0.4.123';
 use constant MAXCHAN         => 9999;
 use constant MAXINDEX        => 99999;
 use constant MAXFREQ         => 9999999999;
@@ -133,7 +133,12 @@ our %audio_types = (
 'NX' => 'NXDN',
 'VN' => 'VN-NXDN',
 'DS' => 'DSTAR',
+'AU' => 'Auto'
 );
+our @audiostring =();
+foreach my $key (sort keys %audio_types) {
+push @audiostring,$audio_types{$key};
+}
 our @alltones = ('Off');
 our @ctctone = ('Off');
 our %valid_rpt = (
@@ -211,6 +216,7 @@ radioscan  => 0,
 signal     => 2,
 active     => FALSE,
 group      => FALSE,
+pass       => FALSE,
 baudrate   => 115200,
 port       => "(none)",
 portset    => FALSE,
@@ -235,12 +241,13 @@ our %flagchar = (
 'preamp'       => 'm',
 'i_call'       => 'o',
 'priority'     => 'p',
+'remove'       => 'r',
 's_bit'        => 't',
 'vsc'          => 'v',
 'moto_id'      => 'x',
 );
 our %extra_char = (
-'aorchan' => {'freq'   => TRUE,'search'=> TRUE},
+'aorchan' => {'freq'   => TRUE,'min' => 0},
 'emgalt'  => {'system' => TRUE,'freq'  => TRUE,'min' => 1},
 'emglvl'  => {'system' => TRUE,'freq'  => TRUE,'min' => 1},
 'emgpat'  => {'system' => TRUE,'freq'  => TRUE,'min' => 1},
@@ -296,6 +303,26 @@ our @system_type = (
 );
 our %system_type_valid = ();
 foreach my $st (@system_type) {$system_type_valid{$st} = TRUE;}
+my %skip_empty = (
+'qkey' => TRUE,
+'dsql' => TRUE,
+'lat'  => TRUE,
+'lon'  => TRUE,
+'radius' => TRUE,
+'site_number' => TRUE,
+'sqtone'      => TRUE,
+'utag'   => TRUE,
+'tgid_valid' => TRUE,
+'dlyrsm' => TRUE,
+'count' => TRUE,
+'signal'=> TRUE,
+'duration' => TRUE,
+'atten' => TRUE,
+'preamp' => TRUE,
+'vsc'  => TRUE,
+'polarity' => TRUE,
+'splfreq' => TRUE,
+);
 our %version1 = (
 system => ['index',
 'service',
@@ -386,6 +413,7 @@ freq   => ['index',
 'dlyrsm',
 'tgid',
 'adtype',
+'fstep',
 '_extra',
 ],
 'log' => ['index',
@@ -408,6 +436,7 @@ search => ['index',
 'dlyrsm',
 'hld',
 'utag',
+'adtype',
 ],
 toneout => [
 'index',
@@ -433,9 +462,12 @@ ifxchng => [
 'index',
 'frequency',
 ],
-lockfreq => [
+passfreq => [
 'index',
 'frequency',
+'bankno',
+'channel',
+'flags',
 ],
 favorites => [
 'index',
@@ -591,6 +623,7 @@ freq   => [
 'channel',
 'frequency',
 'mode',
+'adtype',
 'sqtone',
 'dlyrsm',
 'service',
@@ -603,10 +636,10 @@ freq   => [
 'timestamp',
 '_guiend',
 '_noshow',
-'adtype',
 'lat',
 'lon',
 '_raw',
+'fstep',
 'tgid_valid',
 'atten',
 'preamp',
@@ -626,7 +659,6 @@ freq   => [
 'tslot',
 'spltone',
 'splfreq',
-'aorchan',
 ],
 search  => [
 'index',
@@ -638,6 +670,7 @@ search  => [
 'service',
 '_guiend',
 '_raw',
+'adtype',
 'agc_analog',
 'agc_digital',
 'atten',
@@ -648,7 +681,6 @@ search  => [
 'qkey',
 'utag',
 'channel',
-'aorchan',
 ],
 lookup => [
 'index',
@@ -657,9 +689,12 @@ lookup => [
 ],
 tag => [
 ],
-lockfreq => [
+passfreq => [
 'index',
 'frequency',
+'bankno',
+'channel',
+'remove',
 ],
 ifxchng => [
 'index',
@@ -715,10 +750,9 @@ global => [
 my %non_xrefed = (
 'lookup'   => TRUE,
 'ifxchng'  => TRUE,
-'lockfreq' => TRUE,
+'passfreq' => TRUE,
 'beep'     => TRUE,
 'light'    => TRUE,
-'lockfreq' => TRUE,
 'toneout'  => TRUE,
 'search'   => TRUE,
 'tag'      => TRUE,
@@ -742,12 +776,12 @@ my %index_required = (
 'favorites' => TRUE,
 'lookup' => TRUE,
 'ifxchng' => TRUE,
-'lockfreq' => TRUE,
+'passfreq' => TRUE,
 'global'   => TRUE,
 );
 our @dblist = ('system','site','bplan','tfreq','group','freq','search','toneout','lookup',
 'global',
-'ifxchng','lockfreq','favorites');
+'ifxchng','passfreq','favorites');
 our %OneOnly = (
 'favorites' => TRUE,
 );
@@ -800,6 +834,7 @@ our %struct_fields = (
 'polarity'    => ['b',  1,0,     0,0,1        ,0,],
 'idas'        => ['b',  1,0,     0,0,1        ,0,],
 'locctl'      => ['b',  1,0,     0,0,1        ,0,],
+'remove'      => ['b',  1,0,     0,0,1        ,0,],
 'frequency'    => ['f',11,0,25000000,0,9999999999],
 'start_freq'   => ['f',11,0,25000000,0,9999999999],
 'end_freq'     => ['f',11,0,26000000,0,9999999999],
@@ -807,7 +842,7 @@ our %struct_fields = (
 'edacs_type'   => ['c', 6,0,    '',0,0        ,0,'wide','narrow'],
 'mot_type'     => ['c', 6,0,    '',0,0        ,0,'std','spl','custom'],
 'lcn'          => ['i', 4,0,    '',0,4094     ,0,],
-'flags'        => ['l', 9,0,   '',0,0         ,0,'0'],
+'flags'        => ['l', 5,0,   '',0,0         ,0,'0'],
 'rec_type'     => ['l', 1,0,   '',0,0         ,0,'0'],
 'sqtone'       => ['o', 8,  0, 'Off',0,0     ,0,@ctctone,@dcstone],
 'spltone'      => ['o', 8,  0, '',0,0        ,0,sort keys %valid_rpt],
@@ -818,11 +853,12 @@ our %struct_fields = (
 'resume_value' => ['i', 5,  0, '', 0,'.'     ,0],
 'resume'       => ['i', 3,  0, 0,-10,30      ,0],
 'delay'        => ['i', 3,  0, 0,-10,30      ,0],
-'step'         => ['f',10,0,   100,0,9999999999,0,'AUTO'],
+'step'         => ['f',10,0,   100,10,9999999999,0,],
+'fstep'        => ['f',10,0,   '.',0,9999999999,0,'.','','-'],
 '_comment'     => ['c',-20,'a'],
 'site_number ' => ['c', 6,'a',''],
 'channel'     => ['i', 4,'0','-'   ,-1,MAXCHAN  ,0,'-'],
-'aorchan'     => ['i', 4,'0',''   ,-1,4949     ,0,'','-'],
+'aorchan'     => ['i', 4,'0',''    ,-1,3949      ,0,'-','.',''],
 'beep'    => ['i',  5, '0','.',0,15       ,0,'on','off','auto','','.'],
 'light'   => ['c',  6, '0','.',0,30       ,0,'on','off','key','sq','10','30','','.'],
 'bright'  => ['i',  7, '0','.',1,3       ,0,'','.'  ],
@@ -853,6 +889,7 @@ our %struct_fields = (
 'scan8600'    => ['i', 7,'n',  '',0,9       ,0,'-','.'],
 'rfgain'      => ['i', 2,'n',  '',0,10       ,0],
 'ran'         => ['i' ,2,'n', 's',0,69       ,0,'s'],
+'bankno'     => ['i', 8,'n',   '-',0,39       ,0,'-','.'],
 'qkey'        => ['i', 4,'n',   '-1',-1,99       ,0,'.','Off'],
 'dqkey'       => ['i', 4,'n',   '-1',-1,99       ,0,'.','Off'],
 'turnqk'      => ['c', 4,'n',     '','.','.'     ,0,'.','Off','On'],
@@ -1276,8 +1313,10 @@ my $sortfreq = FALSE;
 my $write_global = FALSE;
 my $mhz = FALSE;
 my $append = FALSE;
+my $fstep = '';
 my $no0 = FALSE;
 my $renum = FALSE;
+my $aor_format = FALSE;
 my $sysonly = FALSE;
 my $nohdr = FALSE;
 my $nochan = FALSE;
@@ -1303,10 +1342,14 @@ elsif ($opt eq 'sysonly') {$sysonly = TRUE;}
 elsif ($opt eq 'nohdr') {$nohdr = TRUE;}
 elsif ($opt eq 'noorphan') {$noorphan = TRUE;}
 elsif ($opt eq 'nochan') {$nochan = TRUE;}
+elsif ($opt eq 'aor_format') {$aor_format = TRUE;}
 elsif ($opt =~ /renum/i) {
 $renum = TRUE;
 ($firstchan) = $opt =~ /\=(\d*)/;
 if (!$firstchan) {$firstchan = 0;}
+}
+elsif ($opt =~ /fstep/i) {
+($fstep) = $opt =~ /\=(\d*)/;
 }
 elsif (substr($opt,0,3) eq 'ex_') {$exclude{Strip(lc(substr($opt,3)))} = TRUE;}
 else {LogIt(1,"Programmer specified a bad option $Green$opt$White!");}
@@ -1471,15 +1514,7 @@ $rec->{'channel'} = '-1';
 }
 }
 elsif ($renum) {
-my $channel = $firstchan;
-foreach my $rec (@freqs) {
-$rec->{'channel'} = $channel;
-$channel++;
-if ($channel > MAXCHAN) {
-LogIt(1,"Maximum channel number exceeded in renumber. Rolled-over to 0");
-$channel = 0;
-}
-}
+Channel_Sort(\@freqs,$firstchan,$aor_format);
 }### Renumber process
 $wrote_it{'favorites'} = TRUE;
 my $favrec = $data->{'favorites'}[1];
@@ -1668,6 +1703,7 @@ $freq = '';
 $freqrec->{'mode'} = '';
 $freqrec->{'splfreq'} = '';
 $freqrec->{'spltone'} = '';
+$freqrec->{'fstep'} = '.';
 }
 elsif (!$freq) {
 if ($freqrec->{'valid'}) {
@@ -1677,15 +1713,24 @@ if (!$recno) {
 $recno = '?';
 print Dumper($freqrec),"\n";
 }
-LogIt(1,"l3373:0 frequency specified for record=>$recno. Record marked as not valid");
+LogIt(1,"l3885:0 frequency specified for record=>$recno. Record marked as not valid");
 }
 }
-elsif ($mhz) {
-$freq = rc_to_freq($freq);
-}
+else {
+if ($mhz) {$freq = rc_to_freq($freq);}
 $freqrec->{'_frequency'} = $freq;
 my $splfreq = $freqrec->{'splfreq'};
 if ($splfreq and $mhz) {$freqrec->{'splfreq'} = rc_to_freq($splfreq);}
+if ($fstep and (!looks_like_number($freqrec->{'fstep'}))) {
+$freqrec->{'fstep'} = $fstep;
+}
+if (looks_like_number($freqrec->{'fstep'})) {
+my $freq = freq_to_rc($freqrec->{'fstep'});
+if ($mhz) {$freqrec->{'fstep'} = rc_to_freq($freq);}
+else {$freqrec->{'fstep'} = $freq;}
+}
+else {$freqrec->{'fstep'} = '.';}
+}### Valid frequency, NOT TGID
 my $blk_comm = $freqrec->{'_block_comments'};
 if ($blk_comm and (scalar @{$blk_comm})) {
 foreach my $rec (@{$blk_comm}) {print OUT "$rec\n";}
@@ -1765,7 +1810,7 @@ print OUT $head4{'search'},"\n";
 foreach my $rec (@{$data->{'search'}}) {
 my $ndxno = $rec->{'index'};
 if (!$ndxno) {next;}
-foreach my $key ('start_freq','end_freq') {
+foreach my $key ('start_freq','end_freq','step') {
 if ($rec->{$key}) {
 my $freq = freq_to_rc($rec->{$key});
 if ($freq < 0) {
@@ -1894,7 +1939,12 @@ my $value = $record->{$key};
 if ($key eq 'frequency') {$value = $record->{'_frequency'};}
 if (!defined $value) {next;}
 if ($key eq 'channel') {
-if ((!looks_like_number($value)) or ($value < 0)) {next;}
+if ((looks_like_number($value)) and ($value >= 0)) {
+$value = sprintf("%04.4u",$value);
+}
+elsif ($value eq '-1') {
+}
+else {$value = '.';}
 }
 $value = Strip($value);
 if ($value eq '') {next;}
@@ -1914,11 +1964,7 @@ if (($key eq 'scangrp') and ($value < 1)) {next;}
 if (($key eq 'scan705') and ($value < 1)) {next;}
 if (($key eq 'scan8600') and ($value < 1)) {next;}
 if (!$value) {
-my $ok = TRUE;
-if ($key eq 'valid') {$ok = FALSE;}
-elsif ($key eq 'channel') {$ok = FALSE;}
-elsif ($key =~ /toneout/i) {$ok = FALSE;}
-if ($ok) {next;}
+if ($skip_empty{$key}) {next;}
 }
 if ($key eq 'mode') {
 foreach my $str (@modestring) {
@@ -1981,6 +2027,11 @@ $value  = "$value $char=$fld_value";
 }
 elsif ($key eq 'frequency') {
 $value = $record->{'_frequency'};
+}
+elsif ($key eq 'channel') {
+if (looks_like_number($value) and ($value >= 0)) {
+$value = sprintf("%4.4i",$value);
+}
 }
 elsif ($key eq 'mode') {
 foreach my $str (@modestring) {
@@ -2307,7 +2358,7 @@ $rec{'adtype'} = 'AN';
 }
 }## Digital audio process
 }### Some value specified in ADTYPE
-else {$rec{'adtype'} = 'AN';}
+else { $rec{'adtype'} = 'AN';}
 if ($rectype =~ /freq/i) {
 my $tone_type = $rec{'tone_type'};
 my $oldtone = $rec{'tone'};
@@ -2827,6 +2878,8 @@ $blk->{$key} = $default;
 }### Not a number
 }### frequency check
 elsif (($type eq 'n') or ($type eq 'i')) {
+$to_check =~ s/\"//g;
+$to_check =~ s/\'//g;
 if ($key eq 'qkey') {
 if (!looks_like_number($to_check)) {
 $to_check = $default;
@@ -2850,19 +2903,17 @@ $blk->{$key} = $default;
 if (($type eq 'i') and looks_like_number($blk->{$key})) {
 $blk->{$key} = int($blk->{$key});
 }
-}
-elsif ($key eq 'channel') {
-if (looks_like_number(substr($to_check,1))) {
-$blk->{$key} = $to_check;
-}
-else {
-LogIt(1,"L5378: $Red$to_check$White is not numeric or acceptable text for " .
-"$Magenta$key$White\n  $lineno$Eol" .
+if ($key eq 'aorchan') {
+my $newval = sprintf("%04.4u",$to_check);
+if (substr($newval,2) > 49) {
+LogIt(1,"L6597: $Red$to_check$White is not a valid AORCHAN value $Eol" .
 "    Changed to =>$Bold$Green$dflt_msg$Eol");
 $retcode = 1;
 $blk->{$key} = $default;
 }
-}#### channel
+else {$blk->{$key} = $newval;}
+}
+}### Number IS numeric
 else {
 my $value_ok = FALSE;
 my $opt = '';
@@ -2878,15 +2929,15 @@ last;
 }### Look at aditional values
 if (!$value_ok) {
 if ($to_check) {
-LogIt(1,"L5140: $Red$to_check$White is not numeric or acceptable text for " .
+LogIt(1,"L6639: $Red$to_check$White is not numeric or acceptable text for " .
 "$Magenta$key$White\n  $lineno$Eol" .
 "    Changed to =>$Bold$Green$dflt_msg$Eol");
 $retcode = 1;
 }
 $blk->{$key} = $default;
 }
-}
-}
+}### Not a number for numeric
+}### Number or Integer
 elsif ($type eq 'x') {
 if ($to_check =~ /[0-9A-F]/i) {
 if ($key eq 'custmap') {
@@ -3625,6 +3676,55 @@ add_message($msg,1);
 LogIt(1,$msg);
 return ($parmref->{'rc'} = 1);
 }### End of AutoBaud routine
+sub Step_Check {
+my $step = shift @_;
+my $valid_steps = shift @_;
+if (!$step) {$step = 0;}
+if (looks_like_number($step)) {
+}
+else {
+LogIt(8255,"STEP_CHECK: non-numeric step=$step");
+}
+$step = $step + 0;
+if ($valid_steps->{$step}) {return $step;}
+my @step_search = sort Numerically (keys %{$valid_steps});
+my $newstep = $step_search[0];
+foreach my $ndx (1..$#step_search) {
+if ($step < $newstep) {last;}
+$newstep = $step_search[$ndx];
+}
+LogIt(1,"Step value modified to $newstep as $step is not valid for the radio");
+return $newstep;
+}
+sub Channel_Sort {
+my $freqrecs  = shift @_;
+my $channel = shift @_;
+my $aor = shift @_;
+my $retcode = 0;
+my $chmax = 99;
+if ($aor) {$chmax = 49;}
+foreach my $rec (@{$freqrecs}) {
+if (!$rec->{'index'}) {next;}
+if (!looks_like_number($rec->{'channel'})) {next;}
+if ($rec->{'channel'} < 0) {next;}
+$channel = sprintf("%04.4u",$channel);
+$rec->{'channel'} = $channel ;
+my $bank = substr($channel,0,2);
+my $ch = substr($channel,2);
+$ch++;
+if ($ch > $chmax) {
+$bank++;
+$ch = '00';
+}
+$channel = "$bank$ch";
+if ($channel > MAXCHAN) {
+LogIt(1,"Maximum channel number exceeded in renumber. Rolled-over to 0");
+$channel = '0000';
+$retcode = 1;
+}
+}### For every record
+return $retcode;
+}### Channel_Sort
 use Scalar::Util qw(looks_like_number);
 sub Lat_Lon_Parse {
 my $instr = shift @_;
@@ -4153,4 +4253,9 @@ else {return 1;}
 }
 }
 return 2;
+}
+sub Numerically {
+use Scalar::Util qw(looks_like_number);
+if (looks_like_number($a) and looks_like_number($b)) { $a <=> $b;}
+else {$a cmp $b;}
 }

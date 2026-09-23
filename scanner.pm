@@ -187,7 +187,7 @@ $vfo{'channel'} = $channel;
 $vfo{'index'} = $freqno;
 if ($progstate =~ /freq/i) {
 if (check_range($freq,\%radio_def)) {
-foreach  my $key ('frequency','mode','atten','service','sqtone','preamp') {
+foreach  my $key ('frequency','mode','atten','service','sqtone','preamp','adtype') {
 $vfo{$key} = $database{'freq'}[$freqno]{$key};
 }
 dply_vfo();
@@ -641,6 +641,7 @@ print "Scanner4 l1298:Creating a new record\n";
 my %newrec = ('frequency' => $vfo{'frequency'},
 'mode' => $vfo{'mode'}, 'valid' => TRUE, 'channel' => $vfo{'channel'},
 'sqtone' => $vfo{'sqtone'},
+'adtype' => $vfo{'adtype'},
 'service' => "",);
 KeyVerify(\%newrec,@{$structure{'freq'}});
 my $reqno = add_a_record(\%database,'freq',\%newrec,\&add_shadow);
@@ -659,7 +660,7 @@ $scan_request{'timestamp'} = '';
 $database{'freq'}[$chan]{'valid'} = TRUE;
 $scan_request{'valid'} = TRUE;
 }
-foreach my $key ('frequency','mode','channel','sqtone') {
+foreach my $key ('frequency','mode','channel','sqtone','adtype') {
 $database{'freq'}[$chan]{$key} = $vfo{$key};
 $scan_request{$key} = $vfo{$key};
 }
@@ -861,7 +862,7 @@ $groupno = add_a_record(\%database,'group',\%newrec,\&add_shadow);
 }
 my %newrec = ('valid' => TRUE,'sysno' => $sysno,
 'groupno' => $groupno, 'timestamp' => time());
-foreach my $key ('frequency','mode','tgid','sqtone',
+foreach my $key ('frequency','mode','tgid','sqtone','adtype',
 'atten','signal','preamp') {
 $newrec{$key} = $vfo{$key};
 }
@@ -891,7 +892,7 @@ $vfo{'service'} = $database{'freq'}[$index]{'service'};
 if ($database{'freq'}[$index]{'tgid'}) {
 $vfo{'tgid'} = $database{'freq'}[$index]{'tgid'};
 }
-foreach my $key ('signal','frequency','mode','service','rssi','dbmv','meter',
+foreach my $key ('signal','frequency','mode','adtype','service','rssi','dbmv','meter',
 'sqtone','index','tgid','signal') {
 $loginfo{$key} = $vfo{$key};
 }
@@ -903,7 +904,7 @@ foreach my $key ('count','timestamp') {
 $loginfo{$key} = $database{'freq'}[$index]{$key};
 }
 %scan_request = ('_cmd' => 'update', '_dbn' => 'freq', '_seq' => $index);
-foreach my $key ('frequency','mode','atten','preamp','sqtone',,'channel',
+foreach my $key ('frequency','mode','atten','preamp','sqtone','adtype','channel',
 'count','timestamp','signal','tgid') {
 $scan_request{$key} = $database{'freq'}[$index]{$key};
 }
@@ -1076,6 +1077,7 @@ my $caller = shift @_;
 if (!$radio_def{'active'}) {
 if ($Verbose) {
 print "Scanner l3523:RADIO_SYNC:Radio is not active\n";
+print Dumper(%radio_def),"\n";
 }
 return $GoodCode;
 }
@@ -1499,6 +1501,7 @@ tell_gui(4661);
 if ($protocol eq 'local') {
 $radio_def{'active'} = TRUE;
 $status = 'connected';
+radio_sync('init',4959);
 %scan_request = ('_cmd' => 'control',
 'baud' => 'disable', 'port' => 'disable', 'autobaud' => 'disable');
 tell_gui(4956);
@@ -1895,11 +1898,6 @@ if ($groupxref{$oldgroupno}) {$rec->{'groupno'} = $groupxref{$oldgroupno};}
 if ($rec->{'tgid_valid'}) {next;}
 if (!$rec->{'frequency'}) {next;}
 if ($rec->{'channel'} =~ /\-/) {next;}  
-my $sql = $rec->{'sqtone'};
-if (($sql =~ /nac/i) or ($sql =~ /ccd/i) or ($sql =~ /rpt/i)
-or ($sql =~ /ran/i) or ($sql =~ /dsq/i)) {
-$rec->{'sqtone'} = 'Off';
-}
 my $index = add_a_record(\%database,'freq',$rec,\&add_shadow);
 if (!$oldgroupno) {
 add_message("No Group assigned to record $index ",1);
@@ -2533,7 +2531,7 @@ LogIt(1,"SCANNER l5089:Mem2VFO $index is a non-existant database record! Caller=
 return $ParmErr;
 }
 $vfo{'index'} = $index;
-foreach my $key ('frequency','mode','sqtone') {
+foreach my $key ('frequency','mode','sqtone','adtype') {
 $vfo{$key} = $database{'freq'}[$index]{$key};
 }
 $vfo{'atten'} = FALSE;
@@ -2784,10 +2782,6 @@ $tgid = Strip($tgid);
 $tgid_xref{$freq}{$reqno} = TRUE;
 }
 my $sql = $rcd->{'sqtone'};
-if (($sql =~ /nac/i) or ($sql =~ /ccd/i) or ($sql =~ /rpt/i)
-or ($sql =~ /ran/i) or ($sql =~ /dsq/i)) {
-$rcd->{'sqtone'} = 'Off';
-}
 }
 }
 sub in_scope_variables {

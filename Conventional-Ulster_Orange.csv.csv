@@ -1,0 +1,249 @@
+*RadioCtl   Data file generated: 09/23/2026 05:06am
+*
+*:QUICKKEY: SYSTEM_QK:01  (sysno=1 name=Ulster_Orange Conv)
+*:START:
+**                  Ulster/Orange County Conventional Frequencies
+**
+* This file has been designed to work with:
+*     Uniden BCD325P2, Uniden SDS200,  ICOM IC-R30, ICOM IC-705, ICOM R8600, AOR DV1
+** Channel numbers have been set for the ICOM/AOR  radios.
+** Uniden radios do not use the Channel number.
+**
+* Note the IC-R30 is easily overloaded (especially from DMR & NWS).
+* RF Gain is reduced and attenuation turned on for a number of frequencies
+*
+* When storing into the BCD325P2, the Group quickkey will be converted to 0-9 by 'mod 10' conversion.
+*  Also 'service' strings are limited to 15 characters.
+*
+*
+*** SVCODE is the number for the 'FuncTagId' as defined by the SDSx00 file specification
+*** These numbers are values between 1-37 and 208-218. If this value is not set in
+*** a 'C-Freq' or 'TGID' record, that record will NOT scan.
+*** The logic used for setting this value:
+***  If value in 'FREQ' record > 0 then use that value
+***  Else if value in 'GROUP' record referenced >0 Then use that value
+***  Else look for some keyword in the 'SERVICE' field.
+***  If these fail, set code 1.
+***
+*
+* NOTE:If this file is automatically processed, some fields as well as comments may be lost
+* Also, do NOT include semi-colons in any comment or data record. Will drive .csv parser crazy!
+*
+*:STOP:
+*
+*
+*********** RadioCtl Data Records *****************
+* Records are in the format: 
+*record_type,field1,field2,field3,....
+*     or 
+*record_type,key1=value,key2=value,...
+* records starting with '*' or '#' are ignored
+*rectypes:System,Site,TFreq,Group,Freq    (all case insensitive)
+* At least one 'System' record is required for each file
+*
+*fields/keys:
+*  Index: Unique number for the record
+*  Valid: If 'F','0','N', record will not be scanned or selected in the radio
+*  Service: Any string with any characters except ',','#' or '"' 
+*  SystemType: (SYSTEM Records) =>cnv,ltr,eds,edw,edn,mots,motc,trbo,p25s,p25f,p25f,dmr,nxdn
+*  Flags:Single Character turns on item. 
+*    Flags for FREQ records: 
+*      'a'-Attenuation
+*      'm'-Preamp
+*      'g'-Record is a TGID type (Frequency MUST be 0)
+*    Flags for SYSTEM records: 
+*      'f'-EDACS AFS format 
+*      'h'-AGC_digital, 'i'-id_search (trunked systems), 'j'-AGC_analog, 'k'-data skip 
+*      'c'-Control Channel only, 'p'-Turn on priority 
+*    Flags for SITE records: 
+*      'c'-Control Channel   
+*  Dlyrsm:A number between -10 and +30. Negative number is Resume. 0 is Off
+*  Sysno:SYSTEM record index. Required for SITE & GROUP records
+*  Siteno:SITE record Index. Required for TFREQ records
+*  Groupno:GROUP record Index. Required for FREQ records
+*  Hld:(SYSTEM/SITE records). Time in seconds to hold on the system or site
+*  Frequency:(FREQ & TFREQ records). Can be in Hz or MHz. MHz must have decimal point
+*  Mode:Modulation:AM,AMw,AMm,AMn,WFM (Broadcast),FMn,FMu,LSB,USB,CW,RTTY
+*  Lat/Lon: Decimal value  or DMS (DD:MM:SS.SS:direction)
+*  P25wait:Time in ms to wait for a P25 decode to complete
+*  filter:(SDS200 only):  G-Global N-Normal I-Invert A-Auto O-Off WN-Wide Normal WI-Wide Invert WA-Wide Auto
+*  Channel - RadioCtl channel number. 0-9999 
+*  _Extra field: UTAG=x - Uniden User tag (0-1000)
+*                EMGALT=x - Uniden Emergency Alert (0-9) EMGLVL=x - Uniden Alert Level (0-15)
+*                SVCODE - SDS200 Service code           RFGAIN=x - R30 Gain (0-9)
+*                SCANGRP=x  - IC705/R8600 Scan group number (1-9)
+*                SCAN705=x  - IC705 Scan group number (1-3)
+*                SCAN8600=x - R8600 Scan group number (1-9)
+*
+*Keywords are not case sensitive
+*For keyword=value format, any keyword for the record not specified will be set to the default
+*
+*
+*    #### System Definition #####
+#:system:index,service,valid,systemtype,flags,dlyrsm,qkey,hld,dsql,_extra,
+*SYSTEM  ,index,service                       ,valid,system,flags,dlyrsm,qkey,hld,    dsql,_extra    
+SYSTEM   ,    1,Ulster_Orange Conv            ,    1,cnv   ,     ,     0,   1,  0,     Off,p25wait=400 p25lvl=5 hpd=1
+*
+*    ### Groups for Ulster_Orange Conv system (1). 
+#:group:index,service,valid,sysno,flags,qkey,lat,lon,radius,_extra,
+*GROUP   ,index,service                       ,valid,sysno,flags,qkey,lat         ,lon         ,radius      ,_extra    
+GROUP    ,    1,Ulster Fire                   ,    1,    1,     ,   1,            ,            ,25          
+GROUP    ,    2,Ulster 911                    ,    1,    1,     ,   2,            ,            ,25          ,scangrp=1 
+GROUP    ,    3,Orange Fire-911               ,    1,    1,     ,   3,            ,            ,25          
+GROUP    ,    4,NYState PD                    ,    1,    1,     ,   4,            ,            ,25          
+GROUP    ,    5,UC Sheriff/Other PD           ,    1,    1,     ,   5,            ,            ,25          ,scangrp=2 
+GROUP    ,    6,Parks/Highway                 ,    1,    1,     ,   6,            ,            ,25          
+GROUP    ,    7,Utilities                     ,    1,    1,     ,   7,            ,            ,25          
+GROUP    ,    8,Business                      ,    0,    1,     ,   8,            ,            ,25          
+GROUP    ,    9,EMS                           ,    1,    1,     ,   9,            ,            ,25          ,scangrp=1 
+GROUP    ,   10,Ulster Other                  ,    1,    1,     ,   0,            ,            ,25          
+*
+*    #### All Frequencies for Ulster_Orange Conv system (1) ####
+#:freq:index,service,valid,groupno,flags,channel,frequency,mode,sqtone,dlyrsm,tgid,adtype,fstep,_extra,
+*FREQ    ,index,service                       ,valid,group,flags,chan,  frequency,  mode,  sqtone,dlyrsm,    tgid,  adtype,     fstep,_extra    
+########################################
+#  Ulster County fire (Group 1)        #
+########################################
+FREQ     ,    1,UC Fire Control               ,    1,    1,    a,0101,  46.460000,   FMn,     OFF,     1,        ,        ,          ,rfgain=7  
+## Marlboro Fire is now using UHF between trucks
+FREQ     ,    2,UCFD C-C F1                   ,    1,    1,    a,0108, 453.562500,   FMn,     OFF,      ,        ,        ,          ,rfgain=7 scangrp=1 #Also used by CT FD
+FREQ     ,    3,UC Fire-Control UHF           ,    1,    1,    a,0109, 460.625000,   FMn,     OFF,     1,        ,        ,          ,rfgain=7 scangrp=1
+FREQ     ,    4,Marlbro Fire-F2               ,    1,    1,    a,0110, 453.162500,   FMn,     OFF,      ,        ,        ,          ,rfgain=7 scangrp=1
+FREQ     ,    5,Marlbro Fire-F3               ,    1,    1,    a,0111, 458.162500,   FMn,     OFF,      ,        ,        ,          ,rfgain=7 scangrp=1
+### Older frequency listings (may be active)
+FREQ     ,    6,Old listing for Marlbro Fire  ,    1,    1,    a,0112, 465.637500,   FMn,     OFF,     1,        ,        ,          ,rfgain=7 scangrp=1
+FREQ     ,    7,Marlbro Fire-?                ,    1,    1,    a,0113, 460.537500,   FMn,     OFF,      ,        ,        ,          ,rfgain=7 scangrp=1
+FREQ     ,    8,Marlbro Fire-?                ,    1,    1,    a,0114, 465.537500,   FMn,     OFF,      ,        ,        ,          ,rfgain=7 scangrp=1
+FREQ     ,    9,Highland FD                   ,    1,    1,    a,0115, 460.112500,   FMn,     OFF,      ,        ,        ,          ,rfgain=7 scangrp=1
+FREQ     ,   10,New Paltz-FG                  ,    1,    1,    a,0116, 468.975000,   FMn,     OFF,      ,        ,        ,          ,rfgain=7 scangrp=1
+FREQ     ,   11,New Paltz-TownWide            ,    1,    1,     ,0117, 155.805000,   FMn,     OFF,      ,        ,        ,          ,rfgain=7  
+#
+########################################
+#  Ulster County 911 (Group 2)         #
+########################################
+FREQ     ,   12,UC-911(06-037)                ,    1,    2,    a,0201, 155.025000,   FMn,     OFF,     1,        ,        ,          ,scangrp=1 
+FREQ     ,   13,UC-911 Ops                    ,    1,    2,     ,0202, 155.670000,   FMn,     OFF,     1,        ,        ,          ,scangrp=1 
+FREQ     ,   14,UC 911 Dispatch               ,    1,    2,    a,0203, 155.220000,   FMn,     OFF,     1,        ,        ,          ,scangrp=1 
+FREQ     ,   15,EDACS direct                  ,    1,    2,     ,0204, 853.487500,   FMn,     OFF,     1,        ,        ,          ,scangrp=1 
+##
+##################################################
+### Ulster County Sheriff/Other PD (Group 5)     #
+##################################################
+FREQ     ,   16,UC-Sheriff                    ,    1,    5,     ,0205, 153.995000,   FMn,     OFF,     1,        ,        ,          ,scangrp=1 
+FREQ     ,   17,UC-Sheriff                    ,    1,    5,     ,0206, 155.932500,   FMn,     OFF,      ,        ,        ,          ,scangrp=1  ## Active 11/17/20
+FREQ     ,   18,UC-Sheriff-Car2Car            ,    1,    5,     ,0207, 151.235000,   FMn,     OFF,      ,        ,        ,          ,scangrp=1 
+#** SUNY New Paltz
+FREQ     ,   19,NPltz Campus PD(DMR)          ,    0,    5,     ,  -1, 151.565000,   FMn,     OFF,     1,        ,     DMR
+FREQ     ,   20,SUNY New Paltz                ,    1,    5,     ,  -1, 151.775000,   FMn,     OFF,     1,        ,     DMR
+FREQ     ,   21,SUNY New Paltz                ,    1,    5,     ,  -1, 151.955000,   FMn,     OFF,     1,        ,     DMR
+#
+##############################
+#   EMS (Group 9)            #
+##############################
+FREQ     ,   22,UC EMS Ops                    ,    1,    9,     ,0901, 155.175000,   FMn,     OFF,     0 ## Activity 12/04/20
+FREQ     ,   23,Mobile Life Tac 1             ,    1,    9,    a,0902, 468.012500,   FMn,     OFF,     0
+FREQ     ,   24,Mobile Life Tac 2             ,    1,    9,    a,0903, 468.037500,   FMn,     OFF,     0
+FREQ     ,   25,Mobile Life Tac 3             ,    1,    9,    a,0904, 468.062500,   FMn,     OFF,     0
+FREQ     ,   26,New Paltz-EMS                 ,    1,    9,     ,0905, 153.125000,   FMn,     OFF,     0
+#
+####################################
+#   Orange County (Group 3)       ##
+####################################
+# NOTE:This is mostly Fire frequencies as OC has moved to a P25 System
+FREQ     ,   27,Newburgh FD 2                 ,    1,    3,     ,0301, 154.070000,   FMn,     OFF,     0
+FREQ     ,   28,OC FD Disp                    ,    1,    3,     ,0302, 154.205000,   FMn,     OFF,     0
+FREQ     ,   29,Cronomer Ops                  ,    1,    3,     ,0303, 154.250000,   FMn,     OFF,     0
+FREQ     ,   30,Newburgh FD 4                 ,    1,    3,     ,0305, 154.385000,   FMn,     OFF,     0
+FREQ     ,   31,Newburgh FD 3                 ,    1,    3,     ,0306, 154.415000,   FMn,     OFF,     0
+FREQ     ,   32,GoodWill FG                   ,    1,    3,    a,0307, 452.537500,   FMn,     OFF,     0
+FREQ     ,   33,VG FD Ops                     ,    1,    3,    a,0309, 453.600000,   FMn,     OFF,     0
+FREQ     ,   34,OC City Cmd                   ,    1,    3,    a,0310, 453.687500,   FMn,     OFF,     0
+FREQ     ,   35,OC Cmd A                      ,    1,    3,    a,0312, 453.962500,   FMn,     OFF,     0
+FREQ     ,   36,OC FG B                       ,    1,    3,    a,0313, 458.262500,   FMn,     OFF,     0
+FREQ     ,   37,OC FG A                       ,    1,    3,    a,0314, 458.987500,   FMn,     OFF,     0
+FREQ     ,   38,CoH FD Ops                    ,    1,    3,    a,0316, 460.150000,   FMn,     OFF,     0
+FREQ     ,   39,HghlndFls XB                  ,    1,    3,    a,0317, 460.475000,   FMn,     OFF,     0
+FREQ     ,   40,Cronomer Ops                  ,    1,    3,    a,0318, 460.575000,   FMn,     OFF,     0
+FREQ     ,   41,OC EM FG                      ,    1,    3,    a,0319, 460.587500,   FMn,     OFF,     0
+FREQ     ,   42,Cronomer Xb                   ,    1,    3,    a,0320, 460.600000,   FMn,CTC123.0,     0 ## Active 01/05/22
+FREQ     ,   43,VG|OL|WL FD FG                ,    1,    3,    a,0321, 460.612500,   FMn,     OFF,     0
+#
+#####################################
+# Utilities/Highway (group 7)       #
+#####################################
+FREQ     ,   44,Central Hudson                ,    1,    7,     ,0702,  48.120000,   FMn,     OFF,     1
+FREQ     ,   45,Central Hudson                ,    1,    7,     ,0703,  48.240000,   FMn,     OFF,     1
+FREQ     ,   46,Central Hudson Dispatch       ,    1,    7,     ,0704,  47.920000,   FMn,     OFF,     1
+FREQ     ,   47,Central Hudson Field Crews    ,    1,    7,     ,0705,  48.140000,   FMn,     OFF,     1
+FREQ     ,   48,Central Hudson                ,    1,    7,     ,0706, 451.112500,   FMn,     OFF,     1
+FREQ     ,   49,Central Hudson                ,    1,    7,     ,0707, 451.150000,   FMn,     OFF,     1
+FREQ     ,   50,Central Hudson                ,    1,    7,     ,0708, 457.325000,   FMn,     OFF,     1
+#
+###################################
+#   Parks/Highway (Group 6)       #
+###################################
+FREQ     ,   51,NYParks Taconic Div           ,    1,    6,     ,0601, 158.775000,   FMn,     OFF,     0
+FREQ     ,   52,NYParks Statewide             ,    1,    6,     ,0602, 158.390000,   FMn,     OFF,     0
+FREQ     ,   53,NYParks Palisades Div         ,    1,    6,     ,0603, 154.890000,   FMn,     OFF,     0
+#
+FREQ     ,   54,Ulster Hiway                  ,    1,    6,     ,0604, 156.120000,   FMn,     OFF,     0
+FREQ     ,   55,Ulster Hiway                  ,    1,    6,     ,0605, 156.180000,   FMn,     OFF,     0
+FREQ     ,   56,Lloyd Hiway                   ,    1,    6,     ,0607, 156.980000,   FMn,     OFF,     0
+# Reserved channels
+FREQ     ,   57,reserved channel              ,    0,    6,     ,0608,           ,      ,     OFF,     1
+FREQ     ,   58,reserved channel              ,    0,    6,     ,0609,           ,      ,     OFF,     1
+FREQ     ,   59,reserved channel              ,    0,    6,     ,0610,           ,      ,     OFF,     1
+###
+###########################################
+###   NY State Police (Group 4)           #
+### Orange, Ulster, Dutchess              #
+###  Columbia, Green, Westchester         #
+###########################################
+### Troop F (Ulster) has 3 zones:
+###   Zone1-Liberty, Zone2-Monroe, Zone-3-Kingston
+###  Zone 2 is now on Orange County P25
+### For now, CTCSS squelch is turned off
+FREQ     ,   60,NYSP F-Trp MobZ3 (UC)         ,    1,    4,     ,0401, 154.935000,   FMn,     OFF,     0
+FREQ     ,   61,NYSP F-Trp Base (UC)          ,    1,    4,     ,0402, 155.535000,   FMn,     OFF,     0
+FREQ     ,   62,NYSP F-Trp MobRptr (UC)       ,    1,    4,     ,0403, 853.950000,   FMn,     OFF,     0
+##
+## Troop K has 3 zones. Zone 1-Columbia 2-Dutchess, 3 Westchester
+## Mobile units seem to be repeated on the Base Frequency
+## May not need to monitor Mobile freqs
+## Duplicate frequencies have different PL tones
+FREQ     ,   63,NYSP K-Trp MobZ1 (CC)         ,    1,    4,     ,0404, 154.920000,   FMn,CTC127.3,     0
+FREQ     ,   64,NYSP K-Trp MobZ2 (DC)         ,    1,    4,     ,0405, 154.920000,   FMn,CTC146.2,     0
+FREQ     ,   65,NYSP K-Trp MobZ3 (WC)         ,    1,    4,     ,0406, 154.920000,   FMn,CTC167.9,     0
+FREQ     ,   66,NYSP K-Trp other              ,    1,    4,     ,0407, 154.920000,   FMn,CTC110.9,     0
+FREQ     ,   67,NYSP K-Trp BASE               ,    1,    4,     ,0408, 155.505000,   FMn,CTC110.9,     0
+FREQ     ,   68,NYSP K-Trp MobRptr            ,    1,    4,     ,0409, 853.975000,   FMn,     OFF,     0
+#
+FREQ     ,   69,NYSP Car-Car F2               ,    1,    4,     ,0410, 154.665000,   FMn,CTC110.9,     1,        ,        ,          ,scangrp=1 
+FREQ     ,   70,NYSP StWide  F3               ,    1,    4,     ,0411, 154.695000,   FMn,     OFF,     1,        ,        ,          ,scangrp=1 
+FREQ     ,   71,NYSP MRD     F5               ,    1,    4,     ,0412, 155.370000,   FMn,     OFF,     1,        ,        ,          ,scangrp=1 
+FREQ     ,   72,Nat Emerg    F6               ,    1,    4,     ,0413, 155.475000,   FMn,     OFF,     2,        ,        ,          ,scangrp=1 
+FREQ     ,   73,NYSP TAC-1                    ,    1,    4,     ,0414, 154.920000,   FMn,     OFF,     1
+FREQ     ,   74,NYSP TAC-2                    ,    1,    4,    a,0415, 155.625000,   FMn,CTC110.9,     1
+FREQ     ,   75,NYSP ExctSrvc                 ,    1,    4,     ,0416, 155.460000,   FMn,     OFF,     1
+FREQ     ,   76,DEC                           ,    1,    4,     ,0417, 151.430000,   FMn,     OFF,     0
+FREQ     ,   77,DEC                           ,    1,    4,     ,0418, 159.225000,   FMn,     OFF,     0
+#
+#############################
+# NY State Thruway          #
+#############################
+FREQ     ,   78,Thruway                       ,    1,    4,     ,0419, 453.425000,   FMn,     OFF,     0
+FREQ     ,   79,Thruway                       ,    1,    4,     ,0420, 453.525000,   FMn,     OFF,     0
+FREQ     ,   80,Thruway-Input                 ,    1,    4,     ,0421, 458.425000,   FMn,     OFF,     0
+FREQ     ,   81,Thruway-Input                 ,    1,    4,     ,0422, 458.525000,   FMn,     OFF,     0
+#
+############################
+# Business (Group 8).      #
+############################
+FREQ     ,   82,Mohonk                        ,    0,    8,     ,  -1, 151.655000,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,   83,Mohonk                        ,    0,    8,     ,  -1, 152.300000,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,   84,WP Tours                      ,    0,    8,     ,  -1, 159.825000,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,   85,WPDH remote                   ,    1,    8,     ,  -1, 161.700000,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,   86,Target ch 4                   ,    1,    8,     ,  -1, 467.187500,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,   87,Target ch 3                   ,    1,    8,     ,  -1, 467.462500,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,   88,Target ch 2                   ,    1,    8,     ,  -1, 467.487500,   FMn,     OFF,      ,        ,     DMR
+FREQ     ,   89,Target ch 1                   ,    1,    8,     ,  -1, 467.512500,   FMn,     OFF,      ,        ,     DMR

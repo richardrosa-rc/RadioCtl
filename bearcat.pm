@@ -353,6 +353,7 @@ if ((!looks_like_number($channel)) or ($channel < 0) ) {
 print STDERR "\nChannel number $channel $emsg is not defined. Skipped\n";
 next;
 }
+$channel = $channel + 0;
 if (($channel < $defref->{'origin'}) or ($channel > $defref->{'maxchan'})) {
 print STDERR "\nChannel number $channel $emsg is not within range of radio. Skipped\n";
 next;
@@ -406,6 +407,7 @@ if (!looks_like_number($channel)) {
 add_message("BEARCAT l1681:Channel $channel is not numeric.");
 return ($parmref->{'rc'} = $ParmErr);
 }
+$channel = $channel + 0;
 if (($channel < $defref->{'origin'}) or ($channel > $defref->{'maxchan'})) {
 add_message("BEARCAT l1686:Channel $channel out of range for radio");
 return ($parmref->{'rc'} = $NotForModel);
@@ -566,6 +568,7 @@ $outstr = Strip("$outstr$parmstr");
 }
 if ($Debug3) {DebugIt("BEARCAT l2508:sent =>$outstr");}
 my $sent = $outstr;
+$parmref->{'_sent'} = $sent;
 $outstr = $outstr . BEARCAT_TERMINATOR;
 WAIT:
 my $rc2 = radio_send(\%sendparms,$outstr);
@@ -596,6 +599,7 @@ return ($parmref->{'rc'} = $CommErr);
 }### Radiosend returned error
 $instring = $sendparms{'rcv'};
 if (!defined $instring) {$instring = '';}
+$parmref->{'_returned'} = $instring;
 $parmref->{'rc'} = $GoodCode;
 if ($Debug3) {DebugIt("Bearcat 2496:radio returned $instring");}
 if ($defref->{'rsp'}) {add_message("Radio is responding again...");}

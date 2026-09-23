@@ -34,12 +34,14 @@ use bearcat;
 use aor;
 print "$Bold$Green RadioCtl$White Command Line Process$Red Rev=$White$Rev$Eol";
 my %opt_dply = (
+'aor' => "            $Bold$Cyan--aor$Yellow$Reset      Use AOR channels (0-49) for $Bold$Cyan--renum$Reset option. $Eol",
 'dir' => "         $Bold$Cyan--dir$Yellow dir$Reset     Directory for output.        $Eol",
 'baud' => "      $Bold$Cyan--baud$Yellow nnnnn$Reset     Baud rate Override for Selected Radio. $Eol",
 'append' => "          $Bold$Cyan--append$Reset     Append data to existing file(s) instead of overwrite $Eol",
-'dqkey' => "          $Bold$Cyan--dqkey$Reset      Assign department quickkeys (if missing)         $Eol",
+'dqkey' => "           $Bold$Cyan--dqkey$Reset     Assign department quickkeys (if missing)         $Eol",
 'fspec' => "   $Bold$Cyan-f|--fspec$Yellow file$Reset     Full filespec (including path and ext) for output file.$Eol",
-'gqkey' => "          $Bold$Cyan--gqkey$Reset      Assign group quickkeys (if missing)              $Eol",
+'fstep' => "       $Bold$Cyan--fstep$Yellow fff$Reset     Add 'fstep' value $Green fff$Reset to 'FREQ' records. $Eol" ,
+'gqkey' => "           $Bold$Cyan--gqkey$Reset     Assign group quickkeys (if missing)              $Eol",
 'keyfmt' => "       $Bold$Cyan-k|--keyfmt$Reset     Store records as KEYWORD=VALUE fields            $Eol",
 'nohdr' => "          $Bold$Cyan--nohdr$Reset      Don't generate header records.                   $Eol",
 'noglobals' => "          $Bold$Cyan--noglobals$Reset  Don't include global data $Eol",
@@ -50,12 +52,12 @@ my %opt_dply = (
 'owrite' => "       $Bold$Cyan-o|--owrite$Reset     Overwrite any existing file(s) without prompt       $Eol",
 'port' => "$Bold$Cyan--port$Yellow /dev/{name}$Reset     Port Override for Selected radio. $Eol",
 'posfmt' => "       $Bold$Cyan-p|--posfmt$Reset     Store records as positional fields               $Eol",
-'renum' => "        $Bold$Cyan--renum$Bold$Green x$Reset      Renumber the channels (non-dynamic radios only)$Eol" .
-"                       $Bold$Green x$Reset is optional starting number (Defaults to$Yellow 0$Reset). $Eol",
-'sort' => "       $Bold$Cyan-s|--sort$Reset       Sort FREQ records by frequency                 $Eol",
+'renum' => "        $Bold$Cyan--renum$Yellow x$Reset      Renumber the channels (non-dynamic radios only)$Eol" .
+"                       $Bold$Yellow x$Reset is optional starting number (Defaults to$Yellow 0$Reset). $Eol",
+'sort' => "        $Bold$Cyan-s|--sort$Reset      Sort FREQ records by frequency                 $Eol",
 'sqkey' => "          $Bold$Cyan--sqkey$Reset      Assign system quickkey (if missing)    $Eol" ,
 'tqkey' => "          $Bold$Cyan--tqkey$Reset      Assign site quickkey (if missing)    $Eol" ,
-'hz' => "       $Bold$Cyan-h|--hz$Reset         Store frequencies in Hz (default is MHz)     \n" ,
+'hz' => "          $Bold$Cyan-h|--hz$Reset      Store frequencies in Hz (default is MHz)     \n" ,
 );
 my $help =
 "    $Bold$Green RadioCtl$White Non-GUI write and read routines. v$Red$Rev             $Eol" .
@@ -137,6 +139,7 @@ $opt_dply{'keyfmt'} .
 $opt_dply{'noglobals'} .
 $opt_dply{'nohdr'} .
 $opt_dply{'nosearch'} .
+"          $Bold$Cyan--noskip$Reset       Don't Skip over empty, non-TGID channels (Frequency = 0). $Eol" .
 $opt_dply{'nosys'} .
 $opt_dply{'notoneout'} .
 $opt_dply{'notrunk'} .
@@ -145,7 +148,6 @@ $opt_dply{'owrite'} .
 $opt_dply{'posfmt'} .
 $opt_dply{'renum'} .
 "                        If$Bold$Green x$Reset is$Yellow -1$Reset, all channel numbers will be turned off. $Eol" .
-"          $Bold$Cyan--skip$Reset       Skip over empty, non-TGID channels (Frequency = 0). $Eol" .
 $opt_dply{'sort'} .
 $opt_dply{'sqkey'} .
 $opt_dply{'tqkey'} .
@@ -176,6 +178,15 @@ $opt_dply{'sqkey'} .
 $opt_dply{'tqkey'} .
 $opt_dply{'hz'} .
 "$Eol$Eol" .
+"   $Bold$Green PASS$Reset    Set or clear PASS frequencies$Eol" .
+"       Inputs:$Bold Name of radio to write (must be specified first)          \n" .
+"               Frequency  {Frequency} .. {Frequency}  (Hz or MHz)         $Eol" .
+"       Options:                                                              \n" .
+"      $Bold$Cyan--bank$Green n$Reset        Bank number to use. Required EXCEPT for --erase $Eol" .
+"      $Bold$Cyan--count$Green n$Reset       Number of frequencies to set (Default 1) $Eol" .
+"      $Bold$Cyan--step$Green n$Reset        Step for multiple frequencies (Default 5Khz)$Eol" .
+"      $Bold$Cyan--erase$Green n$Reset       Delete the frequency(s) in all banks$Eol" .
+"$Eol$Eol" .
 "   $Bold$Green RADIOS$Reset    Display the names of currently defined radios$Eol" .
 "       Inputs:$Bold (none)                                                   $Eol" .
 "       Output:$Bold Display of available radio names.                        $Eol" .
@@ -185,10 +196,12 @@ $opt_dply{'hz'} .
 "       Inputs:$Bold RadioCtl Files(s) to read.                                $Eol" .
 "       Output:$Bold 'rewrite.csv' (or multiple files) in the default directory $Eol" .
 "       Options:                                                              \n" .
+$opt_dply{'aor'} .
 $opt_dply{'append'} .
 $opt_dply{'dir'} .
 $opt_dply{'dqkey'} .
 $opt_dply{'fspec'} .
+$opt_dply{'fstep'} .
 "          $Bold$Cyan--force$Reset      Force quickkey re-assignment                     $Eol" .
 $opt_dply{'gqkey'} .
 $opt_dply{'keyfmt'} .
@@ -248,13 +261,17 @@ my $tfqcnt = 0;
 my $grpcnt = 0;
 my $gidcnt = 0;
 my $sgidcnt = 0;
+my $aor_format = FALSE;### If true, sort using AOR channel numbers               REWRITE
 my $altport = '';
 my $altbaud = '';
 my $append = FALSE;
+my $bank = '-';
 my $dqkey = FALSE;
+my $erase = FALSE;
 my $firstnum   = 0;
 my $force = FALSE;
 my $freqsort = FALSE;
+my $fstep = 0;
 my %gps_parms = (
 'lat' => 0,
 'lon' => 0,
@@ -273,15 +290,15 @@ my @radio = ();
 my $raw = FALSE;
 my $renum = '';
 my $showhz  = FALSE;
-my $skip = FALSE;
+my $noskip = FALSE;
 my $sqkey = FALSE;
+my $step  = 5000;
 my $tqkey = FALSE;
 my $User_conf = '';
 my $User_count = '';
 my $User_dir  = '';
 my $User_fspec = '';
 my $default_dir = $RCSettings{'tmpdir'};
-my $erase = FALSE;
 my $nodie = FALSE;
 my $noglobals = FALSE;
 my $nosys = FALSE;
@@ -291,8 +308,10 @@ my $testing = FALSE;
 my $testfrq = 0;
 my $user_filename = '';
 my $dupcheck = FALSE;
+$Options{'aor'}       = \$aor_format;
 $Options{'append'}    = \$append;
 $Options{'baud'}      = \$altbaud;
+$Options{'bank=i'}    = \$bank;
 $Options{'count=n'}   = \$User_count;
 $Options{'d1'}        = \$Debug1;
 $Options{'d2'}        = \$Debug2;
@@ -303,6 +322,7 @@ $Options{'erase'}     = \$erase;
 $Options{'f|fspec=s'} = \$User_fspec;
 $Options{'first=n'}   = \$firstnum;
 $Options{'force'}     = \$force;
+$Options{'fstep=f'}   = \$fstep;
 $Options{'noglobals'} = \$noglobals;
 $Options{'gqkey'}     = \$gqkey;
 $Options{'h|help'}    = \&help;
@@ -322,12 +342,13 @@ $Options{'o|owrite'}  = \$overwrite;
 $Options{'p|posfmt'}  = \$posformat;
 $Options{'port=s'}    = \$altport;
 $Options{'radio=s'}   = \@radio;
-$Options{'radius=n'}  = \$gps_parms{'radius'};
+$Options{'radius=f'}  = \$gps_parms{'radius'};
 $Options{'raw'}       = \$raw;
 $Options{'r|renum:i'} = \$renum;
-$Options{'skip'}      = \$skip;
+$Options{'noskip'}    = \$noskip;
 $Options{'s|sort'}    = \$freqsort;
 $Options{'sqkey'}     = \$sqkey;
+$Options{'step=f'}    = \$step;
 $Options{'testfrq=s'} = \$testfrq;
 $Options{'test'}      = \$testing;
 $Options{'tqkey'}     = \$tqkey;
@@ -362,6 +383,7 @@ if (DirExist($path,TRUE)) {
 LogIt(1023,"Unable to locate or create directory $path for output file");
 }
 }
+if ($fstep) {$fstep = Strip(freq_to_rc($fstep));}
 if ($cmd eq '?') {help();}
 elsif ($cmd =~ /help/i) {help();}
 elsif ($cmd =~ /^bl/i)    {  
@@ -571,6 +593,7 @@ $outrecs[$out_tpos-1] = "** Total Groups:$totalgroups\n";
 my $outfile = set_filespec("$radiosel-blocks.txt",'logdir',\%radio_def);
 my $msg = "Created $outfile";
 my $outspec = ">$outfile";
+my $bypass = FALSE;
 if (-e $outfile) {
 if ($append) {
 LogIt(1,"Data will be appended to existing file $Yellow$outfile");
@@ -585,7 +608,7 @@ my $answer = <STDIN>;
 chomp($answer);
 print STDERR "$Eol";
 if (uc(substr($answer,0,1)) ne 'Y') {
-$skip = TRUE;
+$bypass = TRUE;
 }
 }
 $msg = "Recreated $outfile";
@@ -595,7 +618,7 @@ $outspec = ">$outfile";
 else {
 $outspec = ">$outfile";
 }
-if ($skip) {
+if ($bypass) {
 LogIt(0,"$Bold Output file generation was bypassed!");
 }
 else {
@@ -894,6 +917,73 @@ print "No change to $profile_file\n";
 print $Bold,"All SDCard files created on $path$Eol";
 exit $GoodCode;
 }
+elsif ($cmd =~ /^pass/) {
+print "Step=$step\n";
+my $radioname = shift @ARGV;
+if (!$radioname) {LogIt(2312,"PASS:No radio specified!");}
+my $radiosel = lc($radioname);
+select_radio($radiosel);
+my @freqs = @ARGV;
+if (!scalar @freqs) {LogIt(2315,"PASS:No frequency specified!");}
+foreach my $freq (@freqs) {
+if (!looks_like_number($freq)) {
+LogIt(2316,"PASS $freq is not a valid frequency!");
+}
+if ($freq =~ /\./) {$freq = freq_to_rc($freq);}
+}
+if ($step =~ /\./) {$step = freq_to_rc($step);}
+my $protocol = $radio_def{'protocol'};
+my $routine = $Radio_Routine{$protocol};
+if (!$routine) {LogIt(2560,"FETCH:Radio routine not set for protocol $protocol");}
+if (AutoBaud(\%parmref)) {
+LogIt(2336,"Failed to connect to radio:$radiosel");
+}
+if ($Verbose) {
+LogIt(0,"$Bold Radio $Yellow$radiosel$White is on port " .
+"$Magenta$radio_def{'port'}$White with baud $Green$radio_def{'baud'}");
+}
+$parmref{'out'} = \%out;
+$parmref{'in'} = \%in;
+%out = ();
+%in = ();
+my %dbase = ();
+$parmref{'database'} = \%dbase;
+if (&$routine('init',\%parmref) ) {
+LogIt(2351,"FETCH:Failed to initialize radio: $radiosel ($protocol)");
+}
+if (!$radio_def{'pass'}) {
+LogIt(2332,"$radioname does not support the PASS operation!");
+}
+$bench{'start_pass'} = time();
+if (looks_like_number($bank)) {
+if (($bank > 39) or ($bank < 0)) {
+LogIt(1,"Invalid bank number $bank. Option ignored");
+$bank = '-'
+}
+}
+my $count = 0;
+my $recno = 0;
+if ($User_count) {$count = $User_count;}
+foreach my $freq (@freqs) {
+foreach my $ndx (0..$count) {
+$recno++;
+my %rec = (
+'frequency' => $freq,
+'bankno' => $bank,
+'remove' => $erase,
+'_recno' => $recno
+);
+add_a_record(\%dbase,'passfreq',\%rec);
+$freq = $freq + $step;
+}### FOr each count
+}### For each frequency specified
+if (&$routine('setpass',\%parmref) ) {
+LogIt(2373,"PASS:SETPASS Radio routine failed: $radiosel ($protocol)");
+}
+$bench{'end_pass'}  = time();
+BenchMark(\%bench);
+exit $GoodCode;
+}
 elsif ($cmd =~ /^fe/i) { 
 my $radioname = shift @ARGV;
 if (!$radioname) {LogIt(2257,"FETCH:No radio specified!");}
@@ -933,14 +1023,13 @@ my $count = 99999;
 if ($User_count and ($User_count > 0)) {$count = $User_count;}
 my %options = (
 'count'     => $count,
-'skip'      => FALSE,
+'noskip'    => $noskip,
 'firstchan' => $firstnum,
 'lastchan'  => $lastnum,
 'firstsys'  => $firstnum,
 'lastsys'   => $lastnum,
 'notrunk'   => $notrunk,
 );
-if (!$skip) {$options{'noskip'} = TRUE;}
 $parmref{'options'} = \%options;
 if (!$nosys)  {
 my $rc = &$routine('getmem',\%parmref);
@@ -958,11 +1047,28 @@ if ($rc) {
 if ($rc == $NotForModel) {
 LogIt(0,"Search record fetch bypassed. Not supported by this radio");
 }
+elsif ($rc == $EmptyChan) {
+LogIt(0,"No search records stored in this radio");
+}
 else {
 LogIt(1,"FETCH l2450:$Bold GETSRCH routine from radio returned code $rc");
 }
 }
+if ($radio_def{'pass'}) {
+my $rc = &$routine('getpass',\%parmref);
+if ($rc) {
+if ($rc == $NotForModel) {
+LogIt(0,"Pass record fetch bypassed. Not supported by this radio");
 }
+elsif ($rc == $EmptyChan) {
+LogIt(0,"No pass records stored in this radio");
+}
+else {
+LogIt(1,"FETCH l2698:$Bold GETPASS routine from radio returned code $rc");
+}
+}### Non-zero return code
+}### Radio supports 'PASSFREQ'
+}### Getting SEARCH & PASS records
 if ($noglobals) {
 print "Bypassing fetch of globals due to option$Eol";
 }
@@ -1001,6 +1107,8 @@ if ($found) {
 LogIt(0,"All input records processed. Generating output file $user_filename");
 update_qkey(\%radiodb);
 my $outfile = set_filespec("$radioname.csv",'tmpdir',\%radio_def);
+if ($protocol =~ /aor/i) {$aor_format = TRUE;}
+else {$aor_format = FALSE;}
 write_data($outfile,\%radiodb);
 }
 else {LogIt(1,"No data was processed from radio! No file created.");}
@@ -1174,19 +1282,10 @@ foreach my $fs (@filelist) {
 read_radioctl(\%radiodb,$fs);
 }
 if (looks_like_number($renum)) {
-my $channel = $renum;
-foreach my $rec (@{$radiodb{'freq'}}) {
-if ($rec->{'index'}) {
-$rec->{'channel'} = $channel;
-$channel++;
-if ($channel > $radio_def{'maxchan'}) {
-my $origin = $radio_def{'origin'};
-LogIt(1,"Overflow for channel number. Reset to $origin");
-$channel = $origin;
-}
-}
-}
-}
+my $aor = FALSE;
+if ($protocol =~ /aor/i) {$aor = TRUE;}
+Channel_Sort($radiodb{'freq'},$renum,$aor);
+}### Renumber
 my %options = (
 'erase' => $erase,
 'nodie' => $nodie,
@@ -1194,25 +1293,24 @@ my %options = (
 );
 $parmref{'options'} = \%options;
 my $rc = 0;
-if (!$radiodb{'system'}[1]{'index'}) {
-$nosys = TRUE;
-print "Bypassing system store as no system data$Eol";
-}
-elsif ($nosys) {
+if ($nosys) {
 print "Bypassing system store due to NOSYS option$Eol";
 }
 else {
 $rc = &$routine('setmem',\%parmref);
 if ($rc) {
 if ($rc eq $NotForModel) {
-LogIt(3048,"STORE is not valid for $Yellow" . uc($radioname));
+LogIt(3378,"STORE is not valid for $Yellow" . uc($radioname));
+}
+elsif ($rc eq $EmptyChan) {
+LogIt(1,"No records available for STORE in the selected radio");
 }
 else {
 LogIt(3051,"STORE: $Bold SETMEM routine from radio returned code $rc");
 }
 }
 }
-if (scalar @{$radiodb{'search'}} > 1) {
+if ( $radiodb{'search'}[1]{'index'}) {
 if ($nosearch) {
 print "Skipping store of SEARCH records due to NOSEARCH option$Eol";
 }
@@ -1221,6 +1319,9 @@ $rc =  &$routine('setsrch',\%parmref);
 if ($rc) {
 if ($rc == $NotForModel) {
 LogIt(0,"Search records not stored. Not supported by this radio");
+}
+elsif ($rc == $EmptyChan) {
+LogIt(0,"No search records found to store");
 }
 else {
 LogIt(1,"STORE 2706:$Bold SETSRCH routine from radio returned code $rc");
@@ -1231,6 +1332,20 @@ LogIt(1,"STORE 2706:$Bold SETSRCH routine from radio returned code $rc");
 else {
 if ($Verbose) {print "Skipping store of SEARCH records due to no records$Eol";}
 }### Search records available
+if ($radio_def{'pass'} and (!$nosearch) and  $radiodb{'passfreq'}[1]{'index'} ) {
+$rc =  &$routine('setpass',\%parmref);
+if ($rc) {
+if ($rc == $NotForModel) {
+LogIt(0,"Pass records not stored. Not supported by this radio");
+}
+elsif ($rc == $EmptyChan) {
+LogIt(0,"No pass records found to store");
+}
+else {
+LogIt(1,"STORE 3384:$Bold SETPASS routine from radio returned code $rc");
+}
+}### Bad return code
+}### Set PASS records
 if (scalar @{$radiodb{'global'}} > 1) {
 if ($noglobals) {
 print "Skipping store of GLOBAL records due to NOGLOBAL option$Eol";
@@ -2056,51 +2171,56 @@ if (AutoBaud(\%parmref)) {
 LogIt(4521,"Failed to connect to radio:$radioname");
 }
 aor_cmd('init',\%parmref);
-%in = ('channel' => -1);
 %out = ();
-aor_cmd('selmem',\%parmref);
+%in = ('channel'=> 101);
+aor_cmd('MR',\%parmref);
+aor_cmd('CN',\%parmref);
 print Dumper(%out),"\n";
 exit;
-$parmref{'write'} = TRUE;
-%in = ('sqtone' => 'CTC107.2',
-'vfo' => 'A',
-);
-aor_cmd('CN',\%parmref);
-aor_cmd('VF',\%parmref);
-print "Out=>",Dumper(%out),"\n";
+my $rcchan = aorchan2rc('1000');
+print "rcchan=>$rcchan\n";
 exit;
-%in = (
-'channel' => 0,
-'valid'=> TRUE,
-'frequency' => '123.456',
-'mode' => 'FMw',
-'service' => 'Wide FM',
-'bw' => '0',
-);
-aor_cmd('MX',\%parmref);
-aor_cmd('IF',\%parmref);
-aor_cmd('VF',\%parmref);
-aor_cmd('MR',\%parmref);
-%in = (
-'channel' => 1,
-'valid'=> FALSE,
-'frequency' => '345.789',
-'mode' => 'AMw',
-'service' => 'Wide AM',
-'bw' => '0',
-);
-aor_cmd('MX',\%parmref);
-aor_cmd('IF',\%parmref);
-aor_cmd('VF',\%parmref);
-aor_cmd('MR',\%parmref);
+my %hash = ('channel' => 3910,
+'aorchan' => 5);
+my $aorchan = rcchan2aor(\%hash,'dv1');
+print "Returned $aorchan\n";
 exit;
-foreach my $mode (@modestring) {
-foreach my $audio (keys %audio_types) {
-my ($code,$bw) = rcmode2aor($mode,$audio,'DV1');
-if (!defined $code) {print "Undefined code\n";exit;}
-print "Sent $mode ($audio) received=>$code $bw\n";
-}
-}
+my ($ccode,$bbw) = rcmode2aor("fmn",'au','dv1');
+print "code=>$ccode\n";
+exit;
+my %valid_steps = (
+5000 =>   500,
+6250 =>   625,
+7500 =>   740,
+8330 =>   833,
+10000 =>  1000,
+12500 =>  1250,
+15000 =>  1500,
+20000 =>  2000,
+25000 =>  2500,
+50000 =>  5000,
+100000 => 10000,
+);
+my $step = '10005001';
+my $newstep = Step_Check($step,\%valid_steps);
+print "passed $step returned $newstep\n";
+exit;
+%out = ();
+$parmref{'write'} = TRUE ;
+%in = ('bank' => '0',
+'delay' => 2,
+'resume' => 0,
+'autostore' => 1,
+'link' => '',
+);
+aor_cmd('SG',\%parmref);
+print "SG returned=>",Dumper(%out),"\n";
+aor_cmd("EX",\%parmref);
+exit;
+$parmref{'database'} = \%radiodb;
+aor_cmd('getpass',\%parmref);
+write_radioctl(\%radiodb,"/tmp/lockouts.csv");
+print "Output in /tmp/lockouts.csv\n";
 exit;
 %out = ();
 %in = ('bank' => 'A');
@@ -2483,6 +2603,8 @@ if (looks_like_number($renum)) {
 if ($renum < 0) {push @opt,'nochan';}
 else {push @opt,"renum=$renum";}
 }
+if ($aor_format) {push @opt,'aor_format';}
+if ($fstep) {push @opt,"fstep=$fstep";}
 if (-e $outfile) {
 if ($append) {
 LogIt(1,"Data will be appended to existing file $Yellow$outfile");

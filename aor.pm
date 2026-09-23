@@ -61,6 +61,28 @@ my %mode2if = (
 'am'  => 2,
 'amn' => 3,
 );
+my %valid_steps = (
+'10' => 1,
+'50' => 2,
+'100' => 3,
+'500' => 4,
+'1000' => 5,
+'2000' => 6,
+'5000' => 7,
+'6250' => 8,
+'7500' => 9,
+'8330' => 10,
+'9000' => 11,
+'10000' => 12,
+'12500' => 13,
+'15000' => 14,
+'20000' => 15,
+'25000' => 16,
+'30000' => 17,
+'50000' => 18,
+'100000' => 19,
+'500000' => 20,
+);
 my $protoname = 'aor';
 use constant PROTO_NUMBER => 6;
 $Radio_Routine{$protoname} = \&aor_cmd;
@@ -117,7 +139,6 @@ $model = $defref->{'model'};
 if (!$model) {$model = '';}
 if ((!$model) or ($model =~ /dv/i))   {
 my $rc = aor_cmd('WI',$parmref);
-print "Finished 'WI' command\n";
 if ($out->{'model'}) {$model = $out->{'model'};}
 }
 if ($model !~ /dv/i) {
@@ -129,7 +150,7 @@ $model = 'AR5000';
 }
 }
 else { $model = 'AR8000';}
-print "AOR l973:Verified model to be $model\n";
+print "AOR l034:Verified model to be $model\n";
 }
 $defref->{'model'} = $model;
 $defref->{'sigdet'} = 2;
@@ -140,6 +161,7 @@ $defref->{'minfreq'} = 100000;
 $defref->{'searchchan'} = 20;
 $defref->{'origin'} = 0;
 $defref->{'radioscan'} = 2;
+$defref->{'pass'} = TRUE;
 @gui_modestring = ('FM','AM','LSB', 'USB', 'CW');
 @gui_adtype = ();
 @gui_tonestring = ();
@@ -156,8 +178,11 @@ else {$defref->{'maxfreq'} = 1300000000;}
 $defref->{'radioscan'} = 1;
 @gui_attstring = ();
 @gui_tonestring = (@ctctone,@dcstone[1..$#dcstone]);  
-@gui_adtype = ('ANALOG','P25','NXDN','DMR','DSTAR');
+@gui_adtype = ('ANALOG','P25','NXDN','DMR','DSTAR','AUTO');
 @gui_bandwidth = ('(none)','Wide','Medium','Narrow','U_Narrow');
+$parmref->{'write'} = TRUE;
+$in->{'response'} = TRUE;
+aor_cmd('RE',$parmref);
 }
 elsif ($model =~ /5/) {
 $defref->{'minfreq'} = 10000;
@@ -166,6 +191,7 @@ $defref->{'maxfreq'} = 2600000000;
 }
 else {
 }
+$parmref->{'write'} = FALSE;
 if (aor_cmd('RF',$parmref)) {
 print "Issuing 'RF' command..\n";
 LogIt(1,"Radio does not appear to be connected");
@@ -258,12 +284,14 @@ aor_cmd("VA",$parmref);
 else {
 }
 $parmref->{'write'} = TRUE;
-%myin = ('frequency' => $freq);
+%myin = ('frequency' => $freq,
+'mode' => $mode,
+'adtype' => $adtype
+);
 aor_cmd('RF',$parmref);
 if ($mode) {
-%myin = ('mode' => $mode);
 aor_cmd('MD',$parmref);
-if ($model =~ /dv/i) {
+if (($model =~ /dv/i) and ($adtype !~ /au/i)) {
 my ($code,$bw) = rcmode2aor($mode,$adtype,$model);
 %myin = ('bw' => $bw);
 $parmref->{'write'} = TRUE;
@@ -288,60 +316,13 @@ return $parmref->{$GoodCode};
 }
 elsif ($cmdcode eq 'selmem') {
 my $maxcount = $defref->{'maxchan'};
-my $channel =  $defref->{'origin'};
+my $origin  =  $defref->{'origin'};
 my $maxbank = int($maxcount/50) - 1;
 my $maxchan = $maxcount -1;
-my $ch = $in->{'channel'};
-if (!defined $ch) {
-LogIt(1,"AOR_CMD_l1207:Undefined channel number. Caller=$caller");
-return ($parmref->{'rc'} = $ParmErr);
-}
-if (!looks_like_number($ch)) {
-LogIt(1,"AOR_CMD_l1211:Non-Numeric channel number $ch. Caller=$caller");
-return ($parmref->{'rc'} = $ParmErr);
-}
-if ($channel > $maxchan) {
-LogIt(1,"AOR_CMD_l1215:Channel $ch out of range of radio. Caller=$caller");
-return ($parmref->{'rc'} = $ParmErr);
-}
-if ($ch < 0) {
-my $gui_save = $parmref->{'gui'};
-if ($model =~ /8000/) {
-$ch = 0;
-}
-else {
-print "Looking for the next available channel..\n";
-my %db = ();
-my %myout = ();
-my %myin = ('database' => \%db,'model' => $model);
-$parmref->{'out'} = \%myout;
-$parmref->{'in'} = \%myin;
-$parmref->{'gui'} = '';
-foreach my $bank (0..$maxbank) {
-%db = ();
-my $rc = aor_cmd('MA',$parmref);
-if (!$db{'freq'}[1]) {
-print "Nothing stored in bank $bank\n";
-next;
-}
-$ch = $db{'freq'}[1]{'channel'};
-print "AOR l1245: Located first active channel $ch\n";
-last;
-}### For every bank
-}###  Not the AR80000
-$parmref->{'in'} = $insave;
-$parmref->{'out'} = $outsave;
-$parmref->{'gui'} = $gui_save;
-if ($ch < 0) {
-LogIt(1,"No memory channels were found");
-$out->{'frequency'} = 0;
-$out->{'channel'} = -1;
-return ($parmref->{'rc'} = $EmptyChan);
-}
-else {$in->{'channel'} = $ch;}
-}### Specified channel < 0
+my $aorchan = rccchan2aor($in,$model);
+if ($aorchan < 0) {return $NotForModel;}
+$in->{'aorchan'} = $aorchan;
 $parmref->{'write'} = FALSE;
-$ch = $in->{'channel'};
 my $rc = aor_cmd ('MR',$parmref);
 if ($rc) {
 $out->{'frequency'} = 0;
@@ -351,7 +332,7 @@ return ($parmref->{'rc'} = $EmptyChan);
 }
 aor_cmd('RX',$parmref);
 if ($out->{'channel'} eq '-1') {
-$out->{'channel'} = $ch;
+$out->{'channel'} = $aorchan;
 $out->{'valid'} = FALSE;
 }
 aor_cmd('EX',$parmref);
@@ -373,6 +354,14 @@ if ($options) {
 if ($options->{'count'}) {$maxcount = $options->{'count'};}
 if ($options->{'firstchan'} and ($options->{'firstchan'} > 0)) {
 $channel = $options->{'firstchan'};
+if ($channel > 3949) {
+LogIt(1,"Firstchan is too large for AOR. Changed to 0");
+$channel = 0;
+}
+elsif (($model =~ /8000/) and ($channel > 1949)) {
+LogIt(1,"Firstchan is too large for this model. Changed to 0");
+$channel = 0;
+}
 }
 my $lastchan = $options->{'lastchan'};
 if ($lastchan and ($lastchan < $maxchan)) {
@@ -411,7 +400,7 @@ $nextndx = $lastrec->{'index'};
 }
 %myin = (
 'database' => $db,
-'aorbank' => sprintf("%02.2u",$bank),
+'bank' => sprintf("%02.2u",$bank),
 'sysno' => $sysno,
 'groupno' => $grpno,
 'model' => $model,
@@ -419,13 +408,18 @@ $nextndx = $lastrec->{'index'};
 );
 my $needgroup = TRUE;
 if ($model =~ /8000/) {
-$myin{'aorbank'} = substr($alpha,$bank,1);
+LogIt(1720,"Using MA for AR8000! Caller=>$caller");
 }
 aor_cmd('MA',$parmref);
 CHANFETCH:
 foreach my $ch (0..49) {
+my $channel =  sprintf("%02.2i",$bank) . sprintf("%02.2i","$ch");
+$vfo{'channel'} = $channel;
 threads->yield;
 if ($progstate ne $startstate) {goto GETDONE;}
+if (!$parmref->{'gui'}) {
+print STDERR "\rReading channel:$Bold$Green$channel$Reset";
+}
 $nextndx++;
 my $freqrec = $freqrecs->[$nextndx];
 if (!$freqrec->{'index'}) {last CHANFETCH;}
@@ -440,7 +434,7 @@ if ($freq) {
 my $mode = $freqrec->{'mode'};
 my $audio = $freqrec->{'adtype'};
 if (($audio =~ /an/i) and ($model =~ /dv/i)) {
-$myin{'channel'} = $freqrec->{'channel'};
+$myin{'aorchan'} = sprintf("%04.4u",$freqrec->{'channel'});
 aor_cmd('MR',$parmref);
 aor_cmd('IF',$parmref);
 if ($mode =~ /fm/i) {
@@ -450,32 +444,35 @@ elsif ($myout{'bw'} == 0) {$freqrec->{'mode'} = 'WF';}
 else {$freqrec->{'mode'} = 'FM';}
 }
 else {
-print "AOR 1439 'IF; command returned=>",Dumper(%myout),"\n";
 }
 }### FM Modulation
 }### Analog Audio
 $freqrec->{'sqtone'} = 'Off';
 if (($mode =~ /fm/i) and ($audio =~ /an/)) {
+$myin{'aorchan'} = sprintf("%04.4u",$freqrec->{'channel'});
+aor_cmd('MR',$parmref);
 $freqrec->{'sqtone'} = get_tones($parmref);
 }
 }### Frequency not 0
+$freqrec->{'aorchan'} = '';
 $count++;
 }### Channel process
 }### Bank fetch
 goto GETDONE;
 FETCH_8000:
-foreach my $bank (split '',$alpha) {
+foreach my $bank (0..19) {
 my $grpno = 0;
 my $needgroup = TRUE;
 foreach my $chan (0..49) {
-$in->{'channel'} = $channel;
+$myin{'aorchan'} = substr($alpha,$bank,1) . sprintf("%2.2i",$chan);
+my $channel =  aorchan2rc($myin{'aorchan'});
+$vfo{'channel'} = $channel;
 threads->yield;
-if (!$parmref->{'gui'}) {
-print STDERR "\rReading channel:$Bold$Green" . sprintf("%04.4u",$channel) . $Reset ;
-}
 if ($progstate ne $startstate) {last FETCH_8000;}
+if (!$parmref->{'gui'}) {
+print STDERR "\rReading channel:$Bold$Green$channel$Reset" ;
+}
 %myout  = ('frequency' => 0);
-%myin = ('channel' => $channel);
 aor_cmd('MR',$parmref);
 if ($myout{'frequency'} or $noskip) {
 if ($needgroup) {
@@ -484,9 +481,9 @@ $grpno = add_a_record($db,'group',\%grouprec,$parmref->{'gui'});
 $needgroup = FALSE;
 }
 my %freqrec = (
-'channel' => $channel,
 'groupno' => $grpno,
 'sqtone' => 'Off',
+'channel' => $channel,
 );
 foreach my $key ('frequency','mode','valid','service','att') {
 $freqrec{$key} = $myout{$key};
@@ -494,9 +491,8 @@ $freqrec{$key} = $myout{$key};
 add_a_record($db,'freq',\%freqrec,$parmref->{'gui'});
 $count++;
 }
-$channel++;
 }### For every channel in this AOR group
-}### For every group in the radio
+}### For every group in the AR8000
 GETDONE:
 aor_cmd('EX',$parmref);
 $parmref->{'out'} = $outsave;
@@ -508,6 +504,7 @@ elsif ($cmdcode eq 'setmem') {
 if (!$in) {LogIt(1076,"AOR_CMD:No 'in' defined for SETMEM");}
 if (!$db) {LogIt(1076,"AOR_CMD:No database reference for SETMEM");}
 if ($Debug1) {LogIt(0,"Processing AOR SETMEM command");}
+if (!$db->{'freq'}[1]{'index'}) {return $EmptyChan;}
 my $options = $parmref->{'options'};
 my $max_count = $defref->{'maxchan'};
 if ($options->{'count'}) {$max_count = $options->{'count'};}
@@ -524,48 +521,52 @@ aor_cmd('MR',$parmref);
 }
 my @to_delete = ();
 my @to_write = ();
+my $flushchan = '';
 foreach my $frqrec (@{$db->{'freq'}}) {
 if (!defined $frqrec->{'index'}) {next;}
 my $recno = $frqrec->{'_recno'};
 if (!$recno) {$recno = '??';}
 my $emsg = "in record $recno";
 if ($frqrec->{'tgid_valid'}) {next;}
-my $channel = $frqrec->{'channel'};
-my $aorchan = $frqrec->{'aorchan'};
-if ((defined $aorchan) and (looks_like_number($aorchan))) {
-$channel = $aorchan;
-}
-if ((!looks_like_number($channel)) or ($channel < 0) ) {
+my $aorchan = rcchan2aor($frqrec,$model);
+if ($aorchan eq '-1') {next;}
+if ($found_chan{$aorchan}) {
+print STDERR "\n";
+LogIt(1,"\nChannel $aorchan was found twice $emsg. Second iteration skipped!");
 next;
 }
-if (($channel < $defref->{'origin'}) or ($channel > $defref->{'maxchan'})) {
-next;
-}
-if ($found_chan{$channel}) {
-next;
-}
-my $aor_chan = rcchan2aor($channel,$model);
-if ($aor_chan eq '-1') {next;}
-$found_chan{$channel} = TRUE;
+$found_chan{$aorchan} = TRUE;
 my $freq = $frqrec->{'frequency'};
 if (!$freq) {
-%myin = ('channel' => $channel);
+%myin = ('aorchan' => $aorchan);
 my $rc = aor_cmd('MR',$parmref);
 if ($rc) {next;}
 if (($model =~ /8000/) and (!$myout{'frequency'})) {next;}
-push @to_delete,$channel;
+push @to_delete,$aorchan;
 next;
 }
 else {
 print STDERR "\rSETMEM: Writing channel $Bold$Green",
-sprintf("%04.4u",$channel), $Reset,
+sprintf("%04.4u",$aorchan), $Reset,
 " freq=>$Yellow",rc_to_freq($freq),$Reset;
-%myin = ('channel' => $channel);
+%myin = (
+'aorchan' => $aorchan,
+'step' => 5000,
+);
+if (!$flushchan) {$flushchan = $aorchan;}
+if (looks_like_number($frqrec->{'fstep'})) {
+$myin{'step'} =  Step_Check($frqrec->{'fstep'},\%valid_steps);
+}
 foreach my $key ('frequency','valid','adtype',
 'mode','service') {
 my $value = $frqrec->{$key};
 if ($key eq 'mode') {
-if (lc($value) eq 'auto') {$value = AutoMode($freq);}
+if (lc($value) eq 'auto') {
+$value = AutoMode($freq);
+}
+}
+elsif ($key eq 'service') {
+if (!$value) {$value = '.';}
 }
 $myin{$key} = $value;
 }### Set keys for the memory
@@ -574,14 +575,14 @@ $myin{'atten'} = $frqrec->{'atten'};
 }
 my $rc =  aor_cmd('MX',$parmref);
 if ($rc) {
-LogIt(1,"Radio rejected write of channel $channel");
+LogIt(1,"\nRadio rejected write of channel $aorchan");
 next;
 }
+aor_cmd('MR',$parmref);
 $count++;
 }### Write the basic stuff for this channel
 my %record = (
-'channel'  => $channel,
-'aor_chan' =>$aorchan,
+'aorchan'  => $aorchan,
 'mode'     => $frqrec->{'mode'},
 'adtype'   => $frqrec->{'adtype'},
 'sqtone'   => $frqrec->{'sqtone'},
@@ -597,48 +598,53 @@ aor_cmd('MR',$parmref);
 }
 print STDERR "\n";
 foreach my $rec (@to_write) {
-my $channel = $rec->{'channel'};
+my $aorchan = $rec->{'aorchan'};
 print STDERR "\rSETMEM: Writing extra fields for channel $Bold$Green",
-sprintf("%04.4u",$channel), $Reset;
+sprintf("%04.4u",$aorchan),"$Reset";
 if (($model !~ /8000/) and
 ($rec->{'adtype'} =~ /an/i) and
 ($rec->{'mode'} =~ /fm/i)) {
-%myin = ('channel' => $channel);
-if (aor_cmd('MR',$parmref)) {
-LogIt(1,"\n Could not set channel $channel for tone setting!");
+%myin = ('aorchan' => $aorchan);
+my $rc = aor_cmd('MR',$parmref);
+if ($rc) {
+LogIt(1,"\n L2155 Could not set channel $aorchan for tone setting! rc->$rc");
+print "Sent:$parmref->{'_sent'} returned:$parmref->{'_returned'} ",
+" code:$parmref->{'_rc'}\n";
 next;
 }
-my $rc = set_tones($rec->{'sqtone'},$parmref);
+$rc = set_tones($rec->{'sqtone'},$parmref);
 if ($rc) {
 LogIt(1,"\n$rec->{'sqtone'} (channel $rec->{'channel'}) " .
 "is not valid for this radio!");
 }
 }### Tone conditions met
-if ($model =~ /dv/i) {
+if (($model =~ /dv/i) and ($rec->{'adtype'} =~ /an/i)) {
 my ($md,$bw) = rcmode2aor($rec->{'mode'},$rec->{'adtype'},$model);
-%myin = ('bw' => $bw, 'vfo' => 'A', 'channel' => $channel);
+%myin = ('bw' => $bw, 'vfo' => 'A', 'aorchan' => $aorchan);
 if (aor_cmd('MR',$parmref)) {
-LogIt(1,"\n Could not set channel $channel for tone setting!");
+LogIt(1,"\n Could not set channel $channel ($aorchan) for tone setting!");
 next;
 }
 $parmref->{'write'} = TRUE;
 aor_cmd('IF',$parmref);
 }### Model is DV-1/DV-3
 }### For each second pass record
-print STDERR "\n";
-foreach my $channel (@to_delete) {
+print STDERR $Eol;
+foreach my $aorchan (@to_delete) {
 print STDERR "\rSETMEM: Deleting channel $Bold$Green",
-sprintf("%04.4u",$channel), $Reset;
-%myin = ('channel' => $channel);
+sprintf("%04.4u",$aorchan), $Reset;
+%myin = ('aorchan' => $aorchan);
 if ($model =~ /8000/) {aor_cmd('MR',$parmref);}
 aor_cmd('MQ',$parmref);
 $deleted++;
 }
 if ($model =~ /dv/i) {
-%myin = ('vfo' => 'A', 'channel' => $channel);
+%myin = ('vfo' => 'A', 'aorchan' => $flushchan);
 aor_cmd('VF',$parmref);
 dv_delay($parmref);
+if ($flushchan) {
 aor_cmd('MR',$parmref);
+}
 }
 $out->{'count'} = $count;
 print STDERR "\n\n";
@@ -671,16 +677,11 @@ my $srch_max = $defref->{'searchchan'}-1;
 if (!$srch_max) {$srch_max = 20;}
 foreach my $bank (0..$srch_max) {
 if (!$parmref->{'gui'}) {
-print STDERR "\rReading Bank:$Bold$Green" . sprintf("%08.8u",$bank) . $Reset ;
-if ($model =~ /8000/) {
-$myin{'bank'} = substr($alpha,$bank,1);
-}
-else {
-$myin{'bank'} = sprintf("%02.2u",$bank);
-}
+print STDERR "\rReading Search Bank:$Bold$Green" . sprintf("%08.8u",$bank) . $Reset ;
+%myin = ('bank' => $bank);
 my  $rc = aor_cmd('SR',$parmref);
 if ($rc) {
-if ($rc == $EmptyChan) {
+if (($rc == $EmptyChan) or ($rc == $NotForModel)) {
 if (!$noskip) {next;}
 }
 else {next;}
@@ -693,143 +694,88 @@ my %search = (
 'mode' => $myout{'mode'},
 'channel' => $bank,
 'service' => $myout{'service'},
+'adtype' => $myout{'adtype'},
 );
 add_a_record($db,'search',\%search,$parmref->{'gui'});
 $count++;
 }
 }### For each bank
-aor_cmd('EX',$parmref);
 $parmref->{'write'} = $writesave;
 $parmref->{'out'} = $outsave;
+$parmref->{'in'} = $insave;
+aor_cmd('EX',$parmref);
+print STDERR $Eol,$Eol;
 print STDERR "$Eol$Bold$Green$count$White search records were Fetched$Eol";
 return ($parmref->{'rc'} = $GoodCode);
 }### Getsrch
 elsif ($cmdcode eq 'setsrch') {
 if ($Debug2) {DebugIt("AOR_CMD:Starting 'setsrch' command");}
+if (!$db->{'search'}[1]{'index'}) {return $EmptyChan;}
+my $retcode = $GoodCode;
 my %myin = ();
 my %myout = ();
 my $writesave = $parmref->{'write'};
 $parmref->{'in'} = \%myin;
 $parmref->{'out'} = \%myout;
-my $valid_channel = 0;
-if ($model =~ /dv/i) {
-$parmref->{'write'} = FALSE;
-%myin = ('channel' => -1);
-aor_cmd('selmem',$parmref);
-$valid_channel = $out->{'channel'};
-}
-$parmref->{'write'} = FALSE;
-if ($model =~ /dv/i) {
-%myin = ('VFO' => 'A');
-aor_cmd('VF',$parmref);
-}
-else {aor_cmd('VA',$parmref);}
-my @special = (
-{'empty' => TRUE,'channel' => '00', 'start_freq' => 30000000,
-'end_freq' => 31000000, 'step'=> 10000, 'mode' => 'FMn',
-'service' => 'Dummy-1','special' => 1,
-},
-{'empty' => TRUE,'channel' => '39', 'start_freq' => 30000000,
-'end_freq' => 31000000, 'step'=> 10000, 'mode' => 'FMn',
-'service' => 'Dummy-2','special' => 2,
-},
-);
-if ($model =~ /dv/i) {
-foreach my $ndx (0,1) {
-$myin{'bank'} = $special[$ndx]{'channel'};
-my $rc = aor_cmd('SR',$parmref);
-if (!$rc) {### If this worked, there is data in this channel
-foreach my $key ('start_freq','end_freq','step','mode','service') {
-$special[$ndx]{$key} = $myout{$key};
-}
-$special[$ndx]{'empty'} = FALSE;
-}### Search bank has data
-}### For each special channel
-}### DV-1/DV-3 channel 0 & 39 fetch
-$parmref->{'write'} = TRUE;
-my $retcode =  $NotForModel;
+my $maxcount = $defref->{'maxchan'};
+my $channel =  $defref->{'origin'};
+my $maxbank = int($maxcount/50) - 1;
+my $maxchan = $maxcount -1;
 my $count = 0;
-my $max_chan =  $defref->{'searchchan'};
-if (!$max_chan) {$max_chan = 20;}
-my $srch_max = $max_chan - 1;
-my %clear_chan = ();
-my %active_chan = ();
+my $removed = 0;
+print "$Eol";
+my %clear = ();
+my %add = ();
 foreach my $rec (@{$db->{'search'}}) {
 if (!$rec->{'index'}) {next;}
-my $ch = $rec->{'channel'};
-if (!defined $ch) {next;}
-if (!looks_like_number($ch)) {next;}
-if ($ch > $max_chan) {
-LogIt(1,"Search channel $ch in record $rec->{'_recno'} ".
-"exceeds radio's maximum ($max_chan). Ignored!");
+my $chan = $rec->{'channel'};
+my $recno = $rec->{'_recno'};
+if (!$recno) {$recno = '?';}
+if (!defined $chan) {next;}
+if (!looks_like_number($chan)) {next;}
+if (($chan > 39) or (($model =~ /8000/) and ($chan > 19))) {
+LogIt(1,"Skipping record $recno. Channel $chan out of range");
 next;
 }
-if ($ch >= 0) {
-if ($rec->{'start_freq'}) {
-if ($active_chan{$ch}) {
-LogIt(1,"Duplicate search channel $ch found in record " .
-$rec->{'_recno'} . " Ignored!");
+my $start = $rec->{'start_freq'};
+my $end = $rec->{'end_freq'};
+my $step = $rec->{'step'};
+if (!$step) {
+LogIt(1,"Skipping record $recno. Step '0' not allowed");
 next;
 }
-$active_chan{$ch} = $rec;
-}### Non-zero frequency
+if (!$start) {
+if ($clear{$chan}) {
+LogIt(1,"Duplicate delete of channel $chan in record $recno!");
+next;
+}
 else {
-if ($clear_chan{$ch}) {
-LogIt(1,"Duplicate clear search channel $ch found in record " .
-$rec->{'_recno'} . " Ignored!");
+$clear{$chan} = $rec;
+}
+}
+else {
+if (!$end) {
+LogIt(1,"Skipping record $recno. END_FREQ '0' not allowed");
+next;
+}### END=0
+if ($add{$chan}) {
+LogIt(1,"Duplicate add of channel $chan in record $recno! Skipped");
 next;
 }
-else {$clear_chan{$ch} = $rec;}
+if ($start > $end) {### Swap
+$rec->{'start_freq'} = $end;
+$rec->{'end_freq'} = $start;
 }
-}### Channel specified and
-}### First pass
-my $curchan = 0;
-FINDCHAN:
-foreach my $rec (@{$db->{'search'}}) {
-if (!$rec->{'index'}) {next;}
-my $ch = $rec->{'channel'};
-if (!defined $ch) {$ch = -1;}
-elsif (!looks_like_number($ch)) {$ch = -1;}
-if ($ch >= 0) {next;}
-if ((!$rec->{'start_freq'}) or (!$rec->{'end_freq'})) {
-LogIt(1,"Search record with 0 start/end frequency cannot be used ".
-"without a channel number (record=$rec->{'_recno'}). Ignored!");
-next;
+elsif ($start == $end) {
+$rec->{'end_freq'} = $end + $step;
 }
-while ($active_chan{$curchan} or ($clear_chan{$curchan})) {
-$curchan++;
-if ($curchan > $srch_max) {
-$rec->{'channel'} = -1;
-last;
-}
-}
-if ($curchan > $srch_max) {
-LogIt(1,"Maximum search channels reached. " .
-" Some records may not be stored!");
-last FINDCHAN;
-}
-$rec->{'channel'} = $curchan;
-$active_chan{$curchan} = $rec;
-}#### Locate channels without numbers
-if ($model =~ /dv/i) {
-my $ndx = 0;
-foreach my $ch (0,39) {
-if (!$active_chan{$ch}) {
-$active_chan{$ch} = $special[$ndx];
-if ($special[$ch]{'empty'}) {
-$clear_chan{$ch} = $special[$ndx];
-}
-$ndx++;
-}
-}## Min and Max channel numbers
-}### DV-1/DV-3 code
-my @chan_list = sort Numerically keys %active_chan;
-my $bank_count = scalar @chan_list;
-if (!$bank_count) {
-LogIt(1,"No SEARCH records were found to store!");
-}
-foreach my $bank (@chan_list) {
-my $rec = $active_chan{$bank};
+$rec->{'step'} = Step_Check($step,\%valid_steps);
+$add{$chan} = $rec;
+}### Start != 0
+}### for each search channel
+foreach my $bank (sort Numerically keys %add) {
+print STDERR "\rSETSRCH: storing search bank $Bold$Green$bank$Reset  ";
+my $rec = $add{$bank};
 %myin = ();
 if ($model =~ /8000/) {
 $myin{'bank'} = substr($alpha,$bank,1);
@@ -837,66 +783,61 @@ $myin{'bank'} = substr($alpha,$bank,1);
 else {
 $myin{'bank'} = sprintf("%02.2u",$bank);
 }
-foreach my $key ('start_freq','end_freq','step','mode','service') {
+$myin{'step'} = Step_Check($rec->{'step'},\%valid_steps);
+if ($rec->{'adtype'} ) {$myin{'adtype'} = $rec->{'adtype'};}
+else {$myin{'adtype'} = 'AN';}
+foreach my $key ('start_freq','end_freq','mode','service','step') {
 $myin{$key} = $rec->{$key};
 }
 if ($model !~ /dv/i) {
 $myin{'atten'} = $rec->{'atten'};
 }
-print "Setting search bank $bank..\n";
 $parmref->{'write'} = TRUE;
 aor_cmd('SE',$parmref);
-if ($model =~ /dv/i) {
-my $rec = $active_chan{0};
-if ($bank < 20) {$rec = $active_chan{39};}
-foreach my $key ('start_freq','end_freq','step','mode','service') {
-$myin{$key} = $rec->{$key};
-}
-$myin{'bank'} = $rec->{'channel'};
-$parmref->{'write'} = TRUE;
-aor_cmd('SE',$parmref);
-sleep 1;
-}### DV-1/DV-3 Flush
 $count++;
-}### For all search records
+$parmref->{'write'} = FALSE;
 if ($model =~ /dv/i) {
-my @delist = sort Numerically keys %clear_chan;
-if ((!scalar @delist) and (!$bank_count)) {
-LogIt(1,"No search memories were updated!");
-}
-foreach my $bank (@delist) {
-print "clearing $bank\n";
-%myin = ('bank' =>$bank);
-aor_cmd('SX',$parmref);
-if ($active_chan{$bank}) {
-my $rec = $active_chan{$bank};
-if ($rec->{'special'}) {$count--;}
-}
-if ($valid_channel) {
-%myin = ('VFO' => 'A','channel' => $valid_channel);
-aor_cmd('MR',$parmref);
-sleep 1;
+%myin = ('VFO' => 'A');
 aor_cmd('VF',$parmref);
-sleep 1;
-}
-}### For each deleted record
-if ($valid_channel) {
-%myin = ('VFO' => 'A','channel' => $valid_channel);
-aor_cmd('MR',$parmref);
-sleep 1;
-aor_cmd('VF',$parmref);
-sleep 1;
+%myin = ();
+if ($model =~ /8000/) {
+$myin{'bank'} = substr($alpha,$bank,1);
 }
 else {
-LogIt(1,"Please press VFO and SCAN buttons to assure write of data!");
+$myin{'bank'} = sprintf("%02.2u",$bank);
 }
-}### DV-1/DV-3
-print STDERR "$Eol$Bold$Green$count$White search records were Stored$Eol";
-aor_cmd('EX',$parmref);
+aor_cmd('SS',$parmref);
+}
+}### For each %add bank
+print STDERR $Eol,$Eol;
+if ($count) {
+LogIt(0,"$Bold$Green$count$White search records added");
+}
+else {LogIt(0,"$Bold No search records were added");}
+foreach my $bank (sort Numerically keys %clear) {
+print STDERR "\rSETSRCH: Clearing search bank $Bold$Green$bank$Reset  ";
+%myin = ();
+if ($model =~ /8000/) {
+$myin{'bank'} = substr($alpha,$bank,1);
+}
+else {
+$myin{'bank'} = sprintf("%02.2u",$bank);
+}
+aor_cmd('SX',$parmref);
+$removed++;
+}
+print STDERR $Eol,$Eol;
+if ($removed) {
+LogIt(0,"$Bold$Green$removed$White search records removed");
+}
+else {LogIt(0,"$Bold No search records were removed");}
+$retcode = $GoodCode;
+SETSRCH_DONE:
 $parmref->{'write'} = $writesave;
 $parmref->{'in'} = $insave;
 $parmref->{'out'} = $outsave;
-return ($parmref->{'rc'} = $GoodCode);
+aor_cmd('EX',$parmref);
+return ($parmref->{'rc'} = $retcode);
 }### setsrch
 elsif ($cmdcode eq 'getglob') {
 if ($model =~ /8000/) {return ($parmref->{'rc'} = $GoodCode);}
@@ -924,7 +865,8 @@ return ($parmref->{'rc'} = $GoodCode);
 elsif ($cmdcode eq 'setglob') {
 if (!$db) {LogIt(2716,"AOR_CMD:No 'database' defined in parmref for SETGLOB");}
 if ($Debug2) {DebugIt("AOR_CMD:Starting 'setglob' command");}
-if ($model =~ /8000/) {return ($parmref->{'rc'} = $GoodCode);}
+if (!$db->{'global'}[1]{"index"}) {return $EmptyChan;}
+if ($model =~ /8000/) {return ($NotForModel);}
 my %myin = ();
 my %myout = ();
 my $writesave = $parmref->{'write'};
@@ -958,11 +900,212 @@ $parmref->{'in'} = $insave;
 $parmref->{'out'} = $outsave;
 return ($parmref->{'rc'} = $GoodCode);
 }
+elsif ($cmdcode eq 'setpass') {
+if ($Debug2) {DebugIt("AOR_CMD:Starting 'setpass' command");}
+if (!$db) {LogIt(2856,"AOR_CMD:No database reference for SETPASS");}
+if (!$db->{'passfreq'}[1]{'index'}) {return $EmptyChan;}
+my %newdb = ();
+my $dbsave = $parmref->{'database'};
+$parmref->{'database'} = \%newdb;
+$parmref->{'options'}->{'noskip'} = FALSE;
+aor_cmd('getsrch',$parmref);
+$parmref->{'database'} = $dbsave;
+my %valid_bank = ();
+foreach my $rec (@{$newdb{'search'}}) {
+if ($rec->{'index'}) {
+my $ch = $rec->{'channel'} + 0;
+my $start_freq = $rec->{'start_freq'};
+my $end_freq = $rec->{'end_freq'};
+if ($end_freq < $start_freq) {
+my $temp = $start_freq;
+$start_freq = $end_freq;
+$end_freq = $temp;
+}
+$valid_bank{$ch}{'start_freq'} = $start_freq;
+$valid_bank{$ch}{'end_freq'} = $end_freq;
+}
+}
+if (!scalar keys %valid_bank) {
+LogIt(1,"No search banks defined in radio. Cannot set pass frequencies");
+return $EmptyChan;
+}
+my %myin = ();
+my %myout = ();
+my $writesave = $parmref->{'write'};
+$parmref->{'in'} = \%myin;
+$parmref->{'out'} = \%myout;
+my $addcount = 0;
+my $delcount = 0;
+my $max_chan =  $defref->{'searchchan'};
+if (!$max_chan) {$max_chan = 20;}
+my $srch_max = $max_chan - 1;
+my %addfreq = ();
+my %delfreq = ();
+foreach my $rec (@{$db->{'passfreq'}}) {
+if (!$rec->{'index'}) {next;}
+my $bank = $rec->{'bankno'};
+my $frq = $rec->{'frequency'};
+my $recno = $rec->{'_recno'};
+if (!$recno) {$recno = '?';}
+if (!$frq) {
+LogIt(1,"Ignoring record $recno due to 0 frequency");
+next;
+}
+if ((!defined $bank) or (!looks_like_number($bank))) {
+$bank = '-';
+}### Bank number not specified
+else {
+if (!$valid_bank{$bank}{'start_freq'}) {
+LogIt(1,"Ignoring record $recno due to undefined bank $bank");
+next;
+}
+}### Bank number was specified
+if ($rec->{'remove'}) {
+if ($bank eq '-') {
+foreach my $bk (keys %valid_bank) {
+push @{$delfreq{$bk}},$frq;
+if ($Verbose) {print "Added removal of $frq from $bk\n";}
+}### For each defined bank
+}### Bank not specified
+else {
+push @{$delfreq{$bank}},$frq;
+}
+}
+else {
+if ($bank eq '-') {
+foreach my $bk (keys %valid_bank) {
+if ($Verbose) {print "Adding $frq for $bk\n";}
+push @{$addfreq{$bk}},$frq;
+}
+}
+else {
+push @{$addfreq{$bank}},$frq;
+}### Just one bank specified
+}
+}### extract data from input records
+foreach my $bank (sort Numerically keys %addfreq) {
+%myin = ('bank' => $bank);
+aor_cmd('SS',$parmref);
+foreach my $frq (@{$addfreq{$bank}}) {
+$myin{'frequency'} = $frq;
+my $rc = aor_cmd('PW',$parmref);
+if ($rc) {
+LogIt(1,"AOR l2908 Could not set PASS freq $frq for bank $bank");
+print "sent=>$parmref->{'_sent'} ",
+"recv=>$parmref->{'_received'} rc=$parmref->{'_rc'}\n";
+}
+else {
+print "Set pass frequency $frq for bank $bank\n";
+$addcount++;
+}
+}### Add a pass freq
+}### for each record
+print $Eol;
+if ($addcount) {
+LogIt(0,"$Bold Added $Green$addcount$White pass frequencies to the radio");
+}
+else {
+LogIt(0,"$Bold No pass frequencies were added to the radio");
+}
+my @delbanks = sort Numerically keys %delfreq;
+if (scalar @delbanks) {
+my %newdb = ();
+my $dbsave = $parmref->{'database'};
+$parmref->{'database'} = \%newdb;
+aor_cmd('getpass',$parmref);
+$parmref->{'database'} = $dbsave;
+my %freq = ();
+foreach my $rec (@{$newdb{'passfreq'}}) {
+if (!$rec->{'index'}) {next;}
+my $ch = $rec->{'channel'};
+my $fq = $rec->{'frequency'};
+my $bk = $rec->{'bankno'};
+if (looks_like_number($fq)) {$fq = $fq + 0;}
+else {$fq = 0;}
+if (looks_like_number($ch)) {$ch = $ch + 0;}
+else {$ch = 0;}
+if (looks_like_number($bk)) {$bk = $bk + 0;}
+else {$bk = 0;}
+if ($fq) {
+$freq{$bk}{$ch} = $fq;
+}
+}### Extracting new database
+foreach my $bankno (@delbanks) {
+CHLIST:
+foreach my $ch (reverse sort Numerically keys %{$freq{$bankno}}) {
+my $thisfrq = $freq{$bankno}{$ch};
+foreach my $frq (@{$delfreq{$bankno}}) {
+if ($thisfrq == $frq) {
+%myin = ('channel'=> $ch, 'bank'=>$bankno);
+my $rc = aor_cmd('PD',$parmref);
+if ($rc) {
+LogIt(1,"AOR l2985: 'PD' command failed. " .
+"sent=$parmref->{'_sent'} " .
+"received=$parmref->{'_received'} " .
+"rc=$parmref->{'_rc'}");
+}
+else {
+print "Removed $frq in channel $ch from bank $bankno\n";
+$delcount++;
+}
+next CHLIST;
+}### deleted the frequency
+}### For each frequency to removed
+}### For each channel  to check for  this bank
+}### For each bank number
+if ($delcount) {
+LogIt(0,"$Bold Removed $Green$delcount$White pass frequencies");
+}
+else {
+LogIt(0,"$Bold No pass frequencies were removed from the radio");
+}
+}### There are frequencies to remove
+aor_cmd('EX',$parmref);
+$parmref->{'in'} = $insave;
+$parmref->{'out'} = $outsave;
+return ($parmref->{'rc'} = $GoodCode);
+}### Setpass
+elsif ($cmdcode eq 'getpass') {
+if ($Debug2) {LogIt(0,"AOR_CMD l2927 starting 'getpass'");}
+if (!$db) {LogIt(2931,"AOR_CMD:No database reference for GETPASS");}
+$in->{'database'} = $db;
+my $maxbank = $defref->{'searchchan'} -1;
+print "$Eol";
+foreach my $bank (0..$maxbank) {
+print STDERR "\rReading pass for Search Bank:$Bold$Green" . sprintf("%08.8u",$bank) . $Reset ;
+$in->{'bank'} = $bank;
+if ($model =~ /8000/) {
+$parmref->{'write'} = TRUE;
+aor_cmd('BN',$parmref);
+$parmref->{'write'} = FALSE;
+$in->{'bank'} = '';
+}
+aor_cmd('PR',$parmref);
+}
+print $Eol;
+aor_cmd('EX',$parmref);
+return ($parmref->{'rc'} = $GoodCode);
+}### GETPASS command process
 elsif ($cmdcode eq 'test') {
 }
 elsif ($cmdcode eq 'AC') {
 return ($parmref->{'rc'} = $NotForModel);
 }
+elsif ($cmdcode eq 'AS') {
+if ($model =~ /8000/i) {return $NotForModel;}
+if ($parmref->{'write'}) {
+my $auto = $in->{'autostore'};
+if (defined $auto){
+if ($auto) {$parmstr = 1;}
+else {$parmstr = 0;}
+}
+else {
+LogIt(1,"AOR l3051:Forgot parameter 'autostore' for AS call!");
+return $ParmErr;
+}
+}
+else {$parmstr = '';}
+}### AS Preprocess
 elsif ($cmdcode eq 'AT') {
 if ($model !~ /8000/i) {return $NotForModel;}
 if ($parmref->{'write'}) {
@@ -978,20 +1121,66 @@ return $ParmErr;
 else {$parmstr = '';}
 }
 elsif ($cmdcode eq 'BK') {
+if ($model !~ /dv/i) {
 return ($parmref->{'rc'} = $NotForModel);
+}
+if ($parmref->{'write'}) {
+my $links = $in->{'links'};
+if ((!defined $links) or ($links eq '')) {
+LogIt(1,"AOR 3124 'BK': LINKS key missing for SET! Caller=$caller");
+return $ParmErr;
+}
+$parmstr = $links;
+}
+else {$parmstr = '';}
 }### BK preprocess
+elsif ($cmdcode eq 'BM') {
+if ($model =~ /dv/i) {return $NotForModel;}
+$parmstr = '';
+if ($parmref->{'write'}) {
+my $links = $in->{'links'};
+if ((!defined $links) or ($links eq '')) {
+LogIt(1,"AOR 3168 'BM': LINKS key missing for SET! Caller=$caller");
+return $ParmErr;
+}
+$links =~ s/ //g;
+if (length($links) % 2) {
+LogIt(1,"AOR 3175 'BM' $in->{'links'} has odd number of chars!");
+return $ParmErr;
+}
+if (!looks_like_number($links)) {
+LogIt(1,"AOR l2181:'BM' links: $in->{'links'} contains non-numeric characters!");
+return $ParmErr;
+}
+if ($model =~ /8000/) {
+$parmstr = bank_to_char($links,'');
+}
+else {
+while (length($links)) {
+my $bank = substr($links,0,2);
+$links = substr($links,2);
+if ($bank > 39) {next;}
+$parmstr = "$parmstr$bank ";
+}### while $links
+}
+if (!$parmstr) {return $NotForModel;}
+}### Set
+}### BM preprocess
 elsif ($cmdcode eq 'BN') {
 if ($model !~ /8000/) {return $NotForModel;}
 if ($parmref->{'write'}) {
 my $bank = $in->{'bank'};
-if (defined $bank) {
-$parmstr = $bank;
-}
-else {
-LogIt(1,"AOR l2824:Forgot parameter 'bank' for BN call!");
+if ((!defined $bank) or ($bank eq '')) {
+LogIt(1,"AOR 3071 'BN': Bank number missing for SET! Caller=$caller");
 return $ParmErr;
 }
+if ((!looks_like_number($bank)) and ($bank >= 0)) {
+LogIt(1,"AOR 3077 'BN': Invalid bank $bank!");
+return $ParmErr;
 }
+if ($bank > 19) {return $NotForModel;}
+$parmstr = substr($alpha,$bank,1);
+}#### SET process
 }### BN Preprocess
 elsif ($cmdcode eq 'BP') {
 if ($model =~ /8000/) {return $NotForModel;}
@@ -1012,6 +1201,53 @@ return $ParmErr;
 }
 }### SETing
 }### BP-Preprocess
+elsif ($cmdcode eq 'BQ') {
+if ($model =~ /dv/i) {return $NotForModel;}
+if ($parmref->{'write'}) {
+my $link = $in->{'lstate'};
+if (defined $link) {
+if ($link) {$parmstr = '1';}
+else {$parmstr = '0';}
+}
+else {
+LogIt(1,"AOR l3333:Forgot parameter 'LSTATE' for BQ call!");
+return $ParmErr;
+}
+}
+else {$parmstr = '';}
+}### BQ Pre-process
+elsif ($cmdcode eq 'BS') {
+if ($model =~ /dv/i) {return $NotForModel;}
+$parmstr = '';
+if ($parmref->{'write'}) {
+my $links = $in->{'links'};
+if ((!defined $links) or ($links eq '')) {
+LogIt(1,"AOR 3384 'BS': LINKS key missing for SET! Caller=$caller");
+return $ParmErr;
+}
+$links =~ s/ //g;
+if (length($links) % 2) {
+LogIt(1,"AOR 3391 'BS' $in->{'links'} has odd number of chars!");
+return $ParmErr;
+}
+if (!looks_like_number($links)) {
+LogIt(1,"AOR l3395:'BS' links: $in->{'links'} contains non-numeric characters!");
+return $ParmErr;
+}
+if ($model =~ /8000/) {
+$parmstr = bank_to_char($links,'');
+}
+else {
+while (length($links)) {
+my $bank = substr($links,0,2);
+$links = substr($links,2);
+if ($bank > 39) {next;}
+$parmstr = "$parmstr$bank ";
+}### while $links
+}
+if (!$parmstr) {return $NotForModel;}
+}### Set
+}### BS preprocess
 elsif ($cmdcode eq 'CI') {
 if ($model !~ /dv1/i) {return $NotForModel;}
 if ($parmref->{'write'}) {
@@ -1054,6 +1290,36 @@ return $ParmErr;
 }
 else {$parmstr = '';}
 }
+elsif ($cmdcode eq 'DJ') {
+if ($model !~ /dv/i) {return $NotForModel;}
+if ($parmref->{'write'}) {
+my $dpcode = $in->{'data'};
+if (defined $dpcode) {
+$parmstr = $dpcode;
+}
+else {
+LogIt(1,"AOR l3066:Forgot parameter 'data' for $cmdcode call!");
+return $ParmErr;
+}
+}### Set
+else {$parmstr = '';}
+}
+elsif ($cmdcode eq 'DL') {
+if ($model !~ /dv/i) {return $NotForModel;}
+$parmstr = '';
+if ($parmref->{'write'}) {
+my $delay = $in->{'delay'};
+if (!defined $delay) {
+LogIt(1,"AOR l3617 'DL': Forgot 'delay' key for set!");
+return $ParmErr;
+}
+if ((!looks_like_number($delay)) or ($delay < 0) or ($delay > 100)) {
+LogIt(1,"AOR L3621 'DL': Invalid 'delay' value=>$delay");
+return $ParmErr;
+}
+$parmstr = sprintf("%03.3u",$delay);
+}
+}### DL command
 elsif ($cmdcode eq 'DS') {
 if ($model =~ /8000/) {return $NotForModel;}
 if ($parmref->{'write'}) {
@@ -1074,6 +1340,22 @@ return ($NotForModel);
 }
 $parmstr = '';
 }
+elsif ($cmdcode eq 'FR') {
+if ($model !~ /dv/i) {return $NotForModel;}
+$parmstr = '';
+if ($parmref->{'write'}) {
+my $resume = $in->{'resume'};
+if (!defined $resume) {
+LogIt(1,"AOR l3716 'FR': Forgot 'resume' key for set!");
+return $ParmErr;
+}
+if ((!looks_like_number($resume)) or ($resume < 0) or ($resume > 60)) {
+LogIt(1,"AOR L3720 'FR': Invalid 'resume' value=>$resume");
+return $ParmErr;
+}
+$parmstr = sprintf("%02.2u",$resume);
+}
+}### FR command
 elsif ($cmdcode eq 'IF') {
 if ($model !~ /dv/i) {return $NotForModel;}
 if ($parmref->{'write'}) {
@@ -1084,7 +1366,7 @@ return $ParmErr;
 $parmstr = Strip($in->{'bw'});
 }
 else {$parmstr = '';}
-}### Bandwidth
+}### IF
 elsif ($cmdcode eq 'LB') {
 if ($model !~ /dv/i) {return $NotForModel;}
 if ($parmref->{'write'}) {
@@ -1107,33 +1389,32 @@ elsif ($cmdcode eq 'LM') {
 $parmstr = '';
 }
 elsif ($cmdcode eq 'MA') {
-my $dbase = $in->{'database'};
 if ($model =~ /8000/) {
 LogIt(1,"Called MA for model AR8000!");
 return $NotForModel;
 }
-if (!$dbase) {LogIt(3274,"MA command requires a database");}
-my $aorbank = $in->{'aorbank'};
-if (defined $aorbank) {
-if (looks_like_number($aorbank)) {
-$aorbank = sprintf("%02.2u",$aorbank);
-}
-$parmstr = $aorbank;
-$in->{'aorbank'} = $aorbank;
-}
-else {
-LogIt(1,"AOR l3285: MA command requires a bank spec!");
+my $dbase = $in->{'database'};
+if (!$dbase) {LogIt(4557,"MA command requires a database! Caller=>$caller");}
+my $bank = $in->{'bank'};
+if (defined $bank) {
+if (!looks_like_number($bank))  {
+LogIt(1,"AOR l4562: Invalid 'bank'=>$bank spec for $cmdcode");
 return $ParmErr;
 }
-if ((defined $in->{'aorchan'}) and ($in->{'aorchan'} ne '-1')) {
-$parmstr = $parmstr . sprintf("%02.2u",$in->{'aorchan'});
-$in->{'_chan'} = $in->{'aorchan'};
-$in->{'_multi'} = FALSE;
+if (($bank < 0) or ($bank > 39)) {
+LogIt(1,"AOR l4566: 'bank'=>$bank out of range for $cmdcode");
+return $ParmErr;
+}
+$bank = sprintf("%02.2u",$bank);
+$parmstr = $bank;
+$in->{'bank'} = $bank;
 }
 else {
+LogIt(1,"AOR l4040: MA command requires a bank spec! Caller=>$caller");
+return $ParmErr;
+}
 $in->{'_chan'} = 0;
 $in->{'_multi'} = TRUE;
-}
 }### MA pre-process
 elsif ($cmdcode eq 'MD') {
 if ($parmref->{'write'}) {
@@ -1159,6 +1440,52 @@ $parmstr = $code;
 }### SET
 else {$parmstr = '';}
 }
+elsif ($cmdcode eq 'MG') {
+if ($model !~ /dv/i) {return $NotForModel;}
+my $bank = $in->{'bank'};
+if (!defined $bank) {
+LogIt(1,"AOR l3944 'MG':Forgot required 'bank' key!");
+return $ParmErr;
+}
+if ((!looks_like_number($bank)) or ($bank > 39) or ($bank < 0)) {
+LogIt(1,"AOR l3951: '$cmdcode' $bank is NOT a valid bank number");
+return $ParmErr;
+}
+$parmstr = sprintf("%02.2u",$bank);
+if ($parmref->{'write'}) {
+my $delay = $in->{'delay'};
+if (!defined $delay) {
+LogIt(1,"AOR l3960 '$cmdcode': Forgot 'delay' key for set!");
+return $ParmErr;
+}
+if ((!looks_like_number($delay)) or ($delay < 0) or ($delay > 100)) {
+LogIt(1,"AOR L3965 '$cmdcode': Invalid 'delay' value=>$delay");
+return $ParmErr;
+}
+$parmstr = $parmstr . ' DL' . sprintf("%03.3u",$delay);
+my $resume = $in->{'resume'};
+if (!defined $resume) {
+LogIt(1,"AOR l3966 '$cmdcode': Forgot 'resume' key for set!");
+return $ParmErr;
+}
+if ((!looks_like_number($resume)) or ($resume < 0) or ($resume > 60)) {
+LogIt(1,"AOR L3977 '$cmdcode': Invalid 'resume' value=>$resume");
+return $ParmErr;
+}
+$parmstr = $parmstr . ' FR' . sprintf("%02.2u",$resume);
+my $links = $in->{'link'};
+if (!defined $links) {
+LogIt(1,"AOR l3971 'MG': Forgot 'link' key for set!");
+return $ParmErr;
+}
+$links =~ s/ //g;  
+if (length $links) {
+if (link_check($links)) {return $ParmErr;}
+}
+else {$links = '99';}
+$parmstr = $parmstr . " BK$links";
+}### SET
+}### MG pre-process
 elsif ($cmdcode eq 'MM') {
 $parmstr = '';
 }
@@ -1169,39 +1496,106 @@ else {$parmstr = '1';}
 }
 }
 elsif ($cmdcode eq 'MQ') {
-my $ch = $in->{'channel'};
-if ((!defined $ch) or (!looks_like_number($ch)) or ($ch < 0)) {
+my $aorchan = $in->{'aorchan'};
+if ((!defined $aorchan) or (!looks_like_number($aorchan)) or ($aorchan < 0)) {
 return $ParmErr;
 }
-my $aorchan = rcchan2aor($ch,$model);
-if ($aorchan eq '-1') {return $ParmErr;}
 if ($model =~ /8000/) {$parmstr = substr($aorchan,1);}
 else {$parmstr = $aorchan;}
-$out->{'aorchan'} = $aorchan;
 }### MQ
 elsif ($cmdcode eq 'MR') {
-my $ch = $in->{'channel'};
-if (!defined $ch) {return $ParmErr;}
-my $aorchan = rcchan2aor($ch,$model);
-if ($aorchan eq '-1') {return $NotForModel;}
-$out->{'aorchan'} = $aorchan;
-$parmstr = $aorchan;
+my $ch = $in->{'aorchan'};
+if (!defined $ch) {
+LogIt(5242,"Forgot 'aorchan' for MR. Caller:$caller");
+}
+$parmstr = sprintf("%04.4u",$ch);
 }### MR
 elsif ($cmdcode eq 'MS') {
 $parmstr = '';
 }
 elsif ($cmdcode eq 'MX') {
-my $channel = $in->{'channel'};
-if (!defined $channel) {
-LogIt(3660,"Forgot channel for call to MX!");
+my $aorchan = $in->{'aorchan'};
+if (!defined $aorchan) {
+LogIt(4725,"Forgot channel for call to MX!");
 }
 if (!defined $in->{'frequency'}) {
-LogIt(3664,"Forgot frequency for call to MX!");
+LogIt(4728,"Forgot frequency for call to MX!");
 }
-my $aorchan = rcchan2aor($channel,$model);
-if ($aorchan eq '-1') {return $NotForModel;}
 $parmstr = "$aorchan " . set_keys($in,$model);
 }### MX
+elsif ($cmdcode eq 'PD') {
+$parmstr = '';
+my $bank = $in->{'bank'};
+if (!defined $bank) {
+LogIt(1,"AOR l4449 $cmdcode: Required key 'bank' missing!");
+return $ParmErr;
+}
+if ((!looks_like_number($bank)) or ($bank > 39)) {
+LogIt(1,"AOR l4449 $cmdcode: $bank is not valid for 'bank' key!");
+return $ParmErr;
+}
+my $channel = $in->{'channel'};
+if (!defined $channel) {
+LogIt(1,"AOR l4460 $cmdcode: Required key 'channel' missing!");
+return $ParmErr;
+}
+if ((!looks_like_number($channel)) or ($channel > 49)) {
+LogIt(1,"AOR l4464 $cmdcode: $channel is not valid for 'channel' key!");
+return $ParmErr;
+}
+if ($model =~ /8000/) {
+$parmref->{'write'} = TRUE;
+my $rc = aor_cmd('BN',$parmref);
+if ($rc) {return $rc};
+}
+else {
+$parmstr = sprintf("%02.2u",$bank);
+}
+$parmstr = $parmstr . sprintf("%02.2u",$channel);
+}### 'PD' command process
+elsif ($cmdcode eq 'PR') {
+my $dbase = $in->{'database'};
+if (!$dbase) {LogIt(3739,"PR command requires a database");}
+my $bank = $in->{'bank'};
+if (!defined $bank) {$bank = '.';}
+if ((looks_like_number($bank)) and ($bank >= 0)) {
+if ($bank > 39) {
+LogIt(1,"AOR L3852 'PR' command value $bank is invalid!");
+return $ParmErr;
+}
+if ($model =~ /8000/) {
+if ($bank > 19) {return $NotForModel;}
+$bank = substr($alpha,$bank,1);
+}
+else {$bank = sprintf("%02.2u",$bank);}
+$parmstr = $bank;
+}## Numeric and >= 0
+}### PR Pre-Process
+elsif ($cmdcode eq 'PW') {
+my $bank = $in->{'bank'};
+my $freq = $in->{'frequency'};
+if (!defined $bank) {
+LogIt(4608,"AOR 'PW' Forgot to define 'aorbank'! Caller:$caller");
+}
+if (!looks_like_number($bank)) {
+LogIt(4611,"AOR 'PW' $bank is not a valid bank number! Caller:$caller");
+}
+if (($bank < 0) or ($bank > 39) ) {
+LogIt(4613,"AOR 'PW' $bank is out of range! Caller:$caller");
+}
+if (!$freq) {
+LogIt(4617,"AOR 'PW' Forgot frequency! Caller:$caller");
+}
+$freq =  Strip(rc_to_freq($freq));
+$parmstr = $freq;
+}### PW process
+elsif ($cmdcode eq 'RE') {
+if ($model !~ /dv/i) {return $NotForModel;}
+if ($parmref->{'write'}) {
+if ($in->{'response'}) {$parmstr = '1';}
+else {$parmstr = '0';}
+}
+}
 elsif ($cmdcode eq 'RF') {
 if ($parmref->{'write'}) {
 if (!$in) {LogIt(1915,"AOR:Missing IN for AC  command!");}
@@ -1220,6 +1614,22 @@ else {$parmstr = '';}
 elsif ($cmdcode eq 'RX') {
 $parmstr = '';
 }
+elsif ($cmdcode eq 'SD') {
+if ($model =~ /dv/i) {return $NotForModel;}
+if ($parmref->{'write'}) {
+my $delay = $in->{'delay'};
+if (!defined $delay) {
+LogIt(1,"AOR l4560 '$cmdcode': Forgot 'delay' key for set!");
+return $ParmErr;
+}
+if ((!looks_like_number($delay)) or ($delay < 0) or ($delay > 100)) {
+LogIt(1,"AOR L4684 '$cmdcode': Invalid 'delay' value=>$delay");
+return $ParmErr;
+}
+if ($delay > 99) {$parmstr = 'FF';}
+else {$parmstr =  sprintf("%02.2u",$delay);}
+}### Setting
+}### SD command
 elsif ($cmdcode eq 'SE') {
 if (defined $in->{'bank'}) {
 $parmstr = "$in->{'bank'} " . set_keys($in,$model);
@@ -1229,13 +1639,87 @@ LogIt(1,"Forgot bank code for SR!");
 return $ParmErr;
 }
 }
-elsif ($cmdcode eq 'SR') {
-if (defined $in->{'bank'}) {
-$parmstr = $in->{'bank'};}
+elsif ($cmdcode eq 'SG') {
+if ($model !~ /dv/i) {return $NotForModel;}
+my $bank = $in->{'bank'};
+$parmstr = '';
+if (!defined $bank) {$bank = '';}
 else {
-LogIt(1,"Forgot bank code for SR!");
+if ((!looks_like_number($bank)) or ($bank > 39) or ($bank < 0)) {
+LogIt(1,"AOR l4620: '$cmdcode' $bank is NOT a valid bank number");
 return $ParmErr;
 }
+$parmstr = sprintf("%02.2u",$bank);
+}
+if ($parmref->{'write'}) {
+my $delay = $in->{'delay'};
+if (!defined $delay) {
+LogIt(1,"AOR l4631 '$cmdcode': Forgot 'delay' key for set!");
+return $ParmErr;
+}
+if ((!looks_like_number($delay)) or ($delay < 0) or ($delay > 100)) {
+LogIt(1,"AOR L4635 '$cmdcode': Invalid 'delay' value=>$delay");
+return $ParmErr;
+}
+$parmstr = $parmstr . ' DL' . sprintf("%03.3u",$delay);
+my $resume = $in->{'resume'};
+if (!defined $resume) {
+LogIt(1,"AOR l4635 '$cmdcode': Forgot 'resume' key for set!");
+return $ParmErr;
+}
+if ((!looks_like_number($resume)) or ($resume < 0) or ($resume > 60)) {
+LogIt(1,"AOR L4646 '$cmdcode': Invalid 'resume' value=>$resume");
+return $ParmErr;
+}
+$parmstr = $parmstr . ' FR' . sprintf("%02.2u",$resume);
+my $autostore = $in->{'autostore'};
+if (defined $autostore) {
+if ($autostore) {$parmstr = "$parmstr AS1";}
+else {$parmstr = "$parmstr AS0";}
+}
+else {
+LogIt(1,"AOR L4658 '$cmdcode': Forgot to include 'autostore' key");
+return $ParmErr;
+}
+my $links = $in->{'link'};
+if (!defined $links) {
+LogIt(1,"AOR l4665 '$cmdcode': Forgot 'link' key for set!");
+return $ParmErr;
+}
+$links =~ s/ //g;  
+if (length $links) {
+if (link_check($links)) {return $ParmErr;}
+}
+else {$links = '99';}
+$parmstr = $parmstr . " BK$links";
+}### SET
+}### SG pre-process
+elsif ($cmdcode eq 'SR') {
+my $bank = $in->{'bank'};
+if (!defined $bank) {
+LogIt(1,"AOR l4755 $cmdcode: Forgot bank code for SR! Caller=>$caller");
+return $ParmErr;
+}
+if (!looks_like_number($bank)) {
+LogIt(1,"AOR l4759 $cmdcode: $bank is not a valid bank number. Caller=>$caller");
+return $ParmErr;
+}
+if ($bank > $defref->{'searchchan'}) {return $NotForModel;}
+if ($model =~ /8000/) {
+$parmstr = substr($alpha,$bank,1);
+}
+else {$parmstr = sprintf("%02.2u",$bank);}
+}
+elsif ($cmdcode eq 'SS') {
+my $bank = $in->{'bank'};
+if (!defined $bank) {
+LogIt(1,"Forgot to define 'bank'");
+return $ParmErr;
+}
+if ($model =~ /8000/) {
+$parmstr = substr($alpha,$bank,1);
+}
+else {$parmstr = sprintf("%02.2u",$bank);}
 }
 elsif ($cmdcode eq 'SX') {
 if ($model !~ /dv/i) {return $NotForModel;}
@@ -1282,6 +1766,9 @@ my %sendparms = (
 'fails' => 1,
 'wait' => 30,
 );
+$parmref->{'_sent'} = '';
+$parmref->{'_returned'} = '';
+$parmref->{'_rc'} = '';
 AOR_SENDIT:
 my $outstr = $cmdcode;
 if ($cmdcode eq 'test') {$outstr = $parmstr}
@@ -1295,6 +1782,7 @@ $outstr = Strip("$outstr$parmstr");
 }
 if ($Debug3) {LogIt(0,"AOR_CMD l2517:sent =>$outstr");}
 my $sent = $outstr;
+$parmref->{'_sent'} = $sent;
 if (($cmdcode eq 'EX') and ($model =~ /8000/)) {
 return ($NotForModel);
 }
@@ -1353,54 +1841,109 @@ if ($instr =~ /^\d/) {
 if (!$digit1) {$digit1 = 0;}
 if (!$digit2) {$digit2 = 0;}
 $radio_code = "$digit1$digit2";
+$parmref->{'_rc'} = $radio_code;
 }
 }
 my @returns = split " ",$instr;
 $instr = Strip($instr);
+$parmref->{'_returned'} = $instr;
 if ($Debug3) {LogIt(0,"AOR_CMD:CMD=$cmdcode AOR returned =>$instr<=");}
 $parmref->{'rc'} = $GoodCode;
 if ($cmdcode eq 'test') {
 $parmref->{'rsp'} = FALSE;
 return ($parmref->{'rc'} = $GoodCode);
 }
+POST_PROCESS:
 if ($cmdcode eq 'AC') {
 if ($instr =~ /ac/i) {
 ($out->{'agc'}) = $instr =~ /ac(\d)./;
 }
 }### AC post-process
+elsif ($cmdcode eq 'AS') {
+if ($model =~ /dv/i) {
+if (($digit1 > 2) or ($instr =~ /^\?/)) {   
+LogIt(1,"L5332: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
+return ($parmref->{'rc'} = $ParmErr);
+}
+}
+if ($instr) {
+if ($instr =~ /as1/i) { $out->{'autostore'} = TRUE;}
+else {$out->{'autostore'} = FALSE;}
+}
+}### AS post process
 elsif ($cmdcode eq 'AT') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) {
 if ($instr =~ /at1/i) { $out->{'atten'} = TRUE;}
 else {$out->{'atten'} = FALSE;}
 }
 }
-elsif ($cmdcode eq 'BN') {
+elsif ($cmdcode eq 'BK') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
-LogIt(1,"L3212: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
+LogIt(1,"L4653: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
 }
+}
+if ($instr) {
+if (substr($instr,0,2) ne 'BK') {
+print "AOR l4658:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+$out->{'link'} = substr($instr,2);
+}
+}### BK post process
+elsif ($cmdcode eq 'BM') {
+if ($instr) {
+if (substr($instr,0,2) ne 'BM') {
+print "AOR l4772:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+my $link  = substr($instr,2);
+$link =~ s/ //g;   
+if ($model =~ /8000/) {
+$out->{'link'} = bank8_to_num($link);
+}
+else {
+my $out = '';
+foreach my $ndx (0..39) {
+if (substr($link,$ndx,1) ne '-') {
+$out = $out . sprintf("%02.2u",$ndx);
+}
+}
+$out->{'link'} = $out;
+}
+}### $instr had some value
+}## 'BM' post process
+elsif ($cmdcode eq 'BN') {
 if ($instr) {
 my ($sb,$cb) = $instr =~ /SR(.+?) MX(.*)/;
-if (!defined $sb) {
-print "Line 2486:Regex failed! instr=>$instr\n";
-$sb = '';}
-if (!defined $cb) {
-print "Line 2489:Regex failed!\n";
-$cb = '';}
-$out->{'search_bank'} = $sb;
-$out->{'scan_bank'} = $cb;
+if (defined $sb) {
+$out->{'search_bank'} = index($alpha,$sb,0);
+}
+else {
+print "AOR Line 4476:Regex failed for SB! instr=>$instr\n";
+$out->{'search_bank'} = -1;
+}
+if (defined $cb) {
+$out->{'scan_bank'} = index($alpha,$cb,0);
+}
+else {
+print "AOR Line 4482:Regex failed for CB! instr=$instr!\n";
+$out->{'scan_bank'} = -1
+}
 }
 }### 'BN' command
 elsif ($cmdcode eq 'BP') {
-$out->{'_raw'} = $instr;
-$out->{'_rc'} = "$digit1$digit2";
-$out->{'_sent'} = $sent;
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3698: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) {
 if (substr($instr,0,2) ne 'BP') {
@@ -1410,10 +1953,38 @@ goto WAIT;
 $out->{'beep'} = substr($instr,2);
 }
 }
+elsif ($cmdcode eq 'BQ') {
+if ($instr) {
+if (substr($instr,0,2) ne 'BQ') {
+print "AOR l4906:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+$out->{'lstate'} = substr($instr,2,1);
+}### Something returned
+}### BQ Post process
+elsif ($cmdcode eq 'BS') {
+if ($instr) {
+if (substr($instr,0,2) ne 'BS') {
+print "AOR l5040:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+my $link  = substr($instr,2);
+$link =~ s/ //g;   
+if ($model =~ /8000/) {
+$out->{'link'} = bank8_to_num($link);
+}
+else {
+my $out = '';
+foreach my $ndx (0..39) {
+if (substr($link,$ndx,1) ne '-') {
+$out = $out . sprintf("%02.2u",$ndx);
+}
+}
+$out->{'link'} = $out;
+}
+}### $instr had some value
+}### BS post process
 elsif ($cmdcode eq 'CI') {
-$out -> {'_raw'} = $instr;
-$out->{'_rc'} = "$digit1$digit2";
-$out->{'_sent'} = $sent;
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 return ($parmref->{'rc'} = $ParmErr);
 }
@@ -1427,9 +1998,11 @@ else {$out->{'ctc'} = 0;}
 }
 }### CI command code
 elsif ($cmdcode eq 'CN') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3275: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) {
 if (substr($instr,0,2) ne 'CN') {
@@ -1466,10 +2039,37 @@ if (substr($instr,2,1)){$out->{'dcs'} = 1;}
 else {$out->{'dcs'} = 0;}
 }### value returned
 }### DI Post Process
+elsif ($cmdcode eq 'DJ') {
+if (($digit1 > 2) or ($instr =~ /^\?/)) {   
+return ($parmref->{'rc'} = $ParmErr);
+}
+if ($instr) {
+if (substr($instr,0,2) ne 'DJ') {
+print "AOR l5301:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+if (substr($instr,2,1)){$out->{'data'} = 1;}
+else {$out->{'data'} = 0;}
+}### value returned
+}### DJ post process
+elsif ($cmdcode eq 'DL') {
+if (($digit1 > 2) or ($instr =~ /^\?/)) {   
+return ($parmref->{'rc'} = $ParmErr);
+}
+if ($instr) {
+if (substr($instr,0,2) ne $cmdcode) {
+print "AOR l5563:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+($out->{'delay'}) = substr($instr,2);
+}
+}
 elsif ($cmdcode eq 'DS') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3346: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) {
 if (substr($instr,0,2) ne 'DS') {
@@ -1484,6 +2084,18 @@ $out->{'sqtone'} = $value;
 }## DS command post process
 elsif ($cmdcode eq 'EX') {
 }
+elsif ($cmdcode eq 'FR') {
+if (($digit1 > 2) or ($instr =~ /^\?/)) {   
+return ($parmref->{'rc'} = $ParmErr);
+}
+if ($instr) {
+if (substr($instr,0,2) ne $cmdcode) {
+print "AOR l5658:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+($out->{'resume'}) = substr($instr,2);
+}
+}### FR Post Process
 elsif ($cmdcode eq 'IF') {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 return ($parmref->{'rc'} = $ParmErr);
@@ -1497,9 +2109,6 @@ $out->{'bw'} = substr($instr,2);
 }
 }
 elsif ($cmdcode eq 'LB') {
-$out->{'_raw'} = $instr;
-$out->{'_rc'} = "$digit1$digit2";
-$out->{'_sent'} = $sent;
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 return ($parmref->{'rc'} = $NotForModel);
 }
@@ -1518,9 +2127,11 @@ else {$out->{'light'} = 0;}
 }
 }
 elsif ($cmdcode eq 'LM') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3443: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if (substr($instr,0,2) ne 'LM') {
 print "AOR l4344:Issued $sent Returned=$instr\n";
@@ -1530,7 +2141,6 @@ $out->{'signal'} = 0;
 $out->{'sql'} = FALSE;
 $out->{'rssi'} = 0;
 if ($instr) {
-$out->{'_raw'} = $instr;
 extract_keys($out,$instr);
 }
 else {
@@ -1539,32 +2149,29 @@ return ($parmref->{'rc'} = $ParmErr);
 }
 }#### LM post-process
 elsif ($cmdcode eq 'MA') {
-$out->{'_sent'} = $sent;
-$out->{'_raw'} = $instr;
-$out->{'_rc'} = "$digit1$digit2";
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
-LogIt(1,"L4629: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
+LogIt(1,"L6722: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 my %out = ();
 if ($instr) {
 my $first = substr($instr,0,2);
 if ($first !~ /mx/i) {
-LogIt(1,"\nMA returned=>$instr. Re-waiting");
 goto WAIT;
 }
 my $groupno = $in->{'groupno'};
 if (!$groupno) {$groupno = 0;}
 my ($grp,$chan,$instr) = $instr =~ /MX(\d\d)(\d\d) (.*)/;
-if ($grp ne $in->{'aorbank'}) {
-print "\nAOR l4374: Expecting group $in->{'aorbank'} got $grp. Re-waiting\n";
+if ($grp ne $in->{'bank'}) {
 goto WAIT;
 }
 my $aorchan = "$grp$chan";
 my $expecting = $in->{'_chan'};
 if (!defined $expecting) {
 print Dumper($in),"\n";
-LogIt(4687,"'_chan' was not set!");
+LogIt(6779,"'_chan' was not set!");
 }
 if ($chan != $expecting) {
 LogIt(1,"Got mismatch channel. Expecting $expecting. Got $chan");
@@ -1572,8 +2179,7 @@ LogIt(1,"Got mismatch channel. Expecting $expecting. Got $chan");
 extract_keys(\%out,$instr);
 my %freqrec = (
 'groupno' => $groupno,
-'channel' =>  aorchan2rc($aorchan),
-'aorchan' => $aorchan,
+'channel' =>  sprintf("%02.2i",$grp) . sprintf("%02.2i",$chan),
 );
 foreach my $key ('frequency','mode','adtype',
 'service','valid','atten') {
@@ -1585,6 +2191,8 @@ if ($key =~ /mode/i) {$freqrec{$key} = 'FMn';}
 else {$freqrec{$key} = 0;}
 }
 }### For default keys
+$freqrec{'fstep'} = 5000;
+if ($out{'step'}) {$freqrec{'fstep'} = $out{'step'};}
 my $freq = $freqrec{'frequency'};
 if ($freq or ($in->{'noskip'})) {
 my $recno = add_a_record($in->{'database'},'freq',\%freqrec,$parmref->{'gui'});
@@ -1611,9 +2219,11 @@ LogIt(1,"Timeout waiting for data from MA");
 return $CommErr;
 }### MA Post Process
 elsif ($cmdcode eq 'MD') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3547: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) {
 if (substr($instr,0,2) ne 'MD') {
@@ -1623,16 +2233,37 @@ goto WAIT;
 extract_keys($out,$instr);
 }
 }
+elsif ($cmdcode eq 'MG') {
+if (($digit1 > 2) or ($instr =~ /^\?/)) {   
+LogIt(1,"L3564: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
+return ($parmref->{'rc'} = $ParmErr);
+}
+if ($instr) {
+if (substr($instr,0,2) ne $cmdcode) {
+print "AOR l5868:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+$out->{'bank'} = substr($instr,2,2);
+my ($delay,$resume,$link) = $instr =~ /DL(\d\d\d) FR(\d\d) BK(.*)/;
+$out->{'delay'} = $delay;
+$out->{'resume'} = $resume;
+$out->{'link'} = $link;
+}
+}### MG post Process
 elsif ($cmdcode eq 'MM') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3564: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
 }
 }
+}
 elsif ($cmdcode eq 'MP') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3587: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) {
 if (substr($instr,0,2) ne 'MP') {
@@ -1645,21 +2276,22 @@ else {$out->{'valid'} = TRUE;}
 }
 }
 elsif ($cmdcode eq 'MQ') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
-LogIt(1,"L3606: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
+LogIt(1,"L6825: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 }
 elsif ($cmdcode eq 'MR') {
-$out->{'_raw'} = $instr;
-$out->{'_rc'} = "$digit1$digit2";
-$out->{'_sent'} = $sent;
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 return ($parmref->{'rc'} = $ParmErr);
 }
+}
 if ($instr) {
 if (substr($instr,0,2) ne 'MX') {
-print "AOR l4658:Issued $sent Returned=$instr\n";
+print "AOR l7092:Issued $sent Returned=$instr\n";
 goto WAIT;
 }
 extract_keys($out,$instr);
@@ -1668,27 +2300,116 @@ $out->{'state'} = 'MR';
 $state_save{'state'} = 'MR';
 }
 elsif ($cmdcode eq 'MS') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3663: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 print "L2444:Changed to Memory Scan state\n";
 $state_save{'state'} = 'MS';
 }
 elsif ($cmdcode eq 'MX') {
+if ($model =~ /dv/i) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3681: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return  $ParmErr;
+}
 }
 if ($instr) {
 print "Line 4825:$cmdcode returned=>$instr\n";
 }
 $state_save{'state'} = 'MR';
 }
+elsif ($cmdcode eq 'PD') {
+if ($instr) {
+print "AOR 6584:'PD returned $instr\n";
+}
+if ($model =~ /dv/i) {
+if ($digit1 ne '2') {
+LogIt(1,"AOR l5110: PD returned code $digit1$digit2");
+}
+}
+}### 'PD' post process
+elsif ($cmdcode eq 'PR') {
+if ($model =~ /dv/i) {  
+if (($digit1 > 2) or ($instr =~ /^\?/)) {   
+LogIt(1,"L6694: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
+return  $ParmErr;
+}
+}
+my $database = $in->{'database'};
+if ($instr) {
+my ($value) = $instr =~ /PR(.*)/;
+if ($value =~ /\-\-/) {
+}
+else {
+my $bank = 0;
+my $chan = 0;
+my $freq = 0;
+if (looks_like_number(substr($value,0,1))) {
+($bank,$chan,$freq) = $value =~ /(\d\d)(\d\d)\,(.*)/;
+}
+else {
+($bank,$chan,$freq) = $value =~ /(.?)(\d\d?) (.*)/;
+if (defined $bank) {$bank = index($alpha,$bank,0);}
+}
+if (!defined $bank) {
+LogIt(1,"line AOR 5366:regex failed for bank. Value=$value");
+$bank = -1;
+}
+if (!defined $chan) {
+LogIt(1,"line AOR 5370:regex failed for chan. Value=$value");
+$chan = -1;
+}
+if (!defined $freq) {
+LogIt(1,"line AOR 5374:regex failed for freq. Value=$value");
+$freq = 0;
+}
+my %rec = (
+'frequency' => freq_to_rc($freq),
+'bankno' => $bank,
+'channel' => $chan,
+);
+add_a_record($database,'passfreq',\%rec);
+goto WAIT;
+}### Got a frequency
+}### Got something input
+}### PR Post Process
+elsif ($cmdcode eq 'PW') {
+if ($model =~ /dv/i) {  
+if ($digit1 ne '2') {
+if ($digit1 eq '3') {
+LogIt(1,"AOR l6668  Search bank $Green$in->{'bank'}$White " .
+"lockout frequency list is full!\n  " .
+$Yellow . rc_to_freq($in->{'frequency'}) . $White .
+" was not stored!");
+}
+elsif ($digit1 eq '5') {
+LogIt(1,"AOR 6674: Search Bank $Green$in->{'bank'}$White " .
+"is most likely not set!\n  " .
+$Yellow . rc_to_freq($in->{'frequency'}) . $White .
+" was not stored!");
+}
+else {
+LogIt(1,"AOR l5083: PW returned code $digit1$digit2");
+}
+return "$digit1$digit2";
+}
+}
+}### PW Post process
+elsif ($cmdcode eq 'RE') {
+if ($instr) {
+if ($instr =~ /re1/i) {$out->{'response'} = TRUE;}
+else {$out->{'response'} = FALSE;}
+}
+}
 elsif ($cmdcode eq 'RF') {
+if ($model =~ /dv/i) {  
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L4721: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) {
 if (substr($instr,0,2) ne 'RF') {
@@ -1700,9 +2421,7 @@ extract_keys($out,$instr);
 $state_save{'state'} = 'DD';
 }### RF post-process
 elsif ($cmdcode eq 'RX') {
-$out->{'_raw'} = $instr;
-$out->{'_rc'} = "$digit1$digit2";
-$out->{'_sent'} = $sent;
+if ($digit1) {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 if ($digit1 == 6) {
 $sendparms{'resend'}++;
@@ -1718,6 +2437,7 @@ return ($parmref->{'rc'} = $CommErr);
 }
 LogIt(1,"L3734: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) {
 if (substr($instr,2,1) ne ' ') {
@@ -1738,14 +2458,46 @@ print "Wait timed out\n";
 return ($parmref->{'rc'} = $ParmErr);
 }
 }### RX post-process
+elsif ($cmdcode eq 'SD') {
+if ($instr) {
+if (substr($instr,0,2) ne $cmdcode) {
+print "AOR l6720:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+my $delay = substr($instr,2);
+if ($delay =~ /ff/i) {$delay = 100;}
+$out->{'delay'} = $delay
+}### something returned
+}### SD post process
 elsif ($cmdcode eq 'SE') {
+if ($model =~ /dv/i) {  
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3767: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
 }
+}
 $state_save{'state'} = 'SS';
 }
+elsif ($cmdcode eq 'SG') {
+if (($digit1 > 2) or ($instr =~ /^\?/)) {   
+LogIt(1,"L6711: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
+return ($parmref->{'rc'} = $ParmErr);
+}
+if ($instr) {
+if (substr($instr,0,2) ne $cmdcode) {
+print "AOR l6720:Issued $sent Returned=$instr\n";
+goto WAIT;
+}
+$out->{'bank'} = substr($instr,2,2);
+my ($delay,$resume,$autostore,$link) = $instr =~ /DL(\d\d\d) FR(\d\d) AS(\d) BK(.*)/;
+$out->{'delay'} = $delay;
+$out->{'resume'} = $resume;
+$out->{'autostore'} = $autostore;
+$out->{'link'} = $link;
+}### Something returned
+}### SG Post process
 elsif ($cmdcode eq 'SR') {
+if ($model =~ /dv/i) {  
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 if ($digit1 == 3) {
 $out->{'start_freq'} = 0;
@@ -1760,6 +2512,7 @@ LogIt(1,"L4851: AOR rejected command $sent  returned=>$digit1$digit1$instr Calle
 return ($parmref->{'rc'} = $ParmErr);
 }
 }
+}
 if ($instr) {
 my $two = substr($instr,0,2);
 if (($two ne 'SE') and ($two ne 'SR')) {
@@ -1770,22 +2523,29 @@ extract_keys($out,$instr);
 }
 else {$out->{'start_freq'} = 0;}
 }
+elsif ($cmdcode eq 'SS') {
+$state_save{'state'} = 'SS';
+}
 elsif ($cmdcode eq 'SX') {
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 return $EmptyChan;
 }
 }
 elsif ($cmdcode eq 'ST') {
+if ($model =~ /dv/i) {  
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3815: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
 }
+}
 if ($instr) { extract_keys($out,$instr);}
 }### RF post-process
 elsif (($cmdcode eq 'VA')  or ($cmdcode eq 'VB') or ($cmdcode eq 'VZ')) {
+if ($model =~ /dv/i) {  
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 LogIt(1,"L3833: AOR rejected command $sent  returned=>$digit1$digit1$instr Caller=$caller");
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) { extract_keys($out,$instr);}
 $state_save{'state'} = $cmdcode;
@@ -1799,8 +2559,10 @@ if ($instr) { extract_keys($out,$instr);}
 $state_save{'state'} = $cmdcode;
 }
 elsif ($cmdcode eq 'WI') {
+if ($model =~ /dv/i) {  
 if (($digit1 > 2) or ($instr =~ /^\?/)) {   
 return ($parmref->{'rc'} = $ParmErr);
+}
 }
 if ($instr) {$out->{'model'} = $instr;}
 else {$out->{'model'} = '';}
@@ -1819,7 +2581,7 @@ my ($pkg,$fn,$caller) = caller;
 $out->{'frequency'} = 0;
 $out->{'mode'} = 'FMn';
 $out->{'atten'} = FALSE;
-$out->{'step'} = 1;
+$out->{'step'} = 10;
 $out->{'aorchan'} = -1;
 $out->{'channel'} = -1;
 $out->{'valid'} = FALSE;
@@ -1988,9 +2750,14 @@ elsif ($key =~ /ss/i) {
 $out->{'state'} = 'SS';
 $state_save{'state'} = 'SS'
 }
-elsif ($key =~ /st/i) {### Step in KHz
-if ($value =~ /\./) {$value =  int($value * 100);} 
-$out->{'step'} = $value
+elsif ($key =~ /st/i) {###
+my $save = $value;
+if ($value =~ /\./) {
+$value =  int($value * 1000);
+}
+else {
+}
+$out->{'step'} = $value;
 }
 elsif ($key =~ /tr/i) {
 }
@@ -2043,8 +2810,8 @@ $value =  sprintf("%010.5f",Strip(rc_to_freq($value)));
 else {
 }
 my $kw = 'RF';
-if ($key =~ /start/i) {$kw = 'SU';}
-elsif ($key =~ /end/i) {$kw = 'SL';}
+if ($key =~ /start/i) {$kw = 'SL';}
+elsif ($key =~ /end/i) {$kw = 'SU';}
 if ($parmstr) {$parmstr = "$parmstr $kw$value";}
 else {$parmstr = "$kw$value";}
 }
@@ -2066,9 +2833,7 @@ else {$parmstr = "AT$atten";}
 }### Attenuation
 elsif ($key =~ /step/i) {
 my $org = $value;
-if ($model =~ /dv/i) {
-$value = sprintf("%06.1f",$value/100);
-}
+$value = sprintf("%06.2f",$value/1000);
 if ($value) {
 if ($parmstr) {$parmstr = "$parmstr ST$value";}
 else {$parmstr = "ST$value";}
@@ -2080,6 +2845,8 @@ LogIt(1,"AOR-4567: Step value was 0 (original input=>$org)");
 }### For each key in the hash
 if ($parmstr) {
 if (defined $hash->{'service'}) {
+my $service = $hash->{'service'};
+if (!$service) {$service = '.';}
 if ($model =~ /8000/) {
 $parmstr = "$parmstr TM$hash->{'service'}";
 }
@@ -2088,7 +2855,9 @@ $parmstr = "$parmstr TT$hash->{'service'}";
 }
 }
 elsif (defined $hash->{'sserve'}) {
-$parmstr = "$parmstr TT$hash->{'sserve'}";
+my $service = $hash->{'sserve'};
+if (!$service) {$service = '.';}
+$parmstr = "$parmstr TT$service";
 }
 }### parmstr has something
 return $parmstr;
@@ -2098,9 +2867,6 @@ my ($pkg,$fn,$caller) = caller;
 my $mode = shift @_;
 my $audio = shift @_;
 my $model = shift @_;
-if (!$mode) {LogIt(3190,"RCMODE2AOR: Forgot modulation code!");}
-if (!$audio) {LogIt(3191,"RCMODE2AOR: Forgot audio code!");}
-if (!$model) {LogIt(3192,"RCMODE2AOR: Forgot model!");}
 my $aormode = '';
 my $aorbw = 0;
 if ($mode =~ /^au/i) { 
@@ -2125,6 +2891,7 @@ my %dv1_audio_lookup = (
 'nx' => '040',
 'vn' => '040',
 'ds' => '010',
+'au' => '000',
 );
 if ($mode =~ /^fm/i) {
 my $audiokey = lc(substr($audio,0,2));
@@ -2239,7 +3006,7 @@ my @mode_lookup = (
 'CW',
 );
 my @dig_lookup = (
-'AN',
+'AU',
 'DS',
 'AN',
 'AN',
@@ -2257,7 +3024,7 @@ $mode = 'FMn';
 $audio = 'AN';
 print "N was not specified.\n";
 }
-elsif (($a =~ /f/i) or ($a =~ /0/)) { 
+elsif (($a =~ /f/i)) { 
 $audio = 'AN';
 $mode = $mode_lookup[$n];
 if (!defined $mode) {
@@ -2276,33 +3043,37 @@ return $mode,$audio;
 }
 sub rcchan2aor {
 my ($pkg,$fn,$caller) = caller;
-my $channel = shift @_;
-if (!defined $channel) {
-LogIt(6334,"RCCHAN2AOR: Missing Channel number! Caller=>$caller");
-}
+my $hash = shift @_;
 my $model = shift @_;
-my $aorchan = -1;
+if (!$hash) {
+LogIt(8978,"RCCHAN2AOR: Missing HASH reference! Caller=>$caller");
+}
 if (!$model) {
-LogIt(6340,"RCCHAN2AOR: Missing model number! Caller=$caller");
+LogIt(8984,"RCCHAN2AOR: Missing model number! Caller=$caller");
 }
-if (($channel > 1999) or ($channel < 0)) {
+my $aorchan = $hash->{'aorchan'};
+my $channel = $hash->{'channel'};
+if ((defined $aorchan) and looks_like_number($aorchan)) {
+}
+elsif ((defined $channel) and (looks_like_number($channel))) {
+if ($channel < 0) {
 return -1;
 }
-if ($model =~ /8000/)  {
-if ($channel > 999) {return -1;}
-my $group = int($channel/50);
-my $bank = substr($alpha,$group,1);
-if (!$bank) {
-Logit(1,"Could not encode channel $channel for $model");
-return -1;
-}
-my $chan = $channel % 50;
-$aorchan = $bank . sprintf("%02.2u",$chan);
+$aorchan = $channel;
 }
 else {
-my $group = int($channel/50);
-my $chan = $channel % 50;
-$aorchan =  sprintf("%02.2u",$group) . sprintf("%02.2u",$chan);
+return -1;
+}
+$aorchan = sprintf("%04.4i",$aorchan);
+my $bank = substr($aorchan,0,2);
+my $ch = substr($aorchan,2,2);
+if ($ch > 49) {return -1;}
+if ($model =~ /8000/) {
+if ($bank > 19) {return -1;}
+$aorchan = substr($alpha,$bank,1) . $ch;
+}
+else {
+if ($bank > 39) {return -1;}
 }
 return $aorchan;
 }### rcchan2aor
@@ -2310,21 +3081,20 @@ sub aorchan2rc {
 my $aorchan =  shift @_;
 my $rcchan = -1;
 if (looks_like_number($aorchan)) {
-if (length($aorchan) < 4 ) {
-LogIt(1,"Cannot deal with AOR channel specification $aorchan");
+$rcchan = sprintf("%04.4i",$aorchan);
+my $bank = substr($rcchan,0,2);
+if ($bank > 39) {return -1;}
+my $chan = substr($rcchan,2);
+if ($chan > 49) {return -1;}
 }
 else {
-$aorchan = sprintf("%04.4u",$aorchan);
-my $group = substr($aorchan,0,2);
-my $chan = substr($aorchan,2,2);
-$rcchan = int($group * 50) + ($chan % 50);
-}
-}
-else {
-my $bank = substr(Strip($aorchan),0,1);
+my $bankchar = substr(Strip($aorchan),0,1);
+my $bank = index($alpha,$bankchar);
+if ($bank < 0) {return -1;}
 my $chan = substr($aorchan,1);
-my $igrp = index($alpha,$bank);
-$rcchan = int($igrp * 50) + ($chan % 50);
+if (!looks_like_number($chan)) {return -1;}
+if ($chan > 49) { return -1;}
+$rcchan = sprintf("%2.2i",$bank) . sprintf("%2.2i",$chan);
 }
 return $rcchan;
 }
@@ -2437,6 +3207,53 @@ until (!aor_cmd('RX',$parmref)) {
 usleep(100);
 $count--;
 if ($count < 0) {last};
+}
+return 0;
+}
+sub bank8_to_num {
+my $a8000 = shift @_;
+$a8000 =~ s/ //i; 
+my $out = '';
+foreach my $ndx (0..(length($a8000)-1)) {
+my $char = substr($a8000,$ndx,1);
+if ($char eq '-') {next;}
+my $index = index($alpha,$char,0);
+if ($index >= 0) {$out = $out . sprintf("%02.2u",$index);}
+}
+return $out;
+}
+sub bank_to_char {
+my $banks = shift @_;
+my $pad = shift @_;
+if (!defined $pad) {$pad = '';}
+my $out = '';
+$banks =~ s/ //i; 
+if (link_check($banks)) {return $out;}
+while (length($banks)) {
+my $num = substr($banks,0,2);
+$banks = substr($banks,2);
+if ($num > 19) {next;}
+my $char =  substr($alpha,$num,1);
+if (length($out)) {$out = "$pad$out$char";}
+else {$out = $char;}
+}### while $banks
+return $out;
+}
+sub link_check {
+my $links= shift @_;
+my $links_save = $links;
+my $cmd = shift @_;
+my ($pkg,$fn,$caller) = caller;
+$links =~ s/ //g;  
+if (length $links) {
+if (!looks_like_number($links)) {
+LogIt(1,"AOR l$caller $cmd: Invalid 'links' value=>$links_save");
+return 1;
+}
+if (length($links) % 2) {
+LogIt(1,"AOR l$caller $cmd: Odd number of 'links' value=>$links_save");
+return 1;
+}
 }
 return 0;
 }

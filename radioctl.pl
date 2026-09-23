@@ -218,7 +218,7 @@ my %panels = (
 'freq' => {'title' => "Frequencies and channels", 'type' => 'd'},
 'radio' => {'title' => "Radio",   'type' => 'p', 'parent' =>'main'},
 'group' => {'title' => "Groups", 'type' => 'd'},
-'search' => {'title' => "Search Banks", 'type' => 'd'},
+'search' => {'title' => "Search", 'type' => 'd'},
 'lookup' => {'title' => "Lookup Frequencies", 'type' => 'd'},
 'system' => {'title' => "Systems", 'type' => 'd'},
 'messages' => {'title' => "messages", 'type' => 'p'},
@@ -272,6 +272,7 @@ our %drop_list = (
 'mode'     => {'strings' => [@modestring]},
 'sqtone'   => {'strings' => [@sqtonestring]},
 'att_amp'  => {'strings' => [@attstring]},
+'adtype'   => {'strings' => [@audiostring]},
 );
 our %liststore;
 our %treeview;
@@ -1956,7 +1957,7 @@ else {$fg = ' foreground="black" ';}
 else {$fg = '';}
 $status_ctl{$ctl} ->set_markup('<span ' .
 $fg . $font . $size . $weight . $style .$bg . '>' .
-sprintf("%${l}.${l}i",$value) . '</span>');
+sprintf("%${l}.${l}u",$value) . '</span>');
 }
 $fg = '';
 $bg = '';
@@ -1967,7 +1968,7 @@ my $l = length(MAXCHAN);
 if ($dbndx eq 'freq') {$l = length(MAXINDEX);}
 $maxdply{$dbndx} ->set_markup('<span ' .
 $fg . $font . $size . $weight . $style .$bg . '>' .
-sprintf("%${l}.${l}i",$value) . '</span>');
+sprintf("%${l}.${l}u",$value) . '</span>');
 }
 return 0;
 }
@@ -2142,7 +2143,10 @@ my $protocol = 'n/a';
 my $radiosel = $combo{'name'}->get_active_text;
 if ($radiosel) {
 $radiosel = lc($radiosel);
-$protocol = $All_Radios{$radiosel};
+$protocol = $All_Radios{$radiosel}{'protocol'};
+if ($protocol =~ /local/i) {
+}
+else {
 if ($All_Radios{$radiosel}{'port'}) {
 $default_port = $All_Radios{$radiosel}{'port'};
 }
@@ -2176,6 +2180,7 @@ print "RadioCtl.pl line 5973:No default port specified for $radiosel$Eol";
 }
 }
 if ($default_baud) {push @bauds,$default_baud;}
+}
 }### Radio is selected
 foreach my $dev ('/dev/ttyACM*','/dev/ttyUSB*') {
 my @list = sort glob($dev);
@@ -2881,9 +2886,9 @@ my $dplystamp = '--';
 if (looks_like_number($value) and ($value > 2)) {
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
 localtime($value);
-$dplystamp = sprintf("%02.2i",($mon +1)) . '/' .
-sprintf("%02.2i",$mday) . '/' . ($year+ 1900) .
-' ' . sprintf("%02.2i",$hour) . ':' . sprintf("%02.2i",$min);
+$dplystamp = sprintf("%02.2u",($mon +1)) . '/' .
+sprintf("%02.2u",$mday) . '/' . ($year+ 1900) .
+' ' . sprintf("%02.2u",$hour) . ':' . sprintf("%02.2u",$min);
 }
 $liststore{$dbndx}->set($iter,$dplyndx,$dplystamp);
 }
@@ -2899,11 +2904,17 @@ last;
 }
 }
 }
+elsif ($key eq 'sqtone') {
+$value = uc($value);
+}
+elsif ($key eq 'adtype') {
+$value = $audio_types{uc(substr($value,0,2))};
+}
 else { }
 $liststore{$dbndx}->set($iter,$colndx,$value,);
 }### For every key specified
 my $l = length(MAXINDEX);
-$liststore{$dbndx}->set($iter,$col_xref{'index'},sprintf("%${l}.${l}i",$seq));
+$liststore{$dbndx}->set($iter,$col_xref{'index'},sprintf("%${l}.${l}u",$seq));
 }### For every index specified
 %iters = ();
 return 0;
@@ -3004,10 +3015,10 @@ my $key   = $dbinfo->{'key'};
 my $data = $cell->get("text");
 if (!$data) {$data = 0;}
 my $l = length(MAXCHAN);
-if ($dbndx eq 'freq') {$l = length(MAXINDEX);}
+if ($key eq 'index') {$l = length(MAXINDEX);}
 if (looks_like_number($data)) {
 if ($data < 0) {$data = '  -  ';}
-else {$data  = sprintf("%${l}.${l}i",$data);}
+else {$data  = sprintf("%0${l}.${l}u",$data);}
 }
 else {$data = '  -  ';}
 if ($key eq 'index') {
@@ -3044,9 +3055,9 @@ my $dplystamp = "     ----     ";
 if (looks_like_number($value) and ($value > 2)) {
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
 localtime($value);
-$dplystamp = sprintf("%02.2i",($mon +1)) . '/' .
-sprintf("%02.2i",$mday) . '/' . ($year+ 1900) .
-' ' . sprintf("%02.2i",$hour) . ':' . sprintf("%02.2i",$min);
+$dplystamp = sprintf("%02.2u",($mon +1)) . '/' .
+sprintf("%02.2u",$mday) . '/' . ($year+ 1900) .
+' ' . sprintf("%02.2u",$hour) . ':' . sprintf("%02.2u",$min);
 }
 if ($colors{$key}) {
 if ($dark) {$cell->set('forground-gdk',$colors{$key});}

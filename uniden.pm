@@ -41,6 +41,7 @@ $Radio_Limits{&BCD325P2}  = {
 'cstart_2'  => 868987501,
 'cstop_2'   => 894012500 ,
 'memory'    => 'dy',
+'pass'      => TRUE,
 'radioscan' => 2,
 };
 $Radio_Limits{&BCD396T}  = {
@@ -72,6 +73,7 @@ $Radio_Limits{&SDS100}   = {
 'cstop_1'  => 849013000,
 'cstart_2' => 868980001,
 'cstop_2'  => 894020000,
+'pass'     => FALSE,
 'memory'   => 'no dy',
 'radioscan' => 2,
 };
@@ -89,6 +91,7 @@ $Radio_Limits{&SDS200}   = {
 'cstop_2'  => 894020000,
 'memory'   => 'no dy',
 'radioscan' => 2,
+'pass'     => FALSE,
 };
 my %service_search = ( 1 => 'Public Safety',
 2 => "News",
@@ -440,6 +443,10 @@ GLG => [
 {'ch_tag'      => 'r'},
 {'dsql'        => 'r'},
 ],
+GLI => [
+{'sysno'        => 'q'},
+{'tgid'         => 'r'},
+],
 JPM => [
 {'jmp_mode'    => 'q'},
 {'jmp_index'   => 'w'},
@@ -554,6 +561,10 @@ SCN => [
 SCT => [{'system_cnt' => 'r'}],
 SIH => [{'block_addr' => 'r'}],
 SIT => [{'block_addr' => 'r'}],
+SLI => [
+{'sysno'        => 'q'},
+{'tgid'         => 'r'},
+],
 SQL => [{'squelch'    => 'b'}],
 SSP =>[
 {'channel'     => 'q'},
@@ -870,15 +881,23 @@ my @send_validate = ();
 my @rcv_validate = ();
 my $blockname = $cmdcode;
 if ($cmdcode eq 'init') {
-my %myout = ();
+my %myout = ('state' => '');
 $parmref->{'out'} = \%myout;
-if (uniden_cmd('MDL',$parmref)) {return $parmref->{'rc'};}
+if (uniden_cmd('MDL',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
+return $parmref->{'rc'};
+}
 if ($model eq 'BCD325P2') {
 $bcd325p2 = TRUE;
 if ($Debug1) {DebugIt("UNIDEN l2216: Model returned $model");}
 }
 if ($model !~ /^sds/i)   {
-if (uniden_cmd('STS',$parmref)) {return  $parmref->{'rc'};}
+if (uniden_cmd('STS',$parmref)) {
+print "STS failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
+return  $parmref->{'rc'};
+}
 if ($myout{'state'} =~ /prg/i)  {exit_prg($parmref);}
 elsif ($myout{'state'} =~ /mnu/i) {
 %myout = ('key_code' => 'H','key_mode' => 'P');
@@ -908,96 +927,7 @@ print "Uniden radio $model initialized\n";
 }
 return ($parmref->{'rc'} = $GoodCode);
 }
-if ($cmdcode eq 'manual') {
-my $outsave = $parmref->{'out'};
-uniden_cmd('STS',$parmref);
-if (($state_save{'state'}  =~ /scan/i) or ($state_save{'state'} =~ /srch/i)) {
-if ($state_save{'state'} !~ /hold/i) {
-my %myout = ('jpm_state' => 'SCN_MODE');
-$parmref->{'out'} = \%myout;
-$parmref->{'out'} = \%myout;
-%myout = ('key_code' => 'H','key_mode' => 'P');
-if ($model eq 'SDS200') {
-$myout{'key_code'} = 'C';
-}
-uniden_cmd('KEY',$parmref);
-$parmref->{'out'} = $outsave;
-}
-}
-if ($model ne 'SDS200') {
-uniden_cmd('GLG',$parmref);
-}
-uniden_cmd('getsig',$parmref);
-return ($parmref->{'rc'} = $GoodCode);
-}
-if ($cmdcode eq 'vfoinit') {
-if ($state_save{'state'} =~ /quick\-hold/i) {
-return ($parmref->{'rc'} = $GoodCode);
-}
-my %myout = ();
-my $outsave = $parmref->{'out'};
-$parmref->{'out'} = \%myout;
-if ($defref->{'radioscan'} == 2) {
-%myout = ('jpm_state' => 'QSH_MODE');
-uniden_cmd('JPM',$parmref);
-$parmref->{'out'} = \%myout;
-%myout = ('key_code' => 'H','key_mode' => 'P');
-if ($model eq 'SDS200') {
-$myout{'key_code'} = 'C';
-}
-uniden_cmd('KEY',$parmref);
-}
-else {
-if (check_range($vfo{'frequency'},$defref) or $parmref->{'_nowarn'} ) {
-$myout{'frequency'} = $vfo{'frequency'};
-}
-else {$myout{'frequency'} = $defref->{'minfreq'};}
-$myout{'code_srch'} = 0;
-$myout{'bsc'} = '0000000000000000';
-$myout{'rep'} = 0;
-$myout{'agc_analog'} = 0;
-$myout{'agc_digital'} = 0;
-$myout{'p25wait'} = 400;
-uniden_cmd('QSH',$parmref);
-}
-$parmref->{'out'} = $outsave;
-return ($parmref->{'rc'});
-}
-if ($cmdcode eq 'meminit') {
-if ($state_save{'state'} =~ /scan\-hold/i) {
-return ($parmref->{'rc'} = $GoodCode);
-}
-my %myout = ();
-my $outsave = $parmref->{'out'};
-$parmref->{'out'} = \%myout;
-if ($defref->{'radioscan'} == 2) {
-%myout = ('jpm_state' => 'SCN_MODE');
-uniden_cmd('JPM',$parmref);
-$parmref->{'out'} = \%myout;
-%myout = ('key_code' => 'H','key_mode' => 'P');
-if ($model eq 'SDS200') {
-$myout{'key_code'} = 'C';
-}
-uniden_cmd('KEY',$parmref);
-}
-else {
-if ($state_save{'state'} =~ /srch/i) { 
-my %myout = ('key_code' => 'S','key_mode' => 'P');
-$parmref->{'out'} = \%myout;
-uniden_cmd('KEY',$parmref);
-uniden_cmd('STS',$parmref);
-}
-if ($state_save{'state'} =~ /scan/) {
-my %myout = ('key_code' => 'H','key_mode' => 'P');
-$parmref->{'out'} = \%myout;
-uniden_cmd('KEY',$parmref);
-uniden_cmd('STS',$parmref);
-}
-}
-$parmref->{'out'} = $outsave;
-return ($parmref->{'rc'});
-}### MEMINIT
-if ($cmdcode eq 'scan'   ) {
+elsif ($cmdcode eq 'scan'   ) {
 if ($defref->{'radioscan'} == 2) {
 my %myout = ('jpm_state' => 'SCN_MODE');
 $parmref->{'out'} = \%myout;
@@ -1008,7 +938,7 @@ $out = $outsave;
 return ($parmref->{'rc'});
 }
 }
-if ($cmdcode eq 'selmem') {
+elsif ($cmdcode eq 'selmem') {
 return ($parmref->{'rc'} = $NotForModel);
 }
 elsif ($cmdcode eq '_getall') {
@@ -1050,17 +980,25 @@ $work_blk{'syskeys'} = $outstr;
 add_a_record($db,'syskey',\%work_blk);
 my %used_qkeys = ();
 if (uniden_cmd('SIH',$parmref)) {
+print "SIH failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 exit_prg($parmref,"_GETALL:Could not fetch System Start (SIH)");
 $parmref->{'out'} = $outsave;
 return ($parmref->{'rc'});
 }
 my $sin_index = $work_blk{'block_addr'};
+if (!defined $sin_index) {
+print Dumper(%work_blk),"\n";
+LogIt(2795,"Uniden l2795:Radio did NOT return the SIH value!");
+}
 my $system_count = 0;
 my $system_number = 0;
 SINLOOP:
 while ($sin_index ne '-1') {
 %work_blk = ('block_addr' => $sin_index);
 if (uniden_cmd('SIN',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 exit_prg($parmref,"_GETALL:Could not fetch Uniden System Info block (SIN) =$sin_index!");
 $parmref->{'out'} = $outsave;
 return ($parmref->{'rc'});
@@ -1122,6 +1060,8 @@ return ($parmref->{'rc'} = $GoodCode);
 }
 elsif ($cmdcode eq 'getinfo') {
 if (uniden_cmd('MDL',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETINFO:Could not get Uniden model number!");
 return $parmref->{'rc'};
 }
@@ -1158,6 +1098,8 @@ foreach my $channel (0..9) {
 $parmref->{'write'} = FALSE;
 %work_blk = ('channel' => $channel);
 if (uniden_cmd('CSP',$parmref)) {
+print "CSP failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETSRCH:Command failed CSP!");
 $retcode = $parmref->{'rc'};
 last;
@@ -1172,6 +1114,8 @@ if (($model ne 'BCD325P2') and ($channel > 12)) {next;}
 if (($model eq 'BCD325P2') and ($channel == 10)) {next;}
 %work_blk = ('channel' => $channel);
 if (uniden_cmd('SSP',$parmref)) {
+print "SSP failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETSRCH:Command failed SSP!");
 $retcode = $parmref->{'rc'};
 next;
@@ -1189,9 +1133,23 @@ my $recno =  add_a_record($db,'search',\%work_blk,$parmref->{'gui'});
 $parmref->{'out'} = $outsave;
 exit_prg($parmref);
 return ($parmref->{'rc'});
-}
+}#### GETSRCH
 elsif ($cmdcode eq 'setsrch') {
+my %valid_steps = (
+5000 =>   500,
+6250 =>   625,
+7500 =>   740,
+8330 =>   833,
+10000 =>  1000,
+12500 =>  1250,
+15000 =>  1500,
+20000 =>  2000,
+25000 =>  2500,
+50000 =>  5000,
+100000 => 10000,
+);
 if ($model =~ /sds/i) {return $NotForModel;}
+if (!$db->{'search'}[1]{'index'}) {return $EmptyChan;}
 $parmref->{'write'} = FALSE;
 if (enter_prg($parmref)) {
 add_message("GETMEM: command failed to get Uniden into program mode!");
@@ -1203,31 +1161,31 @@ LogIt(0,"setting SEARCH records into the radio...");
 my $count = 0;
 foreach my $rec (@{$db->{'search'}}) {
 if (!$rec->{'index'}) {next;}
-my $call = 'CSP';
-my $channel = $rec->{'channel'};
-my $chsave = $channel;
-if (looks_like_number($channel)) {
-if (($channel < 0) or ($channel > 9)) {next;}
-if (!$rec->{'step'}) {next;}
-my $step = $rec->{'step'};
-if ($step and looks_like_number($step)) {$step = int($step/10);}
-else {$step = 500;}
-$rec->{'step'} = $step;
-}
-else {
-$call = 'SSP';
-$channel = substr($channel,1);
-if ((!looks_like_number($channel)) or ($channel > 15)) {
+my $recno = $rec->{'_recno'};
+if (!$recno) {$recno = '?';}
+if (!$rec->{'start_freq'}) {
+LogIt(1,"Skipping record $recno due to 0 start frequency");
 next;
 }
-$rec->{'channel'} = $channel;
+my $channel = $rec->{'channel'};
+if (!defined $channel) {$channel = '';}
+if ((!looks_like_number($channel)) or ($channel < 0) or ($channel > 9)) {
+LogIt(1,"Channel $channel in record $recno is not valid for this radio. Skipped!");
+next;
 }
+my $step = $rec->{'step'};
+if (!$step) {
+LogIt(1,"A '0' step value is not allowed in record $recno. Skipped!");
+next;
+}
+%work_blk = %{$rec};
+$work_blk{'step'} = $valid_steps{Step_Check($step,\%valid_steps)};
+my $call = 'CSP';
 my $dlyrsm = $rec->{'dlyrsm'};
 if ((!$dlyrsm) or (!looks_like_number($dlyrsm))) {$dlyrsm = 0;}
 elsif ($dlyrsm > 30) {$dlyrsm = 30;}
 elsif ($dlyrsm < -10) {$dlyrsm = -10;}
-$rec->{'dlyrsp'} = $dlyrsm;
-%work_blk = %{$rec};
+$work_blk{'dlyrsp'} = $dlyrsm;
 $work_blk{'lout'} = 0;
 if (!$work_blk{'valid'}) {$work_blk{'lout'} = 1;}
 foreach my $key ('skp','p25mode','p25lvl','start_key') {
@@ -1235,20 +1193,165 @@ $work_blk{$key} = '';
 }
 $parmref->{'write'} = TRUE;
 if (uniden_cmd($call,$parmref)) {
+print "$call failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("SETSRCH:Command failed call to $call!");
 $retcode = $parmref->{'rc'};
 next;
 }
-if ($Debug3) {DebugIt("UNIDEN l3106:Stored search channel $chsave $work_blk{'service'}");}
 }
 exit_prg($parmref);
 return ($parmref->{'rc'});
+}#### SETSRCH
+elsif ($cmdcode eq 'getpass') {
+if ($Debug2) {LogIt(0,"Uniden_CMD l3350 starting 'getpass'");}
+if (!$db) {LogIt(3354,"Uniden_CMD:No database reference for GETPASS");}
+$in->{'database'} = $db;
+print "$Eol";
+if (!$model) {
+if (uniden_cmd('MDL',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
+add_message("GETGLOG:Could not get Uniden model number!");
+return $parmref->{'rc'};
 }
+}
+if ($model eq 'SDS200') {return;}
+my $p2 = FALSE;
+if ($radio_def{'model'} eq 'BCD325P2') {$p2 = TRUE;}
+$parmref->{'write'} = FALSE;
+if (enter_prg($parmref)) {
+add_message("GETGLOB: command failed to get Uniden into program mode!");
+return $parmref->{'rc'};
+}
+my %work_blk = ();
+$parmref->{'out'} = \%work_blk;
+my $lastfreq = '1';
+my $lockcount = 0;
+LogIt(0,"Getting Lockout records");
+$db ->{'passfreq'} = ();
+my $channel = 0;
+while ($lastfreq > 0) {
+$parmref->{'write'} = FALSE;
+%work_blk = ();
+if (uniden_cmd('GLF',$parmref)) {
+print "GLF failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
+add_message("GETPASS:Command failed GLF!");
+$retcode = $parmref->{'rc'};
+last;
+}
+$lastfreq = Strip($work_blk{'frequency'});
+if ($lastfreq > 0) {
+my %newrec = (
+'frequency' => $lastfreq,
+'bank' => 0,
+'channel' => $channel,
+);
+my $newrec = add_a_record($db,'passfreq',\%newrec);
+$lockcount++;
+$channel++;
+}
+}### While lastfreq
+LogIt(0,"found $lockcount lockout records");
+exit_prg($parmref);
+return ($parmref->{'rc'} );
+}### GETPASS
+elsif ($cmdcode eq 'setpass') {
+if ($Debug2) {LogIt(0,"Uniden_CMD l3350 starting 'setpass'");}
+if (!$db) {LogIt(3476,"Uniden_CMD:No database reference for SETPASS");}
+if (!$db->{'passfreq'}[1]{'index'}) {return $EmptyChan;}
+print "$Eol";
+if (!$model) {
+if (uniden_cmd('MDL',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
+add_message("GETGLOG:Could not get Uniden model number!");
+return $parmref->{'rc'};
+}
+}
+if ($model =~ /sds/i)  {return $NotForModel;}
+my %newdb = ();
+my $dbsave = $parmref->{'database'};
+$parmref->{'database'} = \%newdb;
+$parmref->{'options'}->{'noskip'} = TRUE;
+uniden_cmd('getpass',$parmref);
+$parmref->{'database'} = $dbsave;
+my %freq = ();
+foreach my $rec (@{$newdb{'passfreq'}}) {
+if (!$rec->{'index'}) {next;}
+my $fq = $rec->{'frequency'};
+if (looks_like_number($fq)) {$fq = $fq + 0;}
+else {$fq = 0;}
+if ($fq) {$freq{$fq} = TRUE; }
+}
+$parmref->{'write'} = FALSE;
+if (enter_prg($parmref)) {
+add_message("SETPASS: command failed to get Uniden into program mode!");
+return $parmref->{'rc'};
+}
+my %work_blk = ();
+$parmref->{'out'} = \%work_blk;
+my $addcount = 0;
+my $delcount = 0;
+foreach my $rec (@{$db->{'passfreq'}}) {
+if (!$rec->{'index'}) {next;}
+my $frq = $rec->{'frequency'};
+if (looks_like_number($frq)) {$frq = $frq + 0;}
+else {$frq = 0;}
+if (!$frq) {next;}
+my $rcfrq = rc_to_freq($frq);
+%work_blk = ('frequency' => $frq);
+$parmref->{'write'} = TRUE;
+if ($rec->{'remove'}) {
+if ($freq{$frq}) {
+if (uniden_cmd('ULF',$parmref)) {
+print "ULF failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
+add_message("SETPASS:Command failed ULF!");
+$retcode = $parmref->{'rc'};
+}
+else {
+$delcount++;
+delete $freq{$frq};
+}
+}### Frequency is there to remove
+else {
+LogIt(1,"Uniden l3445: $rcfrq is not stored in the radio! ".
+" removal ignored");
+}
+}### Removing the frequency
+else {
+if (uniden_cmd('LOF',$parmref)) {
+print "LOF failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
+add_message("SETPASS:Command failed LOF!");
+$retcode = $parmref->{'rc'};
+last;
+}### Error
+else {
+print "Added lockout for $frq\n";
+$freq{$frq} = TRUE;
+$addcount++;
+}### No error
+}### Setting
+}### For each lockout record
+if ($addcount) {
+LogIt(0,"Added $addcount pass frequencies");
+}
+if ($delcount) {
+LogIt(0,"Removed $delcount pass frequencies");
+}
+exit_prg($parmref);
+return ($parmref->{'rc'} );
+}### SETPASS process
 elsif ($cmdcode eq 'getmem') {
 LogIt(0,"GETMEM L2904:Starting routine. Radio state=>$state_save{'state'}");
 $retcode = 0;
 if (!$model) {
 if (uniden_cmd('MDL',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETMEM:Could not get Uniden model number!");
 return $parmref->{'rc'};
 }
@@ -1334,6 +1437,8 @@ $chncmd = 'TIN';
 my $sifndx = $grpndx;
 %work_blk = ('block_addr' => $sinndx);
 if (uniden_cmd('TRN',$parmref)) {
+print "TRN failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 exit_prg($parmref,
 "GETMEM:Could not fetch Uniden Trunk Info Block (TRN) for index $sinndx!",
@@ -1368,9 +1473,10 @@ if ($progstate ne $startstate) {last SYSLP;}
 %work_blk = ('block_addr' => $sifndx);
 if ($p2) {
 if (uniden_cmd('SIF',$parmref)) {
+print "SIF failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETMEM:Cannot read Uniden SIF block at $sifndx");
 foreach my $key (keys %{$sinrcd}) {LogIt(0,"$key => $sinrcd->{$key}");}
-LogIt(0,"sent =>$parmref->{'sent'} rcv=>$parmref->{'str'} rc=>$parmref->{'rc'}");
 last SITE;
 }### Error encountered
 if ($firstsif) {
@@ -1401,6 +1507,8 @@ $db->{'system'}[$sysno]{$key} = $work_blk{$key};
 }### BDC325P2
 else {
 if (uniden_cmd('GIN',$parmref)) {
+print "GIN failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 exit_prg($parmref,
 "GETMEM:Could not Read Uniden Group Info Block (GIN) for index $sifndx!",
 );
@@ -1433,6 +1541,8 @@ if (!$mot_type) {$mot_type = '';}
 if (lc($mot_type) eq 'custom') {
 %work_blk = ('block_addr' => $db->{'site'}[$siteno]{'block_addr'});
 if (uniden_cmd('MCP',$parmref)) {
+print "MCP failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 LogIt(1,"Could not retrieve Bandplan for Site $siteno");
 }
 else {
@@ -1445,6 +1555,8 @@ while ($tfqndx ne '-1') {
 if ($progstate ne $startstate) {last SYSLP;}
 %work_blk = ('block_addr' => $tfqndx);
 if (uniden_cmd('TFQ',$parmref)) {
+print "TFQ failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg(
 "GETMEM:Could not Read Trunked Frequency (TFQ) for index $tfqndx!",
@@ -1484,6 +1596,8 @@ if ($Debug3) {DebugIt("UNIDEN L3716: Group index=$grpndx");}
 my %group_qkeys = ();
 %work_blk = ('block_addr' => $sinndx, 'grpkey' => \%group_qkeys);
 if (uniden_cmd('QGL',$parmref)) {
+print "QGL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg(
 "GETMEM:Could not fetch GROUP keys for index $sinndx!",
@@ -1506,6 +1620,8 @@ while ($grpndx ne '-1') {
 if ($progstate ne $startstate) {last SYSLP;}
 %work_blk = ('block_addr' => $grpndx);
 if (uniden_cmd('GIN',$parmref)) {
+print "GIN failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg(
 "GETMEM:Could not Read Uniden Group Info Block (GIN) for index $grpndx!",
@@ -1552,6 +1668,8 @@ CHN:     while ($chnndx ne '-1') {
 if ($progstate ne $startstate) {last SYSLP;}
 %work_blk = ('block_addr' => $chnndx);
 if (uniden_cmd($chncmd,$parmref)) {
+print "$chncmd failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg(
 "\n GETMEM:Could not Read Uniden $chncmd for index $chnndx!",
@@ -1654,6 +1772,8 @@ if ($opt_ref->{'nodie'}) {$nodie = TRUE;}
 }
 if (!$model) {
 if (uniden_cmd('MDL',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 LogIt(0,"$Bold$Red" . "Error!$White Could Not Get Uniden Model number");
 LogIt(0,"SETMEM:Could not get Uniden model number!");
 return $parmref->{'rc'};
@@ -1918,12 +2038,14 @@ LogIt(0,"$Bold Deleting system $Yellow$sin->{'service'}$White (addr=>$Green$addr
 my $system_cnt = 0;
 if ($ready) {
 if (uniden_cmd('DSY',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("SETMEM:unable to delete addr=$sin");
 }
 else {
 $parmref->{'quiet'} = TRUE;
 if (! uniden_cmd('SCT',$parmref)) {$system_cnt = $work_blk{'system_cnt'};}
-if ($Debug3) {DebugIt("UNIDEN l4663: SCT returned=>$parmref->{'rcv'}");}
+if ($Debug3) {DebugIt("UNIDEN l4663: SCT returned=>$parmref->{'_returned'}");}
 while (uniden_cmd('SCT',$parmref)) {
 if ($Debug3) {DebugIt("UNIDEN l4665: Issued SCT waiting for system");}
 sleep 1;
@@ -1942,6 +2064,8 @@ if ($Debug3) {DebugIt("UNIDEN l4670:  bypassed clear. block_addr=$sin");}
 %system_qkeys = ();
 $parmref->{'write'} = FALSE;
 if (uniden_cmd('QSL',$parmref)) {
+print "QSL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg($parmref,"GETMEM:Could not fetch SYSTEM quick-keys!");
 }
@@ -1971,6 +2095,8 @@ $radio_systype = uc($bcd396_systypes{$systype});
 %work_blk = ('systemtype' => $radio_systype, 'block_addr' => 0);
 if ($ready) {
 if (uniden_cmd('CSY',$parmref)){
+print "CSY failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 return exit_prg(
 "SETMEM:Could not create new system $sysno of system type $systype!",
 $parmref);
@@ -1995,6 +2121,8 @@ $work_blk{'start_key'} = '.';
 $parmref->{'write'} = TRUE;
 if ($ready) {
 if (uniden_cmd('SIN',$parmref)){
+print "SIN failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 return exit_prg("SETMEM l4263:Cannot update SIN for system $sysno ",$parmref);
 }### failure
 }### ready
@@ -2027,6 +2155,8 @@ elsif ($work_blk{'emgalt'} =~ /off/i) {$work_blk{'emgalt'} = 0;}
 $parmref->{'write'} = TRUE;
 if ($ready) {
 if (uniden_cmd('TRN',$parmref)) {
+print "TRN failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM l3988:Cannot update TRN for system $sysno ",$parmref);
 }### failure
@@ -2044,6 +2174,8 @@ if ($p2) {
 %work_blk = ('block_base' => $sysndx, 'block_addr' => 0);
 if ($ready) {
 if (uniden_cmd('AST',$parmref)) {
+print "AST failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 return exit_prg("SETMEM l4041:Cannot create SIF for system $sysno ",$parmref);
 }
 }### ready
@@ -2080,6 +2212,8 @@ $work_blk{'gps_enable'} = 1;
 $parmref->{'write'} = TRUE;
 if ($ready) {
 if (uniden_cmd('SIF',$parmref)) {
+print "SIF failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM l4074:Cannot update SIF for system $sysno ",$parmref);
 }
@@ -2114,6 +2248,8 @@ $value = (substr(sprintf("%6.6ld",$value),0,-1)) + 0;
 $work_blk{$var} = $value;
 }
 if (uniden_cmd('MCP',$parmref)) {
+print "MCP failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 LogIt(1,"Could not write Bandplan for Site $siteno");
 }
 }### Looking for a bandplan
@@ -2126,6 +2262,8 @@ else {
 $parmref->{'write'} = FALSE;
 if ($ready) {
 if (uniden_cmd('SIN',$parmref)) {
+print "SIN failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM l4153:Cannot get SIN for system $sysno ",$parmref);
 }
@@ -2147,6 +2285,8 @@ next;
 %work_blk = ('block_base' => $site_addr, 'block_addr' => 0);
 if ($ready) {### debug
 if (uniden_cmd('ACC',$parmref)) {
+print "ACC failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM:Cannot create TFQ for Siteno=$siteno addr=$site_addr system $sysno ",$parmref);
 }### error
@@ -2170,6 +2310,8 @@ $work_blk{'utag'} = 'NONE';
 $parmref->{'write'} = TRUE;
 if ($ready) {
 if (uniden_cmd('TFQ',$parmref)) {
+print "TFQ failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM:Cannot update TFQ for addr=$tfq_addr for system $sysno ",$parmref);
 }### error
@@ -2191,6 +2333,8 @@ if ($grprec->{'_bypass'}) {next;}
 %work_blk = ('block_base' => $sysndx, 'block_addr' => 0);
 if ($ready) {
 if (uniden_cmd($grpcmd,$parmref)) {
+print "$grpcmd failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM l4264:Cannot create new group $grpcmd for system $sysno ",$parmref);
 }
@@ -2214,6 +2358,8 @@ $group_qkeys{$work_blk{'qkey'}} = $work_blk{'_keyon'};
 $parmref->{'write'} = TRUE;
 if ($ready) {
 if (uniden_cmd('GIN',$parmref)) {
+print "GIN failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM l4301:Cannot update GIN for Group $groupno addr=$group_addr for system $sysno ",$parmref);
 }### error
@@ -2234,6 +2380,8 @@ push @recs,$freqrec;
 %work_blk = ('block_base' => $group_addr,'block_addr' => 0);
 if ($ready) {
 if (uniden_cmd($chncmd,$parmref)) {
+print "$chncmd failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM l4334:Cannot create new $chncmd  for system $sysno ",$parmref);
 }### Error
@@ -2293,6 +2441,8 @@ $work_blk{'priority'} = FALSE;
 $parmref->{'write'} = TRUE;
 if ($ready) {
 if (uniden_cmd($chnblk,$parmref)) {
+print "$chnblk failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM:Cannot update $chnblk for system $sysno ",$parmref);
 }### error
@@ -2304,6 +2454,8 @@ $chancount++;
 $parmref->{'write'} = TRUE;
 if ($ready) {
 if (uniden_cmd('QGL',$parmref)) {
+print "QGL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 $parmref->{'out'} = $outsave;
 return exit_prg("SETMEM l4464:Could not update Group QuickKeys for system $sysno ",$parmref);
 }### error
@@ -2340,9 +2492,11 @@ return $parmref->{'rc'};
 }
 $out->{'block_addr'}  = $addr;
 if (uniden_cmd('DSY',$parmref)) {
+print "DSY failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 return exit_prg("_DELETE:unable to delete system $sysno",$parmref);
 }
-if ($Debug3) {DebugIt("Uniden l5437: 'DSY' returned=>$parmref->{'rcv'}");}
+if ($Debug3) {DebugIt("Uniden l5437: 'DSY' returned=>$parmref->{'_returned'}");}
 uniden_cmd('SCT',$parmref);
 while (! uniden_cmd('nop',$parmref)) {
 if ($Debug3) {DebugIt("Waiting for bus to clear");}
@@ -2358,6 +2512,8 @@ goto DONE;
 elsif ($cmdcode eq 'getglob') {
 if (!$model) {
 if (uniden_cmd('MDL',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETGLOG:Could not get Uniden model number!");
 return $parmref->{'rc'};
 }
@@ -2377,6 +2533,8 @@ foreach my $cmd ('OMS','BLT','KBP') {
 %work_blk = ();
 $parmref->{'write'} = FALSE;
 if (uniden_cmd($cmd,$parmref)) {
+print "$cmd failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETGLOB: command failed $cmd!");
 $retcode = $parmref->{'rc'};
 }
@@ -2408,6 +2566,8 @@ my $lastfreq = '1';
 while ($lastfreq > 0) {
 %work_blk = ();
 if (uniden_cmd('GIE',$parmref)) {
+print "GIE failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETGLOB:Command failed GIE!");
 $retcode = $parmref->{'rc'};
 last;
@@ -2421,27 +2581,6 @@ $ifcount++;
 }
 LogIt(0,"found $ifcount IF Exchange records");
 }
-my $lastfreq = '1';
-my $lockcount = 0;
-LogIt(0,"Getting Lockout records");
-$db ->{'lockfreq'} = ();
-while ($lastfreq > 0) {
-$parmref->{'write'} = FALSE;
-%work_blk = ();
-if (uniden_cmd('GLF',$parmref)) {
-add_message("GETGLOB:Command failed GLF!");
-$retcode = $parmref->{'rc'};
-last;
-}
-$lastfreq = Strip($work_blk{'frequency'});
-if ($lastfreq > 0) {
-my %newrec = ('frequency' => $lastfreq);
-my $newrec = add_a_record($db,'lockfreq',\%newrec);
-$lockcount++;
-}
-if ($Debug3) {DebugIt("UNIDEN l5631: lastfreq=$lastfreq");}
-}
-LogIt(0,"found $lockcount lockout records");
 %work_blk = ();
 exit_prg($parmref);
 $parmref->{'out'} = $outsave;
@@ -2452,6 +2591,8 @@ elsif ($cmdcode eq 'setglob') {
 LogIt(0,"Called Uniden SETGLOB");
 if (!$model) {
 if (uniden_cmd('MDL',$parmref)) {
+print "MDL failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("SETGLOB:Could not get Uniden model number!");
 return $parmref->{'rc'};
 }
@@ -2528,18 +2669,24 @@ $program_mode = TRUE;
 $parmref->{'write'} = TRUE;
 if ($set_msg) {
 if (uniden_cmd('OMS',$parmref)) {
+print "CMS failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("Uniden: Command failed to set opening message!");
 $retcode = $parmref->{'rc'};
 }### failure
 }### Set PON msg
 if ($set_backlight) {
 if (uniden_cmd('BLT',$parmref)) {
+print "BLT failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("Uniden:Command failed to set BackLight setting!");
 $retcode = $parmref->{'rc'};
 }### failure
 }### Set Backlight
 if ($set_beep) {
 if (uniden_cmd('KBP',$parmref)) {
+print "KBP failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("Uniden:Command failed to set Keyboard Beep setting!");
 $retcode = $parmref->{'rc'};
 }### failure
@@ -2559,6 +2706,8 @@ my $lastfreq = '1';
 while ($lastfreq > 0) {
 %work_blk = ();
 if (uniden_cmd('GIE',$parmref)) {
+print "GIE failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETGLOB:Command failed GIE!");
 $retcode = $parmref->{'rc'};
 last;
@@ -2571,6 +2720,8 @@ if ($Debug2) {DebugIt("Uniden l5871 Clearing IF Exchange Frequency $freq");}
 %work_blk = ('frequency' => $freq);
 $parmref->{'write'} = TRUE;
 if (uniden_cmd('CIE',$parmref)) {
+print "CIE failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETGLOB:Command failed CIE!");
 $retcode = $parmref->{'rc'};
 last;
@@ -2585,6 +2736,8 @@ if (!$freq) {next;}
 $parmref->{'write'} = TRUE;
 if ($ready) {
 if (uniden_cmd('RIE',$parmref)) {
+print "RIE failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("SETGLOB:Command failed RIE!");
 $retcode = $parmref->{'rc'};
 last;
@@ -2592,32 +2745,6 @@ last;
 }## Ready
 }### ifxchng records
 }### process IF exchange frequencies
-if ($db->{'lockfreq'}[1]{'frequency'}) {
-if (!$program_mode) {
-$parmref->{'write'} = FALSE;
-if (enter_prg($parmref)) {
-add_message("SETGLOB: command failed to get Uniden into program mode!");
-return $parmref->{'rc'};
-}
-$program_mode = TRUE;
-}
-if ($clear) {
-}
-foreach my $rec (@{$db->{'lockfreq'}}) {
-if (!$rec->{'index'}) {next;}
-my $freq = $rec->{'frequency'};
-if (!$freq) {next;}
-%work_blk = ('frequency' => $freq);
-$parmref->{'write'} = TRUE;
-if ($ready) {
-if (uniden_cmd('LOF',$parmref)) {
-add_message("SETGLOB:Command failed LOF!");
-$retcode = $parmref->{'rc'};
-last;
-}### Error
-}### Debug
-}### For each lockout record
-}### Process lockfreq records
 if ($program_mode) {
 exit_prg($parmref);
 }
@@ -2638,6 +2765,8 @@ foreach my $ch (0..9) {
 $work_blk{'channel'} = $ch;
 $parmref->{'write'} = FALSE;
 if (uniden_cmd('TON',$parmref)) {
+print "TON failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETTON: Command failed for getting tone setting $ch");
 next;
 }
@@ -2654,6 +2783,9 @@ $newrec{$key} = -10;
 else {$newrec{$key} = 0;}
 }
 else {$newrec{$key} = $work_blk{$key};}
+}
+if (!$work_blk{'toneout_a'}) {
+print "Uniden l6398=>$parmref->{'_returned'} Block=>",Dumper(%work_blk),"\n";
 }
 my $ndx = add_a_record($db,'toneout',\%newrec,FALSE);
 }
@@ -2699,6 +2831,8 @@ $work_blk{$key} = $rec->{$key};
 }
 $parmref->{'write'} = TRUE;
 if (uniden_cmd('TON',$parmref)) {
+print "TON failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("SETTON: Command failed for setting tone for $ch");
 next;
 }
@@ -2725,11 +2859,12 @@ if ($out->{'tgid'}) {$out->{'frequency'} = 0;}
 return ($parmref->{'rc'});
 }### SDS radio process
 if (uniden_cmd('GLG',$parmref)) {
+print "GLG failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETSIG l4456:GLG Command failed!");
 return ($parmref->{'rc'});
 }### failure
 if ($out->{'sql'}) {
-print "Uniden l6175:GLG returned $out->{'mode'}\n";
 if (!$out->{'frq_tgid'}) {
 LogIt(1,"Uniden line 5817:Not defined 'frq_tgid'");
 $out->{'frq_tgid'} = 0;
@@ -2753,6 +2888,8 @@ $out->{'service'} = "$out->{'groupname'}:$out->{'service'}";
 }
 if  ($model =~ /bcd325p2/i) {
 if (uniden_cmd('PWR',$parmref)) {
+print "PWR failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 add_message("GETSIG:PWR Command failed!");
 return ($parmref->{'rc'});
 }### failure
@@ -2807,6 +2944,8 @@ $out->{'agc_analog'} = 0;
 $out->{'agc_digital'} = 0;
 $out->{'p25wait'} = 400;
 if (uniden_cmd('QSH',$parmref)) {
+print "QSH failed. Sent:$parmref->{'_sent'} ",
+"returned:$parmref->{'_returned'}\n";
 if (!$parmref->{'_nowarn'}) {add_message("SETVFP:QSH failure");}
 return ($parmref->{'rc'});
 }### failure
@@ -3125,18 +3264,23 @@ my $wait_restore = $sendparms{'wait'};
 RESEND:
 $sent = Strip($cmdcode);
 if ($cmd_parms) {$sent = $sent . $cmd_parms;}
+$outstr = $sent . CR;
+if ((!$cmdcode) or ($cmdcode eq 'nop')) {
 $outstr = '';
-if ((!$cmdcode) or ($cmdcode eq 'nop')) {$sent = '';}
-else { $outstr = $sent . CR; }
-$parmref->{'sent'} = $sent;
-if ($Debug2) {DebugIt("UNIDEN l7204:sent=$sent cmdcode=>$cmdcode");}
+$sent = '';
+}
+$parmref->{'_sent'} = $sent;
+$parmref->{'_returned'} = '';
+if ($Debug2) {
+DebugIt("UNIDEN l7716:sent=$sent cmdcode=>$cmdcode");
+}
 WAIT:
 my $rc2 = radio_send(\%sendparms,$outstr);
 if ($rc2) {
 if ($rc2 == 2) {
 LogIt(7457,"UNIDEN.PM: RADIO_SEND No open port detected!");
 }
-if ($Debug3) {DebugIt("UNIDEN l7216:Radio_Send returned $sendparms{'rcv'} retcode=$rc");}
+if ($Debug3) {DebugIt("UNIDEN l7216:Radio_Send returned $sendparms{'_returned'} retcode=$rc");}
 if ($sent) {
 if ($sendparms{'wait'}--) {
 $outstr = '';
@@ -3172,7 +3316,7 @@ add_message("Uniden l5134:radio returned empty response to $cmdcode");
 return ($parmref->{'rc'} = $EmptyChan);
 }
 $parmref->{'rc'} = $GoodCode;
-$parmref->{'rcv'} = $instr;
+$parmref->{'_returned'} = $instr;
 if ($noprocess) {
 if (!$instr) {### Should NOT get here, but log it if we do
 LogIt(1,"Nothing in the buffer, but got to NOPROCESS...");
@@ -3202,14 +3346,15 @@ goto RESEND;
 }
 else {
 if (! $parmref->{'quiet'}) {
-LogIt(1,"Uniden gave 'ERR' for $parmref->{'sent'}");
+LogIt(1,"L7854 Uniden gave 'ERR' after sending command:" .
+"$parmref->{'_sent'}. Caller=>$caller:$callerline");
 }
 return ($parmref->{'rc'} = $ParmErr);
 }
 }
 elsif ($retcmd eq 'NG') {
 if (! $parmref->{'quiet'}) {
-LogIt(1,"Uniden gave 'NG' for $parmref->{'sent'}");
+LogIt(1,"Uniden gave 'NG' for $parmref->{'_sent'}");
 }
 return ($parmref->{'rc'} = $ParmErr);
 }
@@ -3241,12 +3386,12 @@ my $firstparm  = $retvalues[0];
 if (!defined $firstparm) {$firstparm = '';}
 $parmref->{'rc'} = $GoodCode;
 if (lc($firstparm) eq 'ng') {
-LogIt(1,"Uniden Returned NG. May be in wrong state. Sent=>$Green" . $parmref->{'sent'});
+LogIt(1,"Uniden Returned NG. May be in wrong state. Sent=>$Green" . $parmref->{'_sent'});
 $parmref->{'rc'} = $ParmErr;
 }
 elsif (lc($firstparm) eq 'err') {
 if (!$parmref->{'_nowarn'}) {
-LogIt(1,"Uniden Returned ERR. Maybe bad parm. Sent=>$Green" . $parmref->{'sent'});
+LogIt(1,"Uniden Returned ERR. Maybe bad parm. Sent=>$Green" . $parmref->{'_sent'});
 }
 $parmref->{'rc'} = $ParmErr;
 }
@@ -3580,6 +3725,7 @@ $value = -10;
 elsif ($value > 30) {
 LogIt(1,"L8638: Radio returned invalid DELAY value of $Red$value$White ".
 "for cmd: $Yellow$sent$White. Changed to$Green 30");
+print "rcv=>$parmref->{'_returned'}\n";
 $value =  30;
 }
 }
@@ -3935,7 +4081,7 @@ if ($rc) {
 LogIt(1,"Get_SDS_Status l6288:Radio_Send failed! RC=$rc");
 return ($parmref->{'rc'} = $rc);
 }
-my $xml = Strip($sendparms{'rcv'});
+my $xml = Strip($sendparms{'_returned'});
 my %infotypes = ();
 my @rcds = split "\n",$xml;
 foreach my $rcd (@rcds) {
@@ -4065,7 +4211,7 @@ return $GoodCode;
 else {return $rc;}
 }
 $outstr = '';
-my $xml = Strip(substr($sendparms{'rcv'},11));
+my $xml = Strip(substr($sendparms{'_returned'},11));
 my @lines = split "\n",$xml;
 LINEPROC:
 foreach my $line (@lines) {
