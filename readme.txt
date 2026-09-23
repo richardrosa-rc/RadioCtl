@@ -1,7 +1,7 @@
 #### RadioCtl for Linux package
 
-Control ICOM, Kenwood, and Uniden radios using the USB interface for these radios 
- and the Linux Operating System. 
+Control AOR, ICOM, Kenwood, and Uniden radios using the USB interface for these
+  radios and the Linux Operating System. 
  
 This program allows you to:
   o Scan selected radio frequencies using any of the supported radios.
@@ -11,19 +11,16 @@ This program allows you to:
   o Update SD cards for those radios that contain them.
   
  
-This code has been developed and tested with the SUSE Linux distribution, but
- is also known to work with Ubuntu, Mint and Kali distros as well. 
- 
-For Ubuntu and Mint you MAY need to install additional libraries. 
- 
+This code has been developed and tested with various Linux distributions
+  including SUSE, Ubuntu, Linux Mint, Arch & Kali
 Requirements: 
   o An installed or Live Linux distribution (SUSE, Ubuntu, Linux Mint, etc)
   o One of the supported radios:
   
-    ICOM: R7000, IC-R30, IC-705, IC-7300, IC-8600
+    ICOM: R7000, IC-R30, IC-705, IC-7300, IC-8600,
     KENWOOD: TH-F6A
     UNIDEN:BCD325P2, SDS100, SDS200, BCD396T, BC895xlt
-    AOR:AR-8000
+    AOR:AR-8000, AR-DV1
   
 
 
