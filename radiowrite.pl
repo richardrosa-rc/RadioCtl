@@ -25,13 +25,21 @@ use FindBin qw($RealBin);
 use lib "$RealBin";
 my $callpath = "$RealBin/";
 print STDERR "callpath = $callpath\n";
-use radioctl;
-use scanner;
-use uniden;
-use icom;
-use kenwood;
-use bearcat;
-use aor;
+use Radioctl;
+use Uniden;
+use Icom;
+use Kenwood;
+use Bearcat;
+use Aor;
+my @protocols = (
+'Uniden','Icom','Kenwood','Bearcat','Aor',
+);
+push @protocols,"Quansheng";
+foreach my $proto (@protocols) {
+eval "use $proto";
+if ($@) {
+}
+}
 print "$Bold$Green RadioCtl$White Command Line Process$Red Rev=$White$Rev$Eol";
 my %opt_dply = (
 'aor' => "            $Bold$Cyan--aor$Yellow$Reset      Use AOR channels (0-49) for $Bold$Cyan--renum$Reset option. $Eol",
@@ -200,6 +208,7 @@ $opt_dply{'aor'} .
 $opt_dply{'append'} .
 $opt_dply{'dir'} .
 $opt_dply{'dqkey'} .
+"          $Bold$Cyan--dup$Reset        Check for duplicate frequencies                  $Eol" .
 $opt_dply{'fspec'} .
 $opt_dply{'fstep'} .
 "          $Bold$Cyan--force$Reset      Force quickkey re-assignment                     $Eol" .
@@ -224,7 +233,7 @@ $opt_dply{'hz'} .
 "       Options:  \n" .
 $opt_dply{'baud'} .
 "      $Bold$Cyan--count$Green n$Reset        Store only$Bold$Green n$Reset channels (non-dynamic radios only) $Eol" .
-"      $Bold$Cyan--erase$Reset          Clear any existing systems/channels. (dynamic radios only)  $Eol" .
+"      $Bold$Cyan--erase$Reset          Clear existing systems/banks before store into that system/bank   $Eol" .
 "      $Bold$Cyan--noglobals$Reset      Don't store any Global records in the radio.            $Eol" .
 "      $Bold$Cyan--nosearch$Reset       Don't store any SEARCH records in the radio (Uniden Only)    $Eol" .
 "      $Bold$Cyan--nossys$Reset         Don't store any SYSTEM records in the radio                  $Eol" .
@@ -267,6 +276,7 @@ my $altbaud = '';
 my $append = FALSE;
 my $bank = '-';
 my $dqkey = FALSE;
+my $dupcheck = FALSE;
 my $erase = FALSE;
 my $firstnum   = 0;
 my $force = FALSE;
@@ -279,7 +289,6 @@ my %gps_parms = (
 );
 my $gqkey = FALSE;
 my $keyformat = FALSE;
-my $lastnum = 9999;
 my $loc =  '';
 my $nohdr = FALSE;
 my $notrunk = FALSE;
@@ -307,7 +316,6 @@ my $nosearch = FALSE;
 my $testing = FALSE;
 my $testfrq = 0;
 my $user_filename = '';
-my $dupcheck = FALSE;
 $Options{'aor'}       = \$aor_format;
 $Options{'append'}    = \$append;
 $Options{'baud'}      = \$altbaud;
@@ -318,6 +326,7 @@ $Options{'d2'}        = \$Debug2;
 $Options{'d3'}        = \$Debug3;
 $Options{'dir=s'}     = \$User_dir;
 $Options{'dqkey'}     = \$dqkey;
+$Options{'dup'}       = \$dupcheck;
 $Options{'erase'}     = \$erase;
 $Options{'f|fspec=s'} = \$User_fspec;
 $Options{'first=n'}   = \$firstnum;
@@ -328,7 +337,6 @@ $Options{'gqkey'}     = \$gqkey;
 $Options{'h|help'}    = \&help;
 $Options{'multi'}     = \$multi;
 $Options{'k|keyfmt'}  = \$keyformat;
-$Options{'last=n'}    = \$lastnum;
 $Options{'lat=s'}     = \$gps_parms{'lat'};
 $Options{'loc=s'}     = \$loc;
 $Options{'lon=s'}     = \$gps_parms{'lon'};
@@ -1005,12 +1013,6 @@ $parmref{'database'} = \%radiodb;
 $parmref{'out'} = \%out;
 $parmref{'in'} = \%in;
 %in = ('noport' => FALSE, 'nobaud' => FALSE);
-if (($lastnum > 0) and ($firstnum > $lastnum)) {
-LogIt(1,"$firstnum is greater than $lastnum. Swapping...");
-my $temp = $firstnum;
-$firstnum = $lastnum;
-$lastnum = $temp;
-}
 %radiodb = ();
 if (&$routine('init',\%parmref) ) {
 LogIt(2336,"FETCH:Failed to initialize radio: $radiosel ($protocol)");
@@ -1019,17 +1021,36 @@ my $model = $radio_def{'model'};
 if (($protocol =~ /uniden/i) and ($model =~ /^sds/i)) {
 LogIt(2346,"Cannot run this command for Uniden model $model");
 }
-my $count = 99999;
-if ($User_count and ($User_count > 0)) {$count = $User_count;}
 my %options = (
-'count'     => $count,
 'noskip'    => $noskip,
-'firstchan' => $firstnum,
-'lastchan'  => $lastnum,
-'firstsys'  => $firstnum,
-'lastsys'   => $lastnum,
 'notrunk'   => $notrunk,
 );
+if ($User_count and ($User_count > 0)) {
+if ($radio_def{'protocol'} =~ /uniden/i) {
+$options{'count'} = $User_count;
+}
+else {
+my $maxcount = $radio_def{'maxchan'};
+if (!$radio_def{'origin'}) {$maxcount++;}
+if ($User_count > $maxcount) {
+LogIt(1,"--count $User_count exceeds radio ability ($maxcount). " .
+"Ignored");
+}
+else {$options{'count'} = $User_count;}
+}
+}### $User_count process
+if ($firstnum > 0) {
+if ($radio_def{'protocol'} =~ /uniden/i) {
+$options{'firstsys'} = $firstnum;
+}
+else {
+if ($firstnum >= $radio_def{'maxchan'}) {
+LogIt(1,"--first $firstnum exceeds radio ability ($radio_def{'maxchan'}." .
+" Ignored!");
+}
+else {$options{'firstchan'} = $firstnum;}
+}
+}### $Firstnum process
 $parmref{'options'} = \%options;
 if (!$nosys)  {
 my $rc = &$routine('getmem',\%parmref);
@@ -1068,6 +1089,11 @@ LogIt(1,"FETCH l2698:$Bold GETPASS routine from radio returned code $rc");
 }
 }### Non-zero return code
 }### Radio supports 'PASSFREQ'
+else {
+if ($Verbose) {
+LogIt(0,"PASS frequencies not supported for this radio");
+}
+}
 }### Getting SEARCH & PASS records
 if ($noglobals) {
 print "Bypassing fetch of globals due to option$Eol";
@@ -1176,6 +1202,10 @@ $last_skey = qkey_proc($sysrec,\%used_sqkey,'qkey',"$sysname ($sysno)",$last_ske
 }
 }
 update_qkey(\%database);
+if ($dupcheck) {
+my $count = dupfreqcheck(\%radiodb);
+print "$Eol$Bold Found $Green$count$White duplicate frequencies in $Yellow$fs$Eol";
+}
 write_data($outfile,\%database);
 exit $GoodCode;
 }
@@ -1188,6 +1218,10 @@ if ($fs eq $outfile) {
 LogIt(2660,"Input $fs is the same as output file!");
 }
 read_radioctl(\%radiodb,$fs);
+}
+if ($dupcheck) {
+my $count = dupfreqcheck(\%radiodb);
+print "$Eol$Bold Found $Green$count$White duplicate frequencies$Eol";
 }
 update_qkey(\%radiodb);
 write_data($outfile,\%radiodb);
@@ -1289,8 +1323,21 @@ Channel_Sort($radiodb{'freq'},$renum,$aor);
 my %options = (
 'erase' => $erase,
 'nodie' => $nodie,
-'count' => $User_count,
 );
+if ($User_count and ($User_count > 0)) {
+if ($radio_def{'protocol'} =~ /uniden/i) {
+$options{'count'} = $User_count;
+}
+else {
+my $maxcount = $radio_def{'maxchan'};
+if (!$radio_def{'origin'}) {$maxcount++;}
+if ($User_count > $maxcount) {
+LogIt(1,"--count $User_count exceeds radio ability ($maxcount). " .
+"Ignored");
+}
+else {$options{'count'} = $User_count;}
+}
+}### $User_count process
 $parmref{'options'} = \%options;
 my $rc = 0;
 if ($nosys) {
@@ -1346,7 +1393,6 @@ LogIt(1,"STORE 3384:$Bold SETPASS routine from radio returned code $rc");
 }
 }### Bad return code
 }### Set PASS records
-if (scalar @{$radiodb{'global'}} > 1) {
 if ($noglobals) {
 print "Skipping store of GLOBAL records due to NOGLOBAL option$Eol";
 }
@@ -1354,17 +1400,20 @@ else {
 my $grc =  &$routine('setglob',\%parmref);
 if ($grc) {
 if ($grc == $NotForModel) {
+if ($Verbose) {
 LogIt(0,"Globals not stored. Not supported by this radio");
+}
+}
+if ($grc == $EmptyChan) {
+if ($Verbose) {
+LogIt(0,"No Globals available for store into this radio");
+}
 }
 else {
 LogIt(1,"STORE l2730:$Bold SETGLOB routine from radio returned code $grc");
 $rc = $grc
 }
 }
-}
-}### Global records available
-else {
-if ($Verbose) {print "Skipping store of GLOBAL records due to no GLOBAL records$Eol";}
 }
 if ((scalar @{$radiodb{'toneout'}} > 1) and ($protocol =~ /uniden/i))  {
 if ($notoneout) {
@@ -2872,6 +2921,28 @@ elsif ($tag =~ /transport/i) {$key ='Transportation';}
 elsif ($tag =~ /bus/i) {$key ='Transportation';}
 else {$key = 'Other';}
 return $key;
+}
+sub dupfreqcheck {
+my $db = shift @_;
+my $count = 0;
+my %freqs = ();
+foreach my $rec (@{$db->{'freq'}}) {
+if (!$rec->{'index'}) {next;}
+my $freq = $rec->{'frequency'};
+if (!$freq) {next;}
+my $recno = $rec->{'_recno'};
+if (!$recno) {$recno = '?';}
+if ($freqs{$freq}) {
+my $ff = rc_to_freq($freq);
+LogIt(1,"Duplicate frequency $Yellow$ff$White found in record $Green$recno");
+my $oldrecno = $freqs{$freq} ->{'_recno'};
+if (!$oldrecno) {$oldrecno = '?';}
+print "$Bold  First copy was in record $Green$oldrecno$Eol";
+$count++;
+}
+else {$freqs{$freq} = $rec;}
+}### For each FREQ record
+return $count;
 }
 sub gps_process {
 my $value = shift @_;

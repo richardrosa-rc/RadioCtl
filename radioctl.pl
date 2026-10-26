@@ -26,9 +26,9 @@ use FindBin qw($RealBin);
 use lib "$RealBin";
 my $callpath = "$RealBin/";
 print STDERR "callpath = $callpath\n";
-use scanner;
-use radioctl;
+use Radioctl;
 print "$Bold RadioCtl GUI$Red Rev=$White$Rev$Eol";
+use Scanner;
 use constant MINCHAN         => 20;
 use constant MAXMESSAGE      => 10;
 use constant MESSAGELENGTH   => 200;
@@ -114,6 +114,7 @@ our @progstates = (
 {'state' => 'init',        'dply' => ''},
 {'state' => 'quit',        'dply' => ''},
 );
+print "Calling readprofile\n";
 if (ReadProfile($User_conf)) {exit;};
 my $inifile = "$RCSettings{'inidir'}/radioctl.vars";
 my %w_info = (
